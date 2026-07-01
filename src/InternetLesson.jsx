@@ -1,7 +1,203 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import mentorImg from './assets/common/mentor.png';
+// ============================================================
+// JONLI DARS (live) — SHU FAYLGA JOYLANGAN, KUTUBXONASIZ (toza fetch + polling).
+// LMS'ga shu .jsx ni o'zini yuklaysiz — tashqi import YO'Q (faqat React).
+// O'chirish: LIVE_SUPABASE_URL = '' qiling → dars oddiy rejimda ishlaydi.
+// ============================================================
+const LIVE_SUPABASE_URL = 'https://dwoubexcexzsinogojiu.supabase.co';
+const LIVE_SUPABASE_KEY = 'sb_publishable_cijLMhCDDdo6dlXs05thyw__oH-YgKX';
+const LIVE_ENABLED = !!(LIVE_SUPABASE_URL && LIVE_SUPABASE_KEY);
+const LIVE_POLL_MS = 2500, LIVE_POLL_MAX_MS = 15000, LIVE_HEARTBEAT_MS = 10000, LIVE_STALE_MS = 60000;
+const LT = { bg: '#F6F4EF', ink: '#0E0E10', ink2: '#5A5A60', ink3: '#A7A6A2', paper: '#FFFFFF', accent: '#FF4F28', accentSoft: '#FFE8E1', success: '#1F7A4D' };
+const _liveHdr = { apikey: LIVE_SUPABASE_KEY, Authorization: `Bearer ${LIVE_SUPABASE_KEY}` };
+async function liveRpc(fn, body) {
+  const r = await fetch(`${LIVE_SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { ..._liveHdr, 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  if (!r.ok) throw new Error(`${fn}: ${r.status}`);
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+async function liveGet(pin) {
+  const r = await fetch(`${LIVE_SUPABASE_URL}/rest/v1/live_sessions?pin=eq.${encodeURIComponent(pin)}&select=lesson_id,max_screen,status,updated_at`, { headers: _liveHdr });
+  if (!r.ok) throw new Error(`get: ${r.status}`);
+  const rows = await r.json(); return (rows && rows[0]) || null;
+}
+const _lsKey = (id) => `liveSession:${id}`;
+const liveRead = (id) => { try { return JSON.parse(localStorage.getItem(_lsKey(id)) || 'null'); } catch { return null; } };
+const liveStore = (id, o) => { try { localStorage.setItem(_lsKey(id), JSON.stringify(o)); } catch {} };
+const liveClear = (id) => { try { localStorage.removeItem(_lsKey(id)); } catch {} };
+const fmtPin = (p) => (p ? String(p).replace(/(\d{3})(\d{3})/, '$1 $2') : '');
 
-// ===== RASM — mentor avatari (boshqa darslar bilan bir xil: assets/common/mentor.png) =====
+const LiveGateCtx = createContext(null);
+const useLiveLock = () => { const c = useContext(LiveGateCtx); return !!(c && c.locked); };
+
+function useLiveSession(lessonId) {
+  const initRef = useRef(undefined);
+  if (initRef.current === undefined) initRef.current = LIVE_ENABLED ? liveRead(lessonId) : null;
+  const init = initRef.current;
+  const [mode, setMode] = useState(() => {
+    if (!LIVE_ENABLED) return 'self';
+    if (init?.mode === 'self') return 'self';
+    if (init?.mode === 'student') return 'student';
+    if (init?.mode === 'mentor') return 'mentor';
+    return 'choosing';
+  });
+  const [pin, setPin] = useState(init?.pin || null);
+  const tokenRef = useRef(init?.token || null);
+  const [mentorScreen, setMentorScreen] = useState(init?.lastScreen || 0);
+  const [status, setStatus] = useState('live');
+  const [mentorAlive, setMentorAlive] = useState(true);
+  const [connected, setConnected] = useState(true);
+  const [ended, setEnded] = useState(false);
+  const [joinError, setJoinError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const lastSeenRef = useRef(Date.now());
+  const lastUpdatedRef = useRef(null);
+
+  // O'QUVCHI: visibility-aware + backoff polling
+  useEffect(() => {
+    if (mode !== 'student' || !pin) return;
+    let on = true, timer = null, delay = LIVE_POLL_MS;
+    const schedule = () => { if (on) timer = setTimeout(tick, delay); };
+    const tick = async () => {
+      if (typeof document !== 'undefined' && document.hidden) { schedule(); return; }
+      try {
+        const row = await liveGet(pin);
+        if (!on) return;
+        delay = LIVE_POLL_MS; setConnected(true);
+        if (!row) { setStatus(p => p === 'ended' ? p : 'ended'); schedule(); return; }
+        setMentorScreen(p => p === row.max_screen ? p : row.max_screen);
+        setStatus(p => p === row.status ? p : row.status);
+        if (row.updated_at !== lastUpdatedRef.current) { lastUpdatedRef.current = row.updated_at; lastSeenRef.current = Date.now(); liveStore(lessonId, { mode: 'student', pin, lastScreen: row.max_screen }); }
+        const alive = Date.now() - lastSeenRef.current < LIVE_STALE_MS;
+        setMentorAlive(p => p === alive ? p : alive);
+      } catch { if (!on) return; setConnected(false); delay = Math.min(delay * 2, LIVE_POLL_MAX_MS); }
+      schedule();
+    };
+    tick();
+    const onVis = () => { if (!document.hidden) { clearTimeout(timer); delay = LIVE_POLL_MS; tick(); } };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVis);
+    return () => { on = false; clearTimeout(timer); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVis); };
+  }, [mode, pin, lessonId]);
+
+  // MENTOR: heartbeat + o'lik sessiya tekshiruvi
+  useEffect(() => {
+    if (mode !== 'mentor' || !pin) return;
+    let on = true;
+    liveGet(pin).then(row => { if (on && (!row || row.status === 'ended')) { liveClear(lessonId); setPin(null); tokenRef.current = null; setMode('choosing'); setEnded(false); } }).catch(() => {});
+    const id = setInterval(() => { liveRpc('session_heartbeat', { p_pin: pin, p_token: tokenRef.current }).catch(() => {}); }, LIVE_HEARTBEAT_MS);
+    return () => { on = false; clearInterval(id); };
+  }, [mode, pin, lessonId]);
+
+  const startMentor = useCallback(async (mentorCode) => {
+    setBusy(true); setJoinError('');
+    try {
+      const res = await liveRpc('create_session', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim() });
+      const row = Array.isArray(res) ? res[0] : res;
+      if (!row?.pin) throw new Error('no pin');
+      tokenRef.current = row.token; setPin(row.pin); setMode('mentor'); setEnded(false);
+      liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
+    } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
+    finally { setBusy(false); }
+  }, [lessonId]);
+
+  const joinStudent = useCallback(async (raw) => {
+    const p = (raw || '').replace(/\D/g, '');
+    if (p.length < 4) { setJoinError("Kodni to'liq kiriting."); return; }
+    setBusy(true); setJoinError('');
+    try {
+      const row = await liveGet(p);
+      if (!row) { setJoinError('Bunday kod topilmadi.'); setBusy(false); return; }
+      if (row.lesson_id && row.lesson_id !== lessonId) { setJoinError('Bu kod boshqa darsga tegishli.'); setBusy(false); return; }
+      lastUpdatedRef.current = row.updated_at; lastSeenRef.current = Date.now();
+      setPin(p); setMentorScreen(row.max_screen); setStatus(row.status); setMode('student');
+      liveStore(lessonId, { mode: 'student', pin: p, lastScreen: row.max_screen });
+    } catch { setJoinError("Ulanib bo'lmadi. Internetni tekshiring."); }
+    finally { setBusy(false); }
+  }, [lessonId]);
+
+  const selfStudy = useCallback(() => { setMode('self'); liveStore(lessonId, { mode: 'self' }); }, [lessonId]);
+  const reportScreen = useCallback((idx) => { if (mode === 'mentor' && pin) liveRpc('advance_session', { p_pin: pin, p_token: tokenRef.current, p_screen: idx }).catch(() => {}); }, [mode, pin]);
+  const endSession = useCallback(() => { if (mode === 'mentor' && pin) { liveRpc('end_session', { p_pin: pin, p_token: tokenRef.current }).catch(() => {}); setEnded(true); } }, [mode, pin]);
+
+  return { mode, pin, mentorScreen, status, mentorAlive, connected, ended, joinError, busy, startMentor, joinStudent, selfStudy, reportScreen, endSession };
+}
+
+const _liveBtnPri = { background: LT.accent, color: '#fff', border: 'none', borderRadius: 12, padding: '14px 20px', fontSize: 16, fontWeight: 700, cursor: 'pointer' };
+const _liveBadgeS = { position: 'fixed', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 9998, background: LT.paper, border: `1px solid ${LT.ink3}55`, borderRadius: 99, padding: '6px 14px', fontSize: 13, fontWeight: 600, color: LT.ink2, boxShadow: '0 2px 10px rgba(58,53,48,0.12)', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', maxWidth: '92vw' };
+const _liveDot = (c) => ({ width: 8, height: 8, borderRadius: 99, background: c, display: 'inline-block' });
+
+function LiveBigCode({ pin, onClose }) {
+  const digits = String(pin || '').split('');
+  const overlay = { position: 'fixed', inset: 0, zIndex: 10000, background: LT.ink, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,40px)', textAlign: 'center' };
+  const box = { background: LT.paper, color: LT.ink, borderRadius: 'clamp(10px,1.6vw,18px)', fontFamily: 'monospace', fontWeight: 800, lineHeight: 1, fontSize: 'clamp(48px,13vw,150px)', padding: 'clamp(10px,2vw,28px) clamp(12px,2.2vw,30px)', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)' };
+  return (
+    <div style={overlay}>
+      <div style={{ fontSize: 'clamp(13px,2vw,18px)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: LT.accent, marginBottom: 'clamp(14px,3vw,28px)' }}>Jonli darsga qo'shilish</div>
+      <div style={{ display: 'flex', gap: 'clamp(6px,1.4vw,16px)', justifyContent: 'center', flexWrap: 'wrap' }}>{digits.map((d, i) => <span key={i} style={box}>{d}</span>)}</div>
+      <p style={{ color: '#fff', opacity: 0.85, fontSize: 'clamp(15px,2.2vw,22px)', maxWidth: 640, margin: 'clamp(20px,4vw,36px) 0 0', lineHeight: 1.5 }}>Shu darsni o'z qurilmangizda oching → <b style={{ color: '#fff' }}>«👨‍🎓 O'quvchiman»</b> → ushbu kodni kiriting.</p>
+      <button onClick={onClose} style={{ marginTop: 'clamp(22px,4vw,40px)', background: LT.accent, color: '#fff', border: 'none', borderRadius: 14, padding: 'clamp(12px,1.6vw,16px) clamp(24px,3vw,36px)', fontSize: 'clamp(15px,1.8vw,18px)', fontWeight: 700, cursor: 'pointer' }}>Darsni boshlash →</button>
+    </div>
+  );
+}
+
+function LiveGate({ live, title = 'Jonli dars' }) {
+  const [code, setCode] = useState('');
+  const [mentorCode, setMentorCode] = useState('');
+  const [role, setRole] = useState('student');
+  const card = { position: 'relative', width: '100%', maxWidth: 420, background: LT.paper, borderRadius: 20, padding: 'clamp(24px,4vw,36px)', boxShadow: '0 10px 40px -12px rgba(58,53,48,0.22)', display: 'flex', flexDirection: 'column', gap: 18 };
+  const wrap = { minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
+  const link = { background: 'none', border: 'none', color: LT.ink3, fontSize: 13, cursor: 'pointer', alignSelf: 'center' };
+  if (role === 'mentor') {
+    return (<div style={wrap}><div style={card}>
+      <div style={{ textAlign: 'center' }}><h2 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(22px,3vw,28px)', color: LT.ink, margin: '0 0 4px' }}>🧑‍🏫 Mentor kirishi</h2><p style={{ color: LT.ink2, fontSize: 14, margin: 0 }}>Mentor kodini kiriting.</p></div>
+      <input value={mentorCode} onChange={e => setMentorCode(e.target.value)} type="password" autoFocus placeholder="Mentor kodi" onKeyDown={e => { if (e.key === 'Enter') live.startMentor(mentorCode); }} style={{ width: '100%', padding: '14px', border: `2px solid ${LT.ink3}55`, borderRadius: 14, fontSize: 18, fontWeight: 600, textAlign: 'center', outline: 'none' }} />
+      <button onClick={() => live.startMentor(mentorCode)} disabled={live.busy} style={_liveBtnPri}>{live.busy ? 'Tekshirilmoqda…' : 'Kirish →'}</button>
+      {live.joinError && <div style={{ color: LT.accent, fontSize: 13, textAlign: 'center' }}>{live.joinError}</div>}
+      <button onClick={() => { setRole('student'); setMentorCode(''); }} style={link}>← Orqaga</button>
+    </div></div>);
+  }
+  return (<div style={wrap}><div style={card}>
+    <div style={{ textAlign: 'center' }}><div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: LT.accent }}>{title}</div><h2 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(22px,3vw,28px)', color: LT.ink, margin: '6px 0 4px' }}>Darsga qo'shilish</h2><p style={{ color: LT.ink2, fontSize: 14, margin: 0 }}>Mentor bergan kodni kiriting.</p></div>
+    <input value={code} onChange={e => setCode(e.target.value)} inputMode="numeric" autoFocus placeholder="483 920" onKeyDown={e => { if (e.key === 'Enter') live.joinStudent(code); }} style={{ width: '100%', padding: '16px 14px', border: `2px solid ${LT.ink3}55`, borderRadius: 14, fontSize: 28, fontFamily: 'monospace', fontWeight: 700, letterSpacing: '0.12em', textAlign: 'center', outline: 'none' }} />
+    <button onClick={() => live.joinStudent(code)} disabled={live.busy} style={_liveBtnPri}>{live.busy ? 'Ulanmoqda…' : 'Qo\'shilish →'}</button>
+    {live.joinError && <div style={{ color: LT.accent, fontSize: 13, textAlign: 'center' }}>{live.joinError}</div>}
+    <button onClick={() => { setRole('mentor'); setCode(''); }} title="Mentor" aria-label="Mentor" style={{ position: 'absolute', bottom: 10, right: 12, background: 'none', border: 'none', fontSize: 16, opacity: 0.3, cursor: 'pointer', lineHeight: 1, padding: 4 }}>🧑‍🏫</button>
+  </div></div>);
+}
+
+function LiveBadge({ live, total }) {
+  const [bigOpen, setBigOpen] = useState(false);
+  const shownRef = useRef(false);
+  useEffect(() => { if (live.mode === 'mentor' && live.pin && !live.ended && !shownRef.current) { shownRef.current = true; setBigOpen(true); } }, [live.mode, live.pin, live.ended]);
+  if (live.mode === 'mentor') {
+    if (live.ended) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar ozod qilindi</div>;
+    return (<>
+      {bigOpen && <LiveBigCode pin={live.pin} onClose={() => setBigOpen(false)} />}
+      <div style={_liveBadgeS}>
+        <span style={_liveDot(LT.success)} /> Kod: <b style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{fmtPin(live.pin)}</b>
+        <button onClick={() => setBigOpen(true)} title="Kodni katta ko'rsatish" style={{ marginLeft: 6, background: LT.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>📺 Ko'rsatish</button>
+        <button onClick={() => { if (window.confirm("O'quvchilarni ozod qilasizmi? Ular o'zlari erkin davom etadi.")) live.endSession(); }} style={{ background: LT.accentSoft, color: LT.accent, border: 'none', borderRadius: 99, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>🔓 Ozod qilish</button>
+      </div>
+    </>);
+  }
+  if (live.mode === 'student') {
+    if (live.status === 'ended') return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
+    if (!live.mentorAlive) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
+    if (!live.connected) return <div style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
+    return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}</div>;
+  }
+  return null;
+}
+
+// ===== RASM — mentor avatari (assets/common/mentor.png) =====
+
+// ============================================================
+// JONLI DARS (live session) — Kahoot uslubida sinxronizatsiya.
+// Mentor PIN yaratadi → o'quvchilar PIN bilan qo'shiladi va mentordan
+// OLDINGA o'tolmaydi (orqaga — mumkin); "Tamom" bosilganda hammaga erkinlik.
+// Logika `src/live/` modulida (hook + UI + ctx) — barcha darslar baham ko'radi.
+// O'chirib qo'yish: src/live/liveClient.js da SUPABASE_URL ni '' qiling.
+// ============================================================
 
 // ============================================================
 // HTML 1-DARS — PLATFORM STANDARD v15 (Notion: design_system + platform_contract + infrastructure_v1)
@@ -116,27 +312,7 @@ function useAudio(segments) {
   return { ...state, triggerEvent, replay, toggleMute };
 }
 
-const AudioIndicator = ({ audioState }) => {
-  const { isPlaying, muted, replay, toggleMute } = audioState;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <button onClick={toggleMute} title={muted ? 'Sound on' : 'Sound off'} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: muted ? T.ink3 : (isPlaying ? T.accent : T.ink2) }}>
-        {muted ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
-        ) : isPlaying ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
-        )}
-      </button>
-      {!muted && (
-        <button onClick={replay} title="Replay" style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: T.ink2 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
-        </button>
-      )}
-    </div>
-  );
-};
+// AUDIOSIZ: AudioIndicator (ovoz/replay tugmalari) olib tashlandi — ovoz o'chirilgan, ikonka kerak emas.
 
 const LESSON_META = { lessonId: 'internet-01-v16', lessonTitle: { uz: 'Internet qanday ishlaydi', ru: 'Как устроен интернет' } };
 const SCREEN_META = [
@@ -173,7 +349,7 @@ const Preview = ({ children, title = 'preview.html', minH }) => (
 const Split = ({ children }) => <div className="split">{children}</div>;
 const Col = ({ children, gap }) => <div className="col" style={gap ? { gap } : undefined}>{children}</div>;
 
-const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navContent, audioState, narrow, mentorStatic, mentorCollapse }) => {
+const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navContent, narrow, mentorStatic, mentorCollapse }) => {
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(768); // mobil: Mentor yig'ilish rejimi
   const collapseOn = (isNarrow || mentorCollapse) && !mentorStatic; // mentorCollapse — desktopda ham yig'iladi
@@ -203,7 +379,7 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
           <div className="chrome">
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {audioState && <AudioIndicator audioState={audioState} />}
+              {/* AUDIOSIZ: ovoz tugmasi (AudioIndicator) ko'rsatilmaydi — ovoz allaqachon o'chirilgan */}
               <div className="mono small" style={{ color: T.ink3 }}>{String(screen + 1).padStart(2, '0')} / {String(totalScreens).padStart(2, '0')}</div>
             </div>
           </div>
@@ -215,7 +391,11 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
   );
 };
 const NavBack = ({ onPrev }) => <button className="btn-ghost" onClick={onPrev} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Orqaga</button>;
-const NavNext = ({ disabled, label = 'Davom etish', onClick }) => <button className="btn-white-accent" disabled={disabled} onClick={onClick} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{label}</button>;
+const NavNext = ({ disabled, label = 'Davom etish', onClick }) => {
+  const gate = useContext(LiveGateCtx);
+  const locked = !!(gate && gate.locked); // jonli darsda mentordan oldinga o'tib bo'lmaydi
+  return <button className="btn-white-accent" disabled={disabled || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : label}</button>;
+};
 
 const FeedbackBlock = ({ show, isCorrect, children }) => {
   const [mounted, setMounted] = useState(show);
@@ -430,6 +610,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
   const [playing, setPlaying] = useState(false);
   const baseRef = useRef(0);              // har sayohat oxiridagi to'plangan burchak (orqaga aylanmaslik uchun)
   const timer = useRef(null);
+  const animScrollRef = useRef(null);     // mobil: animatsiyaga avtoskroll
   useEffect(() => () => clearTimeout(timer.current), []);
   const play = useCallback(() => {
     clearTimeout(timer.current);
@@ -457,6 +638,12 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
 
   const isNarrow = useIsMobile(768);
   const [showSteps, setShowSteps] = useState(false);
+  // Mobil: sahifa ochilib animatsiya o'zi jonlanganda — animatsiyani ko'rinishga skroll qilamiz
+  useEffect(() => {
+    if (!isNarrow) return;
+    const t = setTimeout(() => { if (animScrollRef.current) animScrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 850);
+    return () => clearTimeout(t);
+  }, [isNarrow]);
   const AnimBlock = (
     <Zoomable>
     <div className="jr fade-up delay-1">
@@ -499,7 +686,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
         {!isNarrow ? (
           <Split>{AnimBlock}{StepsBlock}</Split>
         ) : !showSteps ? (
-          <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px,2vw,16px)' }}>
+          <div ref={animScrollRef} className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px,2vw,16px)' }}>
             {AnimBlock}
             <button className="btn-soft" style={{ alignSelf: 'flex-start' }} onClick={() => setShowSteps(true)}>📋 Dars rejasini ko'rish</button>
           </div>
@@ -825,7 +1012,7 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     <Stage eyebrow="Server" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "So'rov yuboring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Sayt o'zi <span className="italic" style={{ color: T.accent }}>qayerda</span> yashaydi?</h2></div>
-        <Mentor>Har bir sayt <b style={{ color: T.ink }}>serverda</b> saqlanadi — doim yoniq turadigan kuchli kompyuterda. Siz so'rov yuborasiz, server <b style={{ color: T.ink }}>sahifani qaytaradi</b>. Xuddi <b style={{ color: T.ink }}>restoran</b> kabi: buyurtma berasiz — taom tayyor bo'lib keladi. Tugmani bosib sinab ko'ring.</Mentor>
+        <Mentor>Har bir sayt <b style={{ color: T.ink }}>serverda</b> — doim yoniq kuchli kompyuterda — saqlanadi. Siz so'rov yuborasiz, server <b style={{ color: T.ink }}>sahifani qaytaradi</b>. Tugmani bosing.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
@@ -842,7 +1029,11 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
             <button className="btn" style={{ alignSelf: 'flex-start' }} disabled={step === 1} onClick={send}>{step === 1 ? 'Yuborilmoqda…' : (done ? '↻ Yana yuborish' : '📨 Serverga so’rov yuborish')}</button>
           </div>
           <div className="col">            {done ? (
-              <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Server javob berdi</p><p className="body" style={{ margin: 0, color: T.ink }}>Siz so'rov yubordingiz, server sahifani qaytardi. Server <b>doim yoniq</b> turadi — shuning uchun sayt istalgan vaqtda ochiladi.</p></div>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="flow-label">🖥️ Server qaytargan sahifa</div>
+                <Preview title="google.com" minH={130}><SiteMock site={siteInfo('google.com')} /></Preview>
+                <div className="frame-success"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Server javob berdi</p><p className="body" style={{ margin: 0, color: T.ink }}>Server <b>google.com</b> sahifasini qaytardi. U <b>doim yoniq</b> — sayt istalgan vaqtda ochiladi.</p></div>
+              </div>
             ) : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Siz (brauzer) chap tomonda, server o'ngda. So'rov yuborib, javobni kuzating.</p></div>)}
             <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Server</b> — saytlarni saqlovchi va so'rovga javob beruvchi kuchli kompyuter.</p></div>
           </div>
@@ -1014,10 +1205,18 @@ const Screen11 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const [rd, setRd] = useState(storedAnswer ? HTML.length : 0); // chizilgan elementlar soni
   const timer = useRef(null);
   const animRef = useRef(null);
+  const resultRef = useRef(null); // mobil: chizilgan sahifaga (natijaga) avtoskroll
   const isMobile = useIsMobile();
   const done = phase === 'done';
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
+  // Mobil: brauzer kodni o'qib bo'lib, sahifa chizilganda — natijaga skroll
+  useEffect(() => {
+    if (!done || !isMobile || !resultRef.current) return;
+    const el = resultRef.current;
+    const id = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 280);
+    return () => clearTimeout(id);
+  }, [done, isMobile]);
   const start = () => {
     if (phase === 'reading') return;
     clearTimeout(timer.current);
@@ -1062,7 +1261,7 @@ const Screen11 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 return <div key={i} className={`htl-line ${cls}`}><span className="htl-code">{h.code}</span>{i < rd && <span className="htl-tick">✓ chizildi</span>}</div>;
               })}</pre>
             </div>
-            <div className="col">
+            <div className="col" ref={resultRef}>
               <div className="flow-label">🌐 Brauzer chizgan sahifa</div>
               <Preview title="youtube.com" minH={150}>
                 {rd === 0
@@ -1546,6 +1745,8 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
   );
 };
 
+// ===== JONLI DARS — hook va UI `src/live/` modulida (import yuqorida) =====
+
 // ============================================================ LESSON ROOT — ({ lang, onFinished })
 export default function HtmlLesson({ lang: langProp, onFinished }) {
   const lang = langProp || 'uz';
@@ -1557,7 +1758,15 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
   const recordAnswer = (idx, data) => setAnswers(a => ({ ...a, [idx]: data }));
   const reset = () => { setAnswers({}); setScreen(0); startTimeRef.current = Date.now(); };
 
+  // Jonli dars: o'quvchi mentordan oldinga o'tolmaydi (high-water mark)
+  const live = useLiveSession(LESSON_META.lessonId);
+  const isStudentLive = live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
+  const locked = isStudentLive && (screen + 1 > live.mentorScreen);
+  // Mentor: har sahifa almashganda o'z holatini e'lon qiladi
+  useEffect(() => { live.reportScreen(screen); }, [screen, live.mode, live.pin]); // eslint-disable-line
+
   const finishLesson = () => {
+    live.endSession(); // mentor "Tamom" bossa — barcha o'quvchilarga erkinlik
     const scoredMeta = SCREEN_META.filter(s => s.scored);
     const finalMeta = scoredMeta.filter(s => s.scope === 'final');
     const scoredAnswers = SCREEN_META.map((s, i) => (s.scored ? answers[i] : null)).filter(Boolean);
@@ -2275,6 +2484,17 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .net-msg.warn { background: #FFF3E0; color: #B26A00; }
         .net-msg.bad { background: ${T.accentSoft}; color: ${T.accent}; }
         .net-hint { font-family: 'Georgia, serif'; font-style: italic; color: ${T.ink3}; font-size: clamp(12.5px,1.5vw,13.5px); text-align: center; margin: 0; }
+        /* Mobil: 3 server tik ustunda — xarita balandroq bo'lsin, tugunlar kichrayadi, IP yorliqlari ustma-ust tushmaydi */
+        @media (max-width: 560px) {
+          .net-hud { padding-right: 38px; } /* "Qadam" hisoblagichi ⛶ tugma ortida qolmasin */
+          .net-map { aspect-ratio: 3 / 4; max-height: 380px; }
+          .net-node { width: clamp(48px,15vw,62px); gap: 2px; }
+          .net-node-ic { width: clamp(33px,8.5vw,40px); height: clamp(33px,8.5vw,40px); font-size: clamp(15px,4vw,19px); }
+          .net-node-l { font-size: clamp(9px,2.4vw,11px); }
+          .net-node-note { font-size: clamp(8px,2vw,9px); }
+          .net-ip { font-size: clamp(8px,2.2vw,9.5px); padding: 1px 4px; }
+          .net-packet { width: clamp(24px,6.5vw,30px); height: clamp(24px,6.5vw,30px); font-size: clamp(12px,3.2vw,15px); }
+        }
         @media (prefers-reduced-motion: reduce) { .net-edge.live { animation: none; } .net-node.reachable .net-node-ic, .net-packet::after { animation: none; } }
 
         /* === SO'ROV YO'LI — OLDINGA OQADIGAN KONVEYER (Screen10) === */
@@ -2347,9 +2567,18 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         @media (prefers-reduced-motion: reduce) { .zi-node.focus .zi-node-ic, .zi-lens, .zi-pkt { animation: none; } }
 
       `}</style>
-      <div className="lesson-root">
-        <Current screen={screen} storedAnswer={answers[screen]} answers={answers} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
-      </div>
+      <LiveGateCtx.Provider value={{ locked }}>
+        <div className="lesson-root">
+          {live.mode === 'choosing' ? (
+            <LiveGate live={live} title="Internet darsi" />
+          ) : (
+            <>
+              <Current screen={screen} storedAnswer={answers[screen]} answers={answers} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
+              <LiveBadge live={live} total={TOTAL_SCREENS} />
+            </>
+          )}
+        </div>
+      </LiveGateCtx.Provider>
     </LangContext.Provider>
   );
 }
