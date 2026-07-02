@@ -470,10 +470,16 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
   );
 };
 const NavBack = ({ onPrev }) => <button className="btn-ghost" onClick={onPrev} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Orqaga</button>;
-const NavNext = ({ disabled, label = 'Davom etish', onClick }) => {
+const NavNext = ({ disabled, label = 'Davom etish', onClick, optionalLive }) => {
   const gate = useContext(LiveGateCtx);
   const locked = !!(gate && gate.locked); // jonli darsda mentordan oldinga o'tib bo'lmaydi
-  return <button className="btn-white-accent" disabled={disabled || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : label}</button>;
+  // optionalLive: animatsiya-mashq sahifalari. Jonli dars DAVOMIDA (o'quvchi hali ozod
+  // qilinmagan) bajarish majburiy emas — mentor proyektorda ko'rsatadi, o'quvchi orqada
+  // qolmasin. Erkin rejimda (ended / mentor uzilgan / self) yana MAJBURIY bo'ladi.
+  // Testlar va 16-sahifa (IP-o'yin) optionalLive bermaydi — ular doim majburiy.
+  const live = gate && gate.live;
+  const freeRide = !!(optionalLive && live && live.mode === 'student' && live.status !== 'ended' && live.mentorAlive);
+  return <button className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
 };
 
 const FeedbackBlock = ({ show, isCorrect, children }) => {
@@ -501,6 +507,9 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
   // MENTOR (proyektor): o'zi javob BERMAYDI — statistikani kuzatadi, «Natijani ochish»
   // bosganda to'g'ri javob + izoh katta ekranda ochiladi, shundan keyin davom etadi.
   const [mReveal, setMReveal] = useState(() => !!(isMentorLive && storedAnswer));
+  // 📖 Qayta tushuntirish (recap) — natija past chiqsa mentor ochadi; o'quvchi xato qilsa o'zi ham ochishi mumkin
+  const [recapOpen, setRecapOpen] = useState(false);
+  const hasRecap = !!RECAPS[screen];
   const doReveal = () => { setMReveal(true); if (storedAnswer === undefined) onAnswer(screen, { mentorRevealed: true }); };
   const pick = (i) => {
     if (solved || isMentorLive) return;
@@ -563,23 +572,27 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
                   : "Bu safar to'g'ri chiqmadi. To'g'ri javob mentor keyingi sahifaga o'tganda ochiladi — hozircha o'zingiz o'ylab ko'ring: qaysi variant bo'lishi mumkin edi? 🤔")
                 : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
           </p>
+          {/* Xato qilgan o'quvchi (yoki mustaqil o'quvchi) mavzuni qisqa kartalarda qayta ko'radi.
+              Jonli darsda — javob sirini saqlash uchun faqat reveal'dan keyin chiqadi. */}
+          {hasRecap && !isMentorLive && firstCorrectRef.current === false && (!oneShot || revealed) && (
+            <button className="rc-open-mini" onClick={() => setRecapOpen(true)}>📖 Qisqa takrorlash — mavzuni yana bir ko'rish</button>
+          )}
         </FeedbackBlock>
-        {isMentorLive && !mReveal && (
-          <button className="btn fade-up" style={{ alignSelf: 'center' }} onClick={doReveal}>🔓 Natijani ochish — to'g'ri javobni ko'rsatish</button>
-        )}
-        {isMentorLive && <MentorTestStats live={live} screenIdx={screen} options={options} correctIdx={correctIdx} reveal={mReveal} />}
+        {isMentorLive && <MentorTestStats live={live} screenIdx={screen} options={options} correctIdx={correctIdx} reveal={mReveal} onReveal={doReveal} onOpenRecap={hasRecap ? () => setRecapOpen(true) : null} />}
+        {recapOpen && hasRecap && <RecapOverlay screenIdx={screen} onClose={() => setRecapOpen(false)} />}
       </div>
     </Stage>
   );
 };
 
 // ===== MENTOR STATISTIKASI — test ekranida jonli natija =====
-// DIQQAT: mentor ekrani PROYEKTORGA chiqadi — shuning uchun bu panel to'g'ri javobni
-// HECH QANDAY ko'rinishda oshkor qilmaydi: variantlar neytral ranglarda, faqat
-// «nechta o'quvchi qaysini tanladi» va umumiy ✅/❌ soni ko'rinadi.
+// DIQQAT: mentor ekrani PROYEKTORGA chiqadi — shuning uchun reveal'gacha panel
+// HECH NARSANI oshkor qilmaydi: na variant taqsimoti, na ✅/❌ soni. Faqat
+// «javob berdi X/Y» va kim kutilayotgani ko'rinadi (birinchi bosganlardan
+// ko'chirib olishning iloji yo'q). «Natijani ochish»da hammasi birdan ochiladi.
 const MSTATS_COLORS = ['#019ACB', '#8B5CF6', '#E8A13A', '#E0559A']; // A B C D — brend-neytral, hech biri "to'g'ri"ga ishora qilmaydi
 // reveal=true bo'lganda (mentor «Natijani ochish» bosgach) to'g'ri qator yashil bo'lib ochiladi
-function MentorTestStats({ live, screenIdx, options, correctIdx, reveal }) {
+function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onReveal, onOpenRecap }) {
   const [data, setData] = useState({ players: null, rows: [] });
   useEffect(() => {
     let on = true, t = null;
@@ -609,18 +622,31 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal }) {
       <div className="mstats-head">
         <span className="mstats-lbl">📊 Jonli natija</span>
         <span className="mstats-n">{allIn ? '✓ Hamma javob berdi' : <>Javob berdi: <b>{answered}</b> / {total}</>}</span>
+        {!reveal && onReveal && <button className={`mstats-reveal ${allIn ? 'ready' : ''}`} onClick={onReveal}>🔓 Natijani ochish</button>}
       </div>
       <div className="mstats-prog"><span className={`mstats-prog-fill ${allIn ? 'full' : ''}`} style={{ width: `${total ? Math.round((answered / total) * 100) : 0}%` }} /></div>
 
-      {/* Katta hisoblagichlar — bir qarashda tushunarli */}
-      <div className="mstats-big">
-        <div className="mstats-chip okc"><span className="mstats-chip-n">{ok}</span><span className="mstats-chip-t">to'g'ri ✅</span></div>
-        <div className="mstats-chip badc"><span className="mstats-chip-n">{bad}</span><span className="mstats-chip-t">xato ❌</span></div>
-        <div className="mstats-chip waitc"><span className="mstats-chip-n">{total - answered}</span><span className="mstats-chip-t">kutilmoqda ⏳</span></div>
-      </div>
+      {/* Katta hisoblagichlar. Reveal'gacha ✅/❌ soni ham, variant taqsimoti ham YASHIRIN —
+          panel proyektorda turadi, o'quvchilar birinchi bosganlarning javobini ko'rib olmasin.
+          «Natijani ochish» bosilgach hammasi birdan ochiladi. */}
+      {reveal ? (
+        <div className="mstats-big">
+          <div className="mstats-chip okc"><span className="mstats-chip-n">{ok}</span><span className="mstats-chip-t">to'g'ri ✅</span></div>
+          <div className="mstats-chip badc"><span className="mstats-chip-n">{bad}</span><span className="mstats-chip-t">xato ❌</span></div>
+          <div className="mstats-chip waitc"><span className="mstats-chip-n">{total - answered}</span><span className="mstats-chip-t">kutilmoqda ⏳</span></div>
+        </div>
+      ) : (
+        <div className="mstats-big">
+          <div className="mstats-chip ansc"><span className="mstats-chip-n">{answered}</span><span className="mstats-chip-t">javob berdi 📨</span></div>
+          <div className="mstats-chip waitc"><span className="mstats-chip-n">{total - answered}</span><span className="mstats-chip-t">kutilmoqda ⏳</span></div>
+        </div>
+      )}
+      {!reveal && answered > 0 && (
+        <p className="mstats-hidden">🙈 Kim nimani tanlagani va ✅/❌ soni yashirin — «Natijani ochish» bosilganda ochiladi.</p>
+      )}
 
-      {/* Variantlar taqsimoti — NEYTRAL ranglar (to'g'risi reveal'gacha sir qoladi) */}
-      <div className="mstats-bars">
+      {/* Variantlar taqsimoti — FAQAT reveal'dan keyin (to'g'risi yashil ajralib turadi) */}
+      {reveal && <div className="mstats-bars">
         {options.map((opt, i) => {
           const n = data.rows.filter(a => a.picked === i).length;
           const pct = answered ? Math.round((n / answered) * 100) : 0;
@@ -634,7 +660,31 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal }) {
             </div>
           );
         })}
-      </div>
+      </div>}
+
+      {/* Natija ochilgach — VERDIKT: sinf o'zlashtirdimi yoki qayta tushuntirish kerakmi.
+          Foiz javob berganlar ustidan; ishonchli xulosa uchun kamida RECAP_MIN_ANSWERS javob kerak. */}
+      {reveal && answered > 0 && (() => {
+        const pct = Math.round((ok / answered) * 100);
+        const level = answered < RECAP_MIN_ANSWERS ? 'few' : pct < RECAP_NEED_PCT ? 'need' : pct < RECAP_GOOD_PCT ? 'maybe' : 'good';
+        return (
+          <div className={`mstats-verdict ${level}`}>
+            {level === 'need' && <>
+              <p className="mstats-verdict-t">⚠️ Faqat <b>{pct}%</b> to'g'ri — bu mavzu sinfga tushunarsiz qolgan. Davom etishdan oldin qisqa takrorlash tavsiya etiladi.</p>
+              {onOpenRecap && <button className="rc-open" onClick={onOpenRecap}>📖 Qayta tushuntirish — {RECAPS[screenIdx]?.title}</button>}
+            </>}
+            {level === 'maybe' && <>
+              <p className="mstats-verdict-t">🟡 <b>{pct}%</b> to'g'ri — yomon emas. Xohlasangiz, davom etishdan oldin qisqa takrorlab oling.</p>
+              {onOpenRecap && <button className="rc-open soft" onClick={onOpenRecap}>📖 Qisqa takrorlash</button>}
+            </>}
+            {level === 'good' && <p className="mstats-verdict-t">✅ <b>{pct}%</b> to'g'ri — sinf mavzuni o'zlashtirdi. Bemalol davom eting!</p>}
+            {level === 'few' && <>
+              <p className="mstats-verdict-t">Javob berganlar kam ({answered} ta) — foiz bo'yicha xulosa chiqarish qiyin. O'zingiz baholang:</p>
+              {onOpenRecap && <button className="rc-open soft" onClick={onOpenRecap}>📖 Qayta tushuntirish — {RECAPS[screenIdx]?.title}</button>}
+            </>}
+          </div>
+        );
+      })()}
 
       {/* Kim hali javob bermadi — ismlari */}
       {waiting.length > 0 && answered > 0 && (
@@ -645,7 +695,7 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal }) {
         </div>
       )}
 
-      {struggling && <p className="mstats-warn">⚠️ Ko'pchilik xato qildi — bu mavzu tushunarsiz bo'lgan ko'rinadi. Qayta tushuntirish tavsiya etiladi.</p>}
+      {reveal && struggling && <p className="mstats-warn">⚠️ Ko'pchilik xato qildi — bu mavzu tushunarsiz bo'lgan ko'rinadi. Qayta tushuntirish tavsiya etiladi.</p>}
       {answered === 0 && <p className="mstats-wait">O'quvchilar javoblari shu yerda jonli ko'rinadi…</p>}
     </div>
   );
@@ -730,7 +780,7 @@ const Confetti = () => {
 
 // ===== SCREEN 0 — HOOK =====
 const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
-  const audio = useAudio([{ id: 's0', text: `Brauzerga youtube.com yozib Enter bosasiz — bir soniyada sayt chiqadi. Lekin shu bir soniyada parda ortida katta sayohat bo'ladi. Sizningcha, sayt qayerdan keladi?`, trigger: 'on_mount', waits_for: { type: 'option_picked' } }]);
+  const audio = useAudio([{ id: 's0', text: `Brauzerga youtube.com yozib Enter bosasiz — bir soniyada sayt chiqadi. Lekin shu bir soniya ichida ekran ortida so'rovingiz katta yo'lni bosib o'tadi. Sizningcha, sayt qayerdan keladi?`, trigger: 'on_mount', waits_for: { type: 'option_picked' } }]);
   const [picked, setPicked] = useState(storedAnswer?.picked ?? null);
   const [phase, setPhase] = useState(storedAnswer ? 'site' : 'idle');
   const OPTS = [
@@ -741,10 +791,10 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
   const go = () => { if (phase !== 'idle') return; setPhase('loading'); setTimeout(() => setPhase('site'), 900); };
   const pick = (v) => { if (picked !== null) return; setPicked(v); onAnswer(screen, { stage: 'hook', screenIdx: screen, picked: v, correct: true }); audio.triggerEvent('option_picked'); };
   return (
-    <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext disabled={picked === null} label="Davom etish" onClick={onNext} />}>
+    <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext optionalLive disabled={picked === null} label="Davom etish" onClick={onNext} />}>
       <div className="screen">
         <h1 className="title h-title fade-up" style={{ maxWidth: 760 }}>Sayt manzilini yozib Enter bossangiz, u <span className="italic" style={{ color: T.accent }}>qayerdan</span> keladi?</h1>
-        <Mentor>Telefon yoki kompyuterda <b style={{ color: T.ink }}>youtube.com</b> yozib Enter bossangiz — bir soniyada sayt chiqadi. Lekin shu bir soniya ichida parda ortida katta <b style={{ color: T.ink }}>sayohat</b> bo'lib o'tadi. Avval tugmani bosing, keyin taxmin qiling: sayt qayerdan keladi?</Mentor>
+        <Mentor>Telefon yoki kompyuterda <b style={{ color: T.ink }}>youtube.com</b> yozib Enter bossangiz — bir soniyada sayt chiqadi. Lekin shu bir soniya ichida ekran ortida so'rovingiz katta <b style={{ color: T.ink }}>yo'lni</b> bosib o'tadi. Avval tugmani bosing, keyin taxmin qiling: sayt qayerdan keladi?</Mentor>
         <Split>
           <Col>
             <div className="urlbar fade-up delay-1"><span className="urlbar-lock">🔒</span><span className="urlbar-text">youtube.com</span><button className="urlbar-go" onClick={go} disabled={phase !== 'idle'}>Enter ↵</button></div>
@@ -796,10 +846,10 @@ const JR_STEPS = [
 const JR_STEP_MS = 1785; // jarayon 15% sekinlashtirildi (1550 → 1785)
 
 const Screen1 = ({ screen, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's1', text: `Bugun bir savolga to'liq javob topamiz: youtube.com yozib Enter bosganingizda, sayt sizning ekraningizga qanday yetib keladi? 5 qadamda ortidagi sirni ochamiz.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's1', text: `Bugun bir savolga to'liq javob topamiz: youtube.com yozib Enter bosganingizda, sayt sizning ekraningizga qanday yetib keladi? 5 qadamda bu qanday ishlashini ko'ramiz.`, trigger: 'on_mount', waits_for: null }]);
   const STEPS = [
     { text: 'Internet nima?', tag: 'tarmoq' },
-    { text: 'Brauzer — internetga deraza', tag: 'Chrome, Safari' },
+    { text: 'Brauzer — saytlarni ochuvchi dastur', tag: 'Chrome, Safari' },
     { text: 'Domen — saytning manzili', tag: 'youtube.com' },
     { text: 'DNS — manzilni topadi', tag: 'domen → IP' },
     { text: 'Server — sayt shu yerda', tag: '' }
@@ -831,7 +881,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
   const activeKey = jstep >= 0 && jstep < DONE ? JR_STEPS[jstep].active : (jstep >= DONE ? 'you' : null);
   const cur = jstep >= 0 && jstep < DONE ? JR_STEPS[jstep] : null;
   const caption = jstep < 0
-    ? "▶ tugmasini bosing — so'rovning butun aylanma sayohatini ko'ramiz."
+    ? "▶ tugmasini bosing — so'rov bosib o'tadigan butun aylanma yo'lni ko'ramiz."
     : jstep >= DONE
       ? "✓ Tayyor! YouTube ekraningizda ochildi — har bir sayt va ilova xuddi shu yo'l bilan, atigi 1 soniyada keladi."
       : JR_STEPS[jstep].cap;
@@ -867,7 +917,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
       </div>
       <div className={`jr-cap ${jstep >= DONE ? 'done' : ''}`} key={jstep}>{caption}</div>
       <div className="jr-dots">{JR_STEPS.map((_, i) => <span key={i} className={`jr-dot ${(jstep > i || jstep >= DONE) ? 'fill' : ''} ${jstep === i ? 'cur' : ''}`} />)}</div>
-      <button className="btn" style={{ alignSelf: 'center' }} onClick={play} disabled={playing}>{playing ? 'Sayohat ketmoqda…' : (jstep >= DONE ? "↻ Yana ko'rish" : '▶ Sayohatni boshlash')}</button>
+      <button className="btn" style={{ alignSelf: 'center' }} onClick={play} disabled={playing}>{playing ? "So'rov yo'lda…" : (jstep >= DONE ? "↻ Yana ko'rish" : "▶ Yo'lni boshlash")}</button>
     </div>
     </Zoomable>
   );
@@ -882,7 +932,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
     <Stage eyebrow="Reja" screen={screen} audioState={audio} mentorStatic navContent={<><NavBack onPrev={onPrev} /><NavNext label="Boshlaymiz →" onClick={onNext} /></>}>
       <div className="screen">
         <div className="head"><h2 className="title h-title fade-up"><span className="italic" style={{ color: T.accent }}>Sayt sizgacha qanday yetib keladi?</span></h2></div>
-        <Mentor>Bugun bitta savolga to'liq javob topamiz: <b style={{ color: T.ink }}>youtube.com</b> yozib Enter bosganingizda, sayt ekraningizga qanday yetib keladi? Quyidagi <b style={{ color: T.ink }}>aylanma sayohatni</b> kuzating — dars oxirida hammasini o'zingiz tushuntirib bera olasiz.</Mentor>
+        <Mentor>Bugun bitta savolga to'liq javob topamiz: <b style={{ color: T.ink }}>youtube.com</b> yozib Enter bosganingizda, sayt ekraningizga qanday yetib keladi? Quyidagi <b style={{ color: T.ink }}>aylanma yo'lni</b> kuzating — dars oxirida hammasini o'zingiz tushuntirib bera olasiz.</Mentor>
         {!isNarrow ? (
           <Split>{AnimBlock}{StepsBlock}</Split>
         ) : !showSteps ? (
@@ -903,7 +953,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
 
 // ===== SCREEN 2 — INTERNET (tarmoq) =====
 const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's2', text: `Internet — bu sehrli bulut emas. Bu butun dunyo bo'ylab millionlab kompyuterlar bir-biriga ulangan ulkan tarmoq. Xuddi yo'llar to'ri kabi — har bir kompyuter boshqasiga "yo'l" orqali bog'langan. Tugmani bosib, ma'lumot qanday yurishini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's2', text: `Internet — bu butun dunyo bo'ylab millionlab kompyuterlar bir-biriga ulangan ulkan tarmoq. Xuddi yo'llar to'ri kabi — har bir kompyuter boshqasiga "yo'l" orqali bog'langan. Tugmani bosib, ma'lumot qanday yurishini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
   const NODES = [
     { k: 'phone', ic: '📱', l: 'Telefon', pos: [42, 36] },
     { k: 'laptop', ic: '💻', l: 'Noutbuk', pos: [42, 120] },
@@ -917,10 +967,10 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const done = connected;
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="Internet" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Ulanishlarni ko'rsating"} onClick={onNext} /></>}>
+    <Stage eyebrow="Internet" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Ulanishlarni ko'rsating"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Internet aslida <span className="italic" style={{ color: T.accent }}>nima</span>?</h2></div>
-        <Mentor>Internet — sehrli bulut emas. Bu butun dunyo bo'ylab <b style={{ color: T.ink }}>millionlab kompyuterlar</b> bir-biriga ulangan ulkan <b style={{ color: T.ink }}>tarmoq</b>. Xuddi shaharni bog'lab turgan yo'llar kabi — uyingizdagi telefon, TV va noutbuk ham shu tarmoqqa ulangan. Tugmani bosib, ulanishlarni ko'ring.</Mentor>
+        <Mentor>Internet — bu butun dunyo bo'ylab <b style={{ color: T.ink }}>millionlab kompyuterlar</b> bir-biriga ulangan ulkan <b style={{ color: T.ink }}>tarmoq</b>. Xuddi shaharni bog'lab turgan yo'llar kabi — uyingizdagi telefon, TV va noutbuk ham shu tarmoqqa ulangan. Tugmani bosib, ulanishlarni ko'ring.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
@@ -931,7 +981,7 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
             {!connected && <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setConnected(true)}>🔗 Ulanishlarni ko'rsatish</button>}
           </div>
           <div className="col">            {connected ? (
-              <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Mana tarmoq</p><p className="body" style={{ margin: 0, color: T.ink }}>Har bir qurilma boshqasiga <b>"yo'l"</b> bilan bog'langan. Ma'lumot shu yo'llar orqali sayohat qiladi. <b>Inter-net</b> = "tarmoqlararo" degani.</p></div>
+              <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Mana tarmoq</p><p className="body" style={{ margin: 0, color: T.ink }}>Har bir qurilma boshqasiga <b>"yo'l"</b> bilan bog'langan. Ma'lumot shu yo'llar orqali yuradi. <b>Inter-net</b> = "tarmoqlararo" degani.</p></div>
             ) : (
               <div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Telefon, noutbuk, TV, server… hammasi ulangan. Ulanishlarni ko'rish uchun tugmani bosing.</p></div>
             )}
@@ -976,17 +1026,17 @@ const BrowserLogo = ({ k, size = 30 }) => {
 
 // ===== SCREEN 3 — BRAUZER =====
 const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's3', text: `Internetga qanday kirasiz? Brauzer orqali — bu internetga ochilgan deraza. Chrome, Safari, Firefox — bularning hammasi brauzer. Siz manzilni yozasiz, brauzer internetdan saytni topib keltiradi va ekranga chiroyli qilib chizadi. Brauzerni tanlab ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's3', text: `Saytlarni ochish uchun maxsus dastur kerak — bu brauzer. Chrome, Safari, Firefox — bularning hammasi brauzer. Siz manzilni yozasiz, brauzer internetdan saytni topib keltiradi va ekranga chiroyli qilib chizadi. Brauzerni tanlab ko'ring.`, trigger: 'on_mount', waits_for: null }]);
   const BROWSERS = [{ k: 'chrome', l: 'Chrome', color: '#1A73E8' }, { k: 'safari', l: 'Safari', color: '#1574E0' }, { k: 'firefox', l: 'Firefox', color: '#FF6611' }, { k: 'edge', l: 'Edge', color: '#1B9DE2' }];
   const [br, setBr] = useState(storedAnswer?.picked || null);
   const done = br !== null;
   const cur = BROWSERS.find(b => b.k === br);
   const pick = (k) => { setBr(k); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: k }); };
   return (
-    <Stage eyebrow="Brauzer" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Brauzer tanlang"} onClick={onNext} /></>}>
+    <Stage eyebrow="Brauzer" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Brauzer tanlang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Saytlarni qaysi <span className="italic" style={{ color: T.accent }}>dastur</span> ochib beradi?</h2></div>
-        <Mentor>Internetga <b style={{ color: T.ink }}>brauzer</b> orqali kirasiz — bu internetga ochilgan deraza. Telefondagi Chrome, Safari yoki kompyuterdagi Firefox — hammasi brauzer. Siz manzilni yozasiz, brauzer saytni <b style={{ color: T.ink }}>topib keltiradi</b> va ekranga chiroyli qilib chizadi. Birini tanlang.</Mentor>
+        <Mentor>Saytlarni ochish uchun maxsus <b style={{ color: T.ink }}>dastur</b> kerak — bu <b style={{ color: T.ink }}>brauzer</b>. Telefondagi Chrome, Safari yoki kompyuterdagi Firefox — hammasi brauzer. Siz manzilni yozasiz, brauzer saytni <b style={{ color: T.ink }}>topib keltiradi</b> va ekranga chiroyli qilib chizadi. Birini tanlang.</Mentor>
         <div className="split">
           <div className="col">
             <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>Brauzeringizni tanlang</p>
@@ -1001,7 +1051,7 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
             })}</div>
             <div className="frame-soft fade-up delay-3"><p className="body" style={{ margin: 0, color: T.ink }}>Qaysi brauzer bo'lishidan qat'i nazar — vazifasi bir xil: <b>manzilni olib, saytni keltirib, ekranga chizish</b>.</p></div>
           </div>
-          <div className="col">            <div className="flow-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{done ? <><BrowserLogo k={br} size={18} /><span>{cur.l} youtube.com'ni ochdi</span></> : "Brauzer derazasi"}</div>
+          <div className="col">            <div className="flow-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{done ? <><BrowserLogo k={br} size={18} /><span>{cur.l} youtube.com'ni ochdi</span></> : "Sayt shu yerda ochiladi"}</div>
             <Preview title={done ? `${cur.l} — youtube.com` : 'brauzer'} minH={150}>
               {done ? (
                 <SiteMock site={{ mock: 'youtube', ic: '▶️', name: 'YouTube', bar: '#FF0000' }} />
@@ -1021,7 +1071,7 @@ const Screen4 = (props) => (
     questionText="Internetdagi saytlarni ochib beradigan dastur qanday nomlanadi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Internetdagi saytlarni ochib, ekranga chiqaradigan dastur qanday nomlanadi?</h2></>}
     options={['Server', 'Brauzer', 'Domen', 'DNS']} correctIdx={1}
-    explainCorrect="Zo'r! Brauzer (Chrome, Safari, Firefox, Edge) — internetga deraza. U saytni topib, ekranga chizib beradi."
+    explainCorrect="Zo'r! Brauzer (Chrome, Safari, Firefox, Edge) — saytlarni ochib beruvchi dastur. U saytni topadi va ekranga chizib beradi."
     explainWrong={{ 0: 'Server — saytlar saqlanadigan kompyuter. Uni ochib ko’rsatadigan — brauzer.', 2: 'Domen — saytning manzili (youtube.com), dastur emas.', 3: 'DNS — manzilni IP raqamiga aylantiradi. Saytni ko’rsatadigan — brauzer.', default: 'Saytlarni ochib beradigan dastur — brauzer.' }} />
 );
 
@@ -1038,7 +1088,7 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const cur = DOMAINS.find(d => d.full === sel);
   const pick = (f) => { setSel(f); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: f }); };
   return (
-    <Stage eyebrow="Domen" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Domenni tanlang"} onClick={onNext} /></>}>
+    <Stage eyebrow="Domen" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Domenni tanlang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Saytning <span className="italic" style={{ color: T.accent }}>manzili</span> qanday bo'ladi?</h2></div>
         <Mentor>Saytga borish uchun uning <b style={{ color: T.ink }}>manzilini</b> bilishingiz kerak — bu <b style={{ color: T.ink }}>domen</b>: youtube.com, google.uz. Xuddi do'stingiznikiga borish uchun uy manzilini bilganingizdek — manzilni yozsangiz, aynan o'sha saytga borasiz. Domenni tanlang.</Mentor>
@@ -1097,7 +1147,7 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     }, 70);
   };
   return (
-    <Stage eyebrow="IP manzil" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "IP manzilni ko'ring"} onClick={onNext} /></>}>
+    <Stage eyebrow="IP manzil" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "IP manzilni ko'ring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Kompyuterlar manzilni qanday <span className="italic" style={{ color: T.accent }}>yozadi</span>?</h2></div>
         <Mentor>Kompyuterlar saytning <b style={{ color: T.ink }}>nomini emas, raqamini</b> ishlatadi — bu <b style={{ color: T.ink }}>IP manzil</b>. Tugmani bosing, <b style={{ color: T.ink }}>youtube.com</b> qanday raqamga aylanishini ko'ring.</Mentor>
@@ -1148,7 +1198,7 @@ const Screen7 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   };
   const rightIP = phase === 'found' ? MAP[q] : (phase === 'looking' ? scram : PLACE);
   return (
-    <Stage eyebrow="DNS" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Domenni qidiring"} onClick={onNext} /></>}>
+    <Stage eyebrow="DNS" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Domenni qidiring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Domen nomidan IP'ni kim <span className="italic" style={{ color: T.accent }}>topadi</span>?</h2></div>
         <Mentor>Raqamlarni hech kim yodlamaydi! Shuning uchun <b style={{ color: T.ink }}>DNS</b> bor — internetning <b style={{ color: T.ink }}>telefon kitobi</b>: siz domen berasiz, u IP qaytaradi. Domenni tanlang.</Mentor>
@@ -1209,7 +1259,7 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     }, 70);
   };
   return (
-    <Stage eyebrow="Server" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "So'rov yuboring"} onClick={onNext} /></>}>
+    <Stage eyebrow="Server" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "So'rov yuboring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Sayt o'zi <span className="italic" style={{ color: T.accent }}>qayerda</span> yashaydi?</h2></div>
         <Mentor>Har bir sayt <b style={{ color: T.ink }}>serverda</b> — doim yoniq kuchli kompyuterda — saqlanadi. Siz so'rov yuborasiz, server <b style={{ color: T.ink }}>sahifani qaytaradi</b>. Tugmani bosing.</Mentor>
@@ -1309,7 +1359,7 @@ const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const fillPct = step < 0 ? 0 : (step / (PIPE.length - 1)) * 100;
   const cap = step < 0 ? "▶ tugmani bosing — ma'lumot chapdan o'ngga, bosqichma-bosqich oqadi." : (cur ? cur.cap : '');
   return (
-    <Stage eyebrow="So'rov yo'li" screen={screen} audioState={audio} mentorCollapse navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Yo'lni ishga tushiring"} onClick={onNext} /></>}>
+    <Stage eyebrow="So'rov yo'li" screen={screen} audioState={audio} mentorCollapse navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Yo'lni ishga tushiring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.7vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Enter'dan saytgacha — <span className="italic" style={{ color: T.accent }}>butun yo'l</span></h2></div>
         <Mentor><b style={{ color: T.ink }}>youtube.com</b> yozsangiz nima bo'ladi? ▶ tugmasini bosing — ma'lumot <b style={{ color: T.ink }}>chapdan o'ngga</b> oqib, sayt ochiladi. Har qadamni Mentor tushuntirib boradi.</Mentor>
@@ -1371,7 +1421,7 @@ const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
           </div>
         </div>
         </Zoomable>
-        {done && (<div ref={doneRef} className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Mana butun sayohat</p><p className="body" style={{ margin: 0, color: T.ink }}>Siz <b>manzil</b> yozasiz → <b>DNS</b> IP topadi → <b>server</b> <b>HTML kodini</b> beradi → <b>brauzer</b> uni o'qib ekranga chizadi. Bularning bari — <b>bir soniyada</b>! Keyingi darsda brauzer HTML'ni qanday o'qishini ochamiz.</p></div>)}
+        {done && (<div ref={doneRef} className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Mana butun yo'l</p><p className="body" style={{ margin: 0, color: T.ink }}>Siz <b>manzil</b> yozasiz → <b>DNS</b> IP topadi → <b>server</b> <b>HTML kodini</b> beradi → <b>brauzer</b> uni o'qib ekranga chizadi. Bularning bari — <b>bir soniyada</b>! Keyingi darsda brauzer HTML'ni qanday o'qishini ochamiz.</p></div>)}
       </div>
     </Stage>
   );
@@ -1436,7 +1486,7 @@ const Screen11 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   };
   const reading = phase === 'reading';
   return (
-    <Stage eyebrow="Brauzer ichida" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Kodni sahifaga aylantiring"} onClick={onNext} /></>}>
+    <Stage eyebrow="Brauzer ichida" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Kodni sahifaga aylantiring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Brauzer kodni qanday <span className="italic" style={{ color: T.accent }}>sahifaga</span> aylantiradi?</h2></div>
         <Mentor>Hozirgina server brauzerga <b style={{ color: T.ink }}>HTML kod</b> qaytarganini ko'rdik. Endi aynan <b style={{ color: T.ink }}>shu qadamning ichiga</b> kiramiz: brauzer o'sha kodni <b style={{ color: T.ink }}>satrma-satr o'qib</b>, YouTube sahifasini chizadi.</Mentor>
@@ -1581,6 +1631,142 @@ const SiteMock = ({ site }) => {
     </div>
   );
 };
+// ============================================================
+// 📖 QAYTA TUSHUNTIRISH (recap) — VARIANT A: faqat proyektor, server sinxroni YO'Q.
+// Test natijasi past chiqsa mentor shu overlay'ni ochadi: testga taalluqli 2–3
+// nazariya sahifasining JAMLANGAN qisqa kartalari bilan og'zaki qayta tushuntiradi.
+// O'quvchilar baribir qulflangan (locked) — proyektorga qaraydi. Xato qilgan
+// o'quvchi o'z qurilmasida ham xuddi shu kartalarni o'zi ochib ko'rishi mumkin.
+// Kalitlar — scored test ekranlarining indekslari (4, 6, 10, 13, 17).
+// Har karta: ic (katta emoji), h (sarlavha), body (1-2 gap), vis (ko'rgazma),
+// ask (mentor sinfga og'zaki beradigan savol — jonli muloqot uchun).
+// ============================================================
+const RECAP_NEED_PCT = 60;   // shundan past — qayta tushuntirish TAVSIYA etiladi
+const RECAP_GOOD_PCT = 75;   // shundan yuqori — sinf o'zlashtirdi, bemalol davom
+const RECAP_MIN_ANSWERS = 3; // foizga ishonch uchun kamida shuncha javob kerak
+const RcFlow = ({ items, sep = '→' }) => (
+  <div className="rc-flow">{items.map((t, i) => <React.Fragment key={i}><span className="rc-chip">{t}</span>{sep && i < items.length - 1 && <span className="rc-arr">{sep}</span>}</React.Fragment>)}</div>
+);
+const RECAPS = {
+  // s4 — «Saytlarni ochib beradigan dastur?» (nazariya: s2 Internet + s3 Brauzer)
+  4: {
+    title: 'Internet va Brauzer', cards: [
+      { ic: '🕸️', h: 'Internet — kompyuterlarni bog\'lovchi tarmoq',
+        body: <>Butun dunyodagi <b>millionlab kompyuterlar</b> simlar va antennalar orqali bir-biriga ulangan — mana shu internet. Siz ochgan video ham, yuborgan xabar ham ana shu «yo'llar» orqali yuradi.</>,
+        vis: <RcFlow items={['📱 Telefon', '💻 Noutbuk', '📺 TV', '🖥️ Server']} sep="·" />,
+        ask: "Uyingizda yana qaysi qurilmalar internetga ulangan?" },
+      { ic: '📲', h: 'Brauzer — saytlarni ochuvchi dastur',
+        body: <>O'yin o'ynash uchun o'yin-dastur kerak, rasm chizish uchun — chizish dasturi. Saytlarni ochish uchun ham maxsus <b>dastur</b> kerak — bu <b>brauzer</b>. Chrome, Safari, Firefox, Edge — nomi har xil, ishi bitta.</>,
+        vis: <div className="rc-flow">{[['chrome', 'Chrome'], ['safari', 'Safari'], ['firefox', 'Firefox'], ['edge', 'Edge']].map(([k, l]) => <span key={k} className="rc-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><BrowserLogo k={k} size={26} />{l}</span>)}</div>,
+        ask: "O'zingiz qaysi brauzerni ishlatasiz?" },
+      { ic: '🎨', h: 'Brauzer 3 ta ish qiladi',
+        body: <>Siz faqat manzil yozasiz — qolganini brauzer o'zi qiladi: saytni internetdan <b>topadi</b>, <b>olib keladi</b> va ekranga <b>chizib beradi</b>.</>,
+        vis: <RcFlow items={['⌨️ Manzil yozasiz', '📦 Saytni olib keladi', '🎨 Ekranga chizadi']} /> },
+    ]
+  },
+  // s5b — «youtube.com nima deb ataladi?» (nazariya: s5 Domen)
+  6: {
+    title: 'Domen — sayt manzili', cards: [
+      { ic: '🏠', h: 'Domen — saytning manzili',
+        body: <>Do'stingiznikiga borish uchun uy manzilini bilishingiz kerak. Saytga kirish uchun ham manzil kerak — brauzerning yuqori qatoriga yoziladigan bu manzil <b>domen</b> deyiladi: <b className="mono">youtube.com</b>, <b className="mono">google.uz</b>.</>,
+        vis: <RcFlow items={['🏠 Uy manzili → uyga borasiz', '🌐 Domen → saytga borasiz']} />,
+        ask: "Sevimli saytingizning domeni nima?" },
+      { ic: '🧩', h: 'Domen ikki qismdan iborat',
+        body: <>Nuqtadan oldin — <b>nom</b> (saytning ismi), nuqtadan keyin — <b>zona</b> (turi): <b className="mono">.uz</b> — O'zbekiston, <b className="mono">.com</b> — umumiy, <b className="mono">.org</b> — tashkilotlar.</>,
+        vis: <RcFlow items={['youtube — nom', '.com — zona']} sep="+" /> },
+      { ic: '☝️', h: 'Adashtirmang!',
+        body: <>Domen — <b>dastur emas</b> (dastur — brauzer), <b>kompyuter ham emas</b> (u — server). Domen — faqat <b>manzil</b>, xolos. Bitta harf xato yozilsa — sayt topilmaydi!</>,
+        ask: "«youtub.com» yozsak nima bo'ladi? (bir harf kam!)" },
+    ]
+  },
+  // s9 — «Domenni IP'ga kim aylantiradi?» (nazariya: s6 IP + s7 DNS)
+  10: {
+    title: 'IP manzil va DNS', cards: [
+      { ic: '🔢', h: 'Kompyuter faqat raqamni tushunadi',
+        body: <>Biz saytni <b>nomi</b> bilan eslaymiz, kompyuter esa <b>raqami</b> bilan topadi. Internetdagi har bir kompyuterning o'z raqamli manzili bor — bu <b>IP manzil</b>.</>,
+        vis: <RcFlow items={['🌐 youtube.com', '🔢 142.250.190.78']} /> },
+      { ic: '📖', h: 'DNS — internetning telefon kitobi',
+        body: <>Telefonda «Aziza» deb qidirasiz — raqamini telefon o'zi topadi-ku? Internetda ham xuddi shunday: siz <b>domen</b> yozasiz, <b>DNS</b> uning <b>IP raqamini</b> bir zumda topib beradi.</>,
+        vis: <RcFlow items={['📇 «Aziza»', '📞 +998 90 123-45-67']} />,
+        ask: "youtube.com yozsak, DNS bizga aniq nima qaytaradi?" },
+      { ic: '⚡', h: 'Uchalasini eslab qoling',
+        body: <><b>Domen</b> — nom, odam uchun. <b>IP</b> — raqam, kompyuter uchun. <b>DNS</b> — nomdan raqamni topib beruvchi xizmat.</>,
+        vis: <RcFlow items={['🌐 Domen', '📖 DNS', '🔢 IP']} /> },
+    ]
+  },
+  // s12 — «Server nima qaytaradi?» (nazariya: s8 Server + s10/s11 HTML va brauzer)
+  13: {
+    title: 'Server va HTML', cards: [
+      { ic: '🖥️', h: 'Sayt serverda yashaydi',
+        body: <>Server — saytlarni saqlaydigan, <b>doim yoniq</b> turadigan kuchli kompyuter. Siz so'rov yuborasiz — u saytni qaytaradi. Kechasi soat 3 da ham sayt ochiladi, chunki server hech qachon uxlamaydi!</>,
+        vis: <RcFlow items={["📨 Siz so'rov yubordingiz", '🖥️ Server javob qaytardi']} />,
+        ask: "Nega server hech qachon o'chmasligi kerak?" },
+      { ic: '📄', h: 'Server chiroyli sahifa EMAS — kod qaytaradi',
+        body: <>Serverdan keladigan narsa — <b>HTML kod</b>, oddiy matn. Tayyor rasm ham, chiroyli sahifa ham emas! Keyingi darsda xuddi shunday kodni <b>o'zingiz yozasiz</b>.</>,
+        vis: <div className="rc-code mono"><Tg>{'<h1>'}</Tg>▶️ YouTube<Tg>{'</h1>'}</Tg></div> },
+      { ic: '🎨', h: 'Chiroyli qiladigan — brauzer',
+        body: <>HTML kod — retsept, brauzer — oshpaz: kodni <b>satrma-satr o'qib</b>, undan ekranda chiroyli sahifa «pishiradi».</>,
+        vis: <RcFlow items={['📄 HTML kod', "🌐 Brauzer o'qiydi", '🖼️ Chiroyli sahifa']} /> },
+    ]
+  },
+  // s15 — yakuniy «so'rov tartibi» (nazariya: butun yo'l — s1/s10)
+  17: {
+    title: "So'rovning to'liq yo'li", cards: [
+      { ic: '🗺️', h: '4 qadam — doim shu tartibda',
+        body: <>Enter bosilgach: <b>brauzer</b> ishni boshlaydi → <b>DNS</b> IP raqamni topadi → <b>server</b> HTML kodni beradi → <b>ekranda</b> sahifa chiziladi.</>,
+        vis: <RcFlow items={['🌐 Brauzer', '📖 DNS', '🖥️ Server', '🖼️ Ekran']} /> },
+      { ic: '🤔', h: 'Nega aynan shu tartib?',
+        body: <>Manzilni bilmasdan borib bo'lmaydi! Avval DNS'dan <b>IP olinadi</b>, keyin o'sha manzildagi serverga boriladi. Pochtachi ham avval konvertdagi manzilni o'qiydi, keyin xatni tashiydi.</>,
+        ask: "Brauzer DNS'siz to'g'ri serverni topa oladimi? Nega?" },
+      { ic: '⏱️', h: 'Va bularning bari — 1 soniyada',
+        body: <>Bu yo'lning hammasi ko'z ochib yumguncha bosib o'tiladi. Har safar sayt ochganingizda — YouTube'mi, o'yinmi, Telegram'mi — aynan shu yo'l takrorlanadi.</>,
+        vis: <RcFlow items={['⌨️ Enter', '⏱️ ≈ 1 soniya', '✅ Sayt ochildi']} /> },
+    ]
+  },
+};
+
+// Overlay — QuizArena kabi ekran USTIDA ochiladi, ekran indekslariga tegmaydi.
+// Slayd-slayd o'tiladi (mentor og'zaki tushuntirib boradi), oxirgi kartada yopiladi.
+function RecapOverlay({ screenIdx, onClose }) {
+  const rc = RECAPS[screenIdx];
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight') setI(p => Math.min(p + 1, rc.cards.length - 1));
+      else if (e.key === 'ArrowLeft') setI(p => Math.max(p - 1, 0));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, rc]);
+  if (!rc) return null;
+  const card = rc.cards[i];
+  const last = i === rc.cards.length - 1;
+  return (
+    <div className="rc-overlay">
+      <div className="rc-head">
+        <span className="rc-tag">📖 Qayta tushuntirish</span>
+        <span className="rc-title">{rc.title}</span>
+        <button className="rc-x" onClick={onClose} aria-label="Yopish">✕</button>
+      </div>
+      <div className="rc-card" key={i}>
+        <div className="rc-ic">{card.ic}</div>
+        <h2 className="rc-h">{card.h}</h2>
+        <p className="rc-body">{card.body}</p>
+        {card.vis && <div className="rc-vis">{card.vis}</div>}
+        {card.ask && <div className="rc-ask">🗣️ Sinfga savol: {card.ask}</div>}
+      </div>
+      <div className="rc-nav">
+        <button className="rc-btn ghost" disabled={i === 0} onClick={() => setI(i - 1)}>← Oldingi</button>
+        <div className="rc-dots">{rc.cards.map((_, k) => <button key={k} className={`rc-dot ${k === i ? 'cur' : k < i ? 'fill' : ''}`} onClick={() => setI(k)} aria-label={`${k + 1}-karta`} />)}</div>
+        {last
+          ? <button className="rc-btn done" onClick={onClose}>✓ Tushunarli — davom etamiz</button>
+          : <button className="rc-btn" onClick={() => setI(i + 1)}>Keyingisi →</button>}
+      </div>
+    </div>
+  );
+}
+
 const sim13Steps = (s) => [
   { active: 'browser', kind: 'req',  pkt: `⌨️ ${s.domain}`,    cap: '1-qadam — Enter bosildi! Brauzer manzilni oldi.' },
   { active: 'dns',     kind: 'req',  pkt: `${s.domain} = ?`,   cap: "2-qadam — Brauzer DNS'dan IP raqamini so'raydi." },
@@ -1628,13 +1814,13 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const activeKey = jstep >= 0 && jstep < DONE ? steps[jstep]?.active : (jstep >= DONE ? 'you' : null);
   const cur = jstep >= 0 && jstep < DONE ? steps[jstep] : null;
   const caption = jstep < 0
-    ? "Manzil yuboring — so'rovning butun aylanma sayohatini ko'rasiz."
+    ? "Manzil yuboring — so'rov bosib o'tadigan butun aylanma yo'lni ko'rasiz."
     : jstep >= DONE
       ? `✓ Tayyor! ${site?.name || 'Sayt'} ekraningizda ochildi — aynan shu yo'l bilan, 1 soniyada.`
       : (steps[jstep]?.cap || '');
 
   return (
-    <Stage eyebrow="Amaliyot · so'rov yuboring" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "So'rov yuboring"} onClick={onNext} /></>}>
+    <Stage eyebrow="Amaliyot · so'rov yuboring" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "So'rov yuboring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">O'zingiz <span className="italic" style={{ color: T.accent }}>so'rov</span> yuboring.</h2></div>
         <Mentor>Endi navbat sizda! Sayt manzilini yozing yoki tayyorlaridan tanlang va <b style={{ color: T.ink }}>"Yubor"</b> tugmasini bosing — so'rovingiz <b style={{ color: T.ink }}>aylanma yo'lni</b> bosib o'tib, aynan o'sha sayt ochilishini ko'rasiz.</Mentor>
@@ -1872,7 +2058,7 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const fail = () => { if (stage !== 'idle') return; setStage('failed'); audio.triggerEvent('error_found'); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Mana muammo: DNS "youtub.com" ni topolmadi, chunki bunday domen yo'q. "e" harfi tushib qolgan.`); }, 300); };
   const fix = () => { setStage('fixed'); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Tuzatildi! Endi youtube.com to'g'ri — DNS IP'ni topdi va sayt ochildi.`); }, 300); };
   return (
-    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (stage === 'failed' ? "Endi tuzating" : "Ochib ko'ring")} onClick={onNext} /></>}>
+    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : (stage === 'failed' ? "Endi tuzating" : "Ochib ko'ring")} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Sayt ochilmadi — <span className="italic" style={{ color: T.accent }}>nega</span>?</h2></div>
         <Mentor>Ba'zan sayt ochilmaydi — qo'rqinchli emas. Eng ko'p sabab: <b style={{ color: T.ink }}>domen xato yozilgan</b>, shuning uchun DNS uni topolmaydi. Mana <span className="mono">youtub.com</span> — bitta harf yetishmayapti. Avval ochib ko'ring, keyin xatoni o'zingiz toping.</Mentor>
@@ -2104,6 +2290,7 @@ function QuizArena({ live, onClose, startSolo }) {
   const [players, setPlayers] = useState([]);
   const [qRows, setQRows] = useState([]);
   const [answeredN, setAnsweredN] = useState(0);
+  const [classEnded, setClassEnded] = useState(false); // jonli dars tugadi/mentor yo'q — qutqaruv tugmasi uchun
   const seenQRef = useRef(-1);
   const qStartRef = useRef(0);
   const deadlineRef = useRef(0);
@@ -2142,7 +2329,12 @@ function QuizArena({ live, onClose, startSolo }) {
           }
           else if (st === 'done') { setPhase('done'); }
         }
-        const ph = phaseRef.current;
+        // Fetch-fazani SERVER holatidan hisoblaymiz: phaseRef bir tick orqada qoladi,
+        // shuning uchun reveal'ga o'tgan ZAHOTI (shu tickning o'zida) natijalar yuklanadi —
+        // hisoblagichlar «0» bo'lib turmaydi.
+        const st1 = row ? (row.quiz_state || 'off') : null;
+        const ph = st1 === 'r' ? 'reveal' : st1 === 'done' ? 'done' : st1 === 'lobby' ? 'lobby' : st1 === 'q' ? 'q' : phaseRef.current;
+        if (on) setClassEnded(!row || row.status === 'ended'); // mentor «Erkin qilish» bosgan — arenada qutqaruv ko'rinadi
         if (ph === 'lobby' || ph === 'reveal' || ph === 'done') {
           const [pl, qa] = await Promise.all([livePlayers(live.pin), liveQuizAnswers(live.pin)]);
           if (on) { setPlayers(pl); setQRows(qa); }
@@ -2173,8 +2365,11 @@ function QuizArena({ live, onClose, startSolo }) {
     try {
       await live.quizControl(state, q);
       if (state === 'q') { seenQRef.current = q; qStartRef.current = Date.now(); deadlineRef.current = Date.now() + QUIZ_MS; setQi(q); setRemaining(QUIZ_MS); setPhase('q'); setAnsweredN(0); }
-      else if (state === 'r') setPhase('reveal');
-      else if (state === 'done') setPhase('done');
+      else if (state === 'r' || state === 'done') {
+        setPhase(state === 'r' ? 'reveal' : 'done');
+        // Natijalarni DARHOL yuklaymiz — polling kutilmaydi, hisoblagichlar bo'sh turmaydi
+        Promise.all([livePlayers(live.pin), liveQuizAnswers(live.pin)]).then(([pl, qa]) => { setPlayers(pl); setQRows(qa); }).catch(() => {});
+      }
     } catch {}
   };
   // Solo boshqaruvi
@@ -2204,9 +2399,26 @@ function QuizArena({ live, onClose, startSolo }) {
   const soloScore = quizScore(soloRows);
 
   const Q = qi >= 0 && qi < QUIZ_BANK.length ? QUIZ_BANK[qi] : null;
-  const counts = Q ? Q.opts.map((_, i) => solo ? (myAnswers[qi]?.picked === i ? 1 : 0) : qRows.filter(r => r.screen_idx === QUIZ_BASE_IDX + qi && r.picked === i).length) : [];
+  // Hisoblagichlar: server qatorlari + O'Z javobim hali serverdan kelmagan bo'lsa, lokal qo'shiladi —
+  // reveal ochilganda o'quvchining o'z plitkasi hech qachon «0» ko'rinmaydi
+  const counts = Q ? Q.opts.map((_, i) => {
+    if (solo) return myAnswers[qi]?.picked === i ? 1 : 0;
+    let n = qRows.filter(r => r.screen_idx === QUIZ_BASE_IDX + qi && r.picked === i).length;
+    const mine = myAnswers[qi];
+    if (mine && mine.picked === i && live.playerId && !qRows.some(r => r.player_id === live.playerId && r.screen_idx === QUIZ_BASE_IDX + qi)) n++;
+    return n;
+  }) : [];
   const lastQ = qi >= QUIZ_BANK.length - 1;
   const my = qi >= 0 ? myAnswers[qi] : null;
+
+  // Mentor test o'rtasida ✕ bossa — ogohlantiramiz: sinf arenada kutib qoladi.
+  // Server holatiga TEGILMAYDI — «⚔️ Davom ettirish» bilan aynan shu joydan qaytadi.
+  const closeArena = () => {
+    if (isMentor && !solo && phase !== 'done') {
+      if (!window.confirm("Test hali yakunlanmadi — yopsangiz o'quvchilar arenada kutib qoladi.\nKeyin «⚔️ Davom ettirish» bilan aynan shu joydan qaytishingiz mumkin.\n\nBaribir yopilsinmi?")) return;
+    }
+    onClose();
+  };
 
   return (
     <div className="qz-arena">
@@ -2215,7 +2427,16 @@ function QuizArena({ live, onClose, startSolo }) {
           <span key={i} className="qz-shp" style={{ left: `${s.l}%`, top: `${s.t}%`, fontSize: s.s, color: s.c, animationDuration: `${s.d}s`, animationDelay: `${s.dl}s` }}>{s.ch}</span>
         ))}
       </div>
-      <button className="qz-x" onClick={onClose} aria-label="Yopish">✕</button>
+      <button className="qz-x" onClick={closeArena} aria-label="Yopish">✕</button>
+
+      {/* QUTQARUV: jonli dars tugadi/mentor chiqib ketdi — o'quvchi osilib qolmaydi,
+          o'z tezligida mashq rejimiga o'tib testni tugatadi (natija serverga yozilmaydi) */}
+      {classEnded && isStudent && !solo && phase !== 'done' && (
+        <div className="qz-endnote fade-step">
+          <span>⚠️ Jonli dars yakunlandi — testni o'zingiz davom ettiring:</span>
+          <button className="qz-btn" onClick={startPractice}>📖 Mashq rejimida davom etish</button>
+        </div>
+      )}
 
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
@@ -2355,7 +2576,7 @@ function QuizArena({ live, onClose, startSolo }) {
               {isStudent && <button className="qz-btn" onClick={startPractice}>↻ Testni qayta ishlash — mashq (jadvalga yozilmaydi)</button>}
             </>
           )}
-          <button className="qz-btn ghost" onClick={onClose}>Arenani yopish</button>
+          <button className="qz-btn ghost" onClick={closeArena}>Arenani yopish</button>
         </div>
       )}
     </div>
@@ -3265,6 +3486,10 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .mstats-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
         .mstats-lbl { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.07em; text-transform: uppercase; color: ${T.blue}; }
         .mstats-n { font-family: 'Manrope'; font-size: 13.5px; font-weight: 600; color: ${T.ink2}; }
+        .mstats-reveal { font-family: 'Manrope'; font-weight: 700; font-size: 12.5px; background: ${T.ink}; color: #fff; border: none; border-radius: 99px; padding: 7px 14px; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.35); transition: all 0.2s; }
+        .mstats-reveal:hover { background: ${T.accent}; box-shadow: 0 6px 16px -4px rgba(255,79,40,0.5); }
+        .mstats-reveal.ready { background: ${T.accent}; animation: mstats-pulse 1.6s ease-in-out infinite; }
+        @keyframes mstats-pulse { 0%,100% { box-shadow: 0 4px 12px -4px rgba(255,79,40,0.5); } 50% { box-shadow: 0 4px 18px 0 rgba(255,79,40,0.55); } }
         .mstats-prog { height: 7px; background: rgba(${T.shadowBase},0.09); border-radius: 99px; overflow: hidden; }
         .mstats-prog-fill { display: block; height: 100%; border-radius: 99px; background: ${T.blue}; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
         .mstats-prog-fill.full { background: ${T.success}; }
@@ -3275,6 +3500,8 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .mstats-chip.okc  { background: ${T.successSoft}; } .mstats-chip.okc .mstats-chip-n, .mstats-chip.okc .mstats-chip-t { color: ${T.success}; }
         .mstats-chip.badc { background: ${T.accentSoft}; } .mstats-chip.badc .mstats-chip-n, .mstats-chip.badc .mstats-chip-t { color: ${T.accent}; }
         .mstats-chip.waitc { background: rgba(${T.shadowBase},0.06); } .mstats-chip.waitc .mstats-chip-n, .mstats-chip.waitc .mstats-chip-t { color: ${T.ink2}; }
+        .mstats-chip.ansc { background: rgba(1,154,203,0.10); } .mstats-chip.ansc .mstats-chip-n, .mstats-chip.ansc .mstats-chip-t { color: ${T.blue}; }
+        .mstats-hidden { margin: 0; font-family: 'Manrope'; font-size: 12.5px; font-style: italic; color: ${T.ink3}; }
         .mstats-bars { display: flex; flex-direction: column; gap: 8px; }
         .mstats-row { display: flex; align-items: center; gap: 10px; transition: opacity 0.4s; }
         .mstats-row.dimmed { opacity: 0.4; }
@@ -3426,6 +3653,58 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .qz-mypl b { color: #FFC94D; }
         .qz-solo-res { display: flex; flex-direction: column; align-items: center; gap: 12px; }
         .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FFC94D; text-shadow: 0 8px 34px rgba(255,201,77,0.4); }
+        /* Qutqaruv banneri — dars tugaganda o'quvchi arenada osilib qolmasin */
+        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 16px; padding: 10px 16px; color: #fff; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; backdrop-filter: blur(6px); }
+
+        /* === 📖 QAYTA TUSHUNTIRISH (recap overlay) — proyektorga katta shrift === */
+        .rc-overlay { position: fixed; inset: 0; z-index: 10005; background: ${T.bg}; display: flex; flex-direction: column; align-items: center; padding: clamp(14px,3vw,32px); overflow-y: auto; animation: fade-step 0.3s ease-out; font-family: 'Manrope', sans-serif; }
+        .rc-head { width: 100%; max-width: 880px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+        .rc-tag { font-weight: 800; font-size: clamp(11px,1.4vw,13px); letter-spacing: 0.1em; text-transform: uppercase; color: ${T.accent}; background: ${T.accentSoft}; border-radius: 99px; padding: 6px 14px; white-space: nowrap; }
+        .rc-title { font-family: 'Source Serif 4', serif; font-weight: 600; font-size: clamp(16px,2.4vw,22px); color: ${T.ink}; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rc-x { background: ${T.paper}; border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 15px; color: ${T.ink2}; cursor: pointer; flex-shrink: 0; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.22); transition: all 0.2s; }
+        .rc-x:hover { color: ${T.accent}; }
+        .rc-card { flex: 1; width: 100%; max-width: 880px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: clamp(10px,2.2vw,20px); padding: clamp(16px,3vw,28px) 0; animation: fade-step 0.35s ease-out; }
+        .rc-ic { font-size: clamp(44px,8vw,76px); line-height: 1; }
+        .rc-h { font-family: 'Source Serif 4', serif; font-weight: 600; font-size: clamp(24px,4.6vw,44px); color: ${T.ink}; line-height: 1.12; max-width: 800px; margin: 0; }
+        .rc-body { font-size: clamp(15px,2.4vw,21px); line-height: 1.55; color: ${T.ink2}; max-width: 720px; margin: 0; }
+        .rc-body b { color: ${T.ink}; }
+        .rc-vis { margin-top: clamp(4px,1vw,10px); display: flex; justify-content: center; width: 100%; }
+        .rc-flow { display: flex; align-items: center; justify-content: center; gap: clamp(6px,1.4vw,12px); flex-wrap: wrap; }
+        .rc-chip { font-weight: 700; font-size: clamp(13px,2vw,18px); background: ${T.paper}; color: ${T.ink}; border-radius: 12px; padding: clamp(8px,1.4vw,13px) clamp(12px,2vw,18px); box-shadow: 0 6px 16px -6px rgba(${T.shadowBase},0.2); white-space: nowrap; }
+        .rc-arr { font-size: clamp(15px,2.2vw,22px); color: ${T.accent}; font-weight: 800; }
+        .rc-code { background: ${CODE.bg}; color: ${CODE.text}; font-size: clamp(15px,2.4vw,22px); border-radius: 12px; padding: clamp(12px,2vw,18px) clamp(16px,2.6vw,26px); box-shadow: 0 10px 26px -8px rgba(${T.shadowBase},0.3); }
+        .rc-ask { font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: ${T.accent}; background: ${T.accentSoft}; border-radius: 12px; padding: 10px 18px; max-width: 660px; }
+        .rc-nav { width: 100%; max-width: 880px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; padding-top: 8px; }
+        .rc-dots { flex: 1; display: flex; justify-content: center; gap: 8px; }
+        .rc-dot { width: 10px; height: 10px; border-radius: 99px; background: rgba(167,166,162,0.4); cursor: pointer; transition: all 0.25s; border: none; padding: 0; }
+        .rc-dot.fill { background: ${T.ink3}; }
+        .rc-dot.cur { background: ${T.accent}; width: 26px; }
+        .rc-btn { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: clamp(13px,1.7vw,16px); border: none; border-radius: 12px; padding: clamp(11px,1.6vw,14px) clamp(18px,2.6vw,26px); cursor: pointer; background: ${T.ink}; color: ${T.bg}; box-shadow: 0 6px 18px -4px rgba(${T.shadowBase},0.32); transition: all 0.2s; white-space: nowrap; }
+        .rc-btn:hover:not(:disabled) { background: ${T.accent}; }
+        .rc-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+        .rc-btn.ghost { background: transparent; color: ${T.ink2}; box-shadow: none; }
+        .rc-btn.ghost:hover:not(:disabled) { background: ${T.paper}; color: ${T.ink}; }
+        .rc-btn.done { background: ${T.success}; color: #fff; }
+        .rc-btn.done:hover { background: #17603C; }
+
+        /* Mentor statistikasidagi verdikt (natija ochilgach) */
+        .mstats-verdict { border-radius: 12px; padding: 12px 15px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; animation: fade-step 0.3s ease-out; }
+        .mstats-verdict.need { background: ${T.accentSoft}; border-left: 4px solid ${T.accent}; }
+        .mstats-verdict.maybe { background: rgba(232,161,58,0.14); border-left: 4px solid #E8A13A; }
+        .mstats-verdict.good { background: ${T.successSoft}; border-left: 4px solid ${T.success}; }
+        .mstats-verdict.few { background: rgba(167,166,162,0.12); border-left: 4px solid ${T.ink3}; }
+        .mstats-verdict-t { margin: 0; font-family: 'Manrope', sans-serif; font-size: clamp(13px,1.6vw,15px); line-height: 1.45; color: ${T.ink}; }
+        .rc-open { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: clamp(13px,1.6vw,15px); background: ${T.accent}; color: #fff; border: none; border-radius: 10px; padding: 10px 18px; cursor: pointer; box-shadow: 0 8px 20px -6px rgba(255,79,40,0.5); transition: all 0.2s; }
+        .rc-open:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -6px rgba(255,79,40,0.55); }
+        .rc-open.soft { background: ${T.paper}; color: ${T.accent}; box-shadow: 0 4px 12px -5px rgba(${T.shadowBase},0.2); }
+        .rc-open-mini { align-self: flex-start; margin-top: 10px; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13px; background: ${T.paper}; color: ${T.accent}; border: none; border-radius: 99px; padding: 8px 14px; cursor: pointer; box-shadow: 0 4px 12px -5px rgba(${T.shadowBase},0.2); transition: all 0.2s; }
+        .rc-open-mini:hover { transform: translateY(-1px); }
+        /* Mobil: nuqtalar tepada, tugmalar pastda markazda — tugma ekrandan chiqib ketmasin */
+        @media (max-width: 640px) {
+          .rc-nav { flex-wrap: wrap; justify-content: center; row-gap: 10px; }
+          .rc-dots { width: 100%; order: -1; }
+          .rc-btn { font-size: 13px; padding: 11px 16px; }
+        }
 
       `}</style>
       <LiveGateCtx.Provider value={{ locked, live }}>
