@@ -20,7 +20,7 @@ async function liveRpc(fn, body) {
   const t = await r.text(); return t ? JSON.parse(t) : null;
 }
 async function liveGet(pin) {
-  const r = await fetch(`${LIVE_SUPABASE_URL}/rest/v1/live_sessions?pin=eq.${encodeURIComponent(pin)}&select=lesson_id,max_screen,status,updated_at,quiz_state,quiz_q,quiz_started_at`, { headers: _liveHdr });
+  const r = await fetch(`${LIVE_SUPABASE_URL}/rest/v1/live_sessions?pin=eq.${encodeURIComponent(pin)}&select=lesson_id,max_screen,status,updated_at,quiz_state,quiz_q,quiz_started_at,reveal_screen`, { headers: _liveHdr });
   if (!r.ok) throw new Error(`get: ${r.status}`);
   const rows = await r.json(); return (rows && rows[0]) || null;
 }
@@ -47,7 +47,8 @@ const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURICompon
 const LiveGateCtx = createContext(null);
 const useLiveLock = () => { const c = useContext(LiveGateCtx); return !!(c && c.locked); };
 
-function useLiveSession(lessonId) {
+function useLiveSession(lessonId, answerKey) {
+  const keyRef = useRef(answerKey); keyRef.current = answerKey; // javob kaliti — mentor darsni ochganda serverga avto-yuklanadi (SQL shart emas)
   const initRef = useRef(undefined);
   if (initRef.current === undefined) initRef.current = LIVE_ENABLED ? liveRead(lessonId) : null;
   const init = initRef.current;
@@ -70,11 +71,14 @@ function useLiveSession(lessonId) {
   const [joinError, setJoinError] = useState('');
   const [busy, setBusy] = useState(false);
   const [quiz, setQuiz] = useState({ state: 'off', q: -1 }); // Mustahkamlash-jang holati (serverdan)
+  const [revealScreen, setRevealScreen] = useState(-1); // Kahoot-reveal: mentor natijasini ochgan ekran (serverdan)
   const lastSeenRef = useRef(Date.now());
   const lastUpdatedRef = useRef(null);
   const syncQuiz = useCallback((row) => {
     const qs = row?.quiz_state || 'off', qq = row?.quiz_q ?? -1;
     setQuiz(p => (p.state === qs && p.q === qq) ? p : { state: qs, q: qq });
+    const rv = row?.reveal_screen ?? -1;
+    setRevealScreen(p => p === rv ? p : rv);
   }, []);
 
   // O'QUVCHI: visibility-aware + backoff polling
@@ -125,6 +129,8 @@ function useLiveSession(lessonId) {
       if (!row?.pin) throw new Error('no pin');
       tokenRef.current = row.token; setPin(row.pin); setMode('mentor'); setEnded(false);
       liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
+      // Javob kalitini serverga avto-yuklash (mentor-kod bilan) — bu dars uchun endi kalit SQL SHART EMAS
+      if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
     } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
     finally { setBusy(false); }
   }, [lessonId]);
@@ -180,7 +186,15 @@ function useLiveSession(lessonId) {
     setQuiz({ state, q: q ?? -1 });
   }, [mode, pin]);
 
-  return { mode, pin, mentorScreen, status, mentorAlive, connected, ended, joinError, busy, startMentor, joinStudent, selfStudy, reportScreen, endSession, submitAnswer, quiz, quizControl, playerId: playerRef.current?.id || null, nickname: nickRef.current };
+  // Kahoot-reveal (faqat mentor): «Natijani ochish» — to'g'ri javob barcha
+  // o'quvchilar ekranida ham birdan ochiladi (o'quvchi polling orqali oladi)
+  const mentorReveal = useCallback((screenIdx) => {
+    if (mode !== 'mentor' || !pin) return;
+    setRevealScreen(screenIdx); // optimistik — proyektorda darhol
+    liveRpc('reveal_screen', { p_pin: pin, p_token: tokenRef.current, p_screen: screenIdx }).catch(() => {});
+  }, [mode, pin]);
+
+  return { mode, pin, mentorScreen, status, mentorAlive, connected, ended, joinError, busy, startMentor, joinStudent, selfStudy, reportScreen, endSession, submitAnswer, quiz, quizControl, revealScreen, mentorReveal, playerId: playerRef.current?.id || null, nickname: nickRef.current };
 }
 
 const _liveBtnPri = { background: LT.accent, color: '#fff', border: 'none', borderRadius: 12, padding: '14px 20px', fontSize: 16, fontWeight: 700, cursor: 'pointer' };
@@ -207,7 +221,7 @@ function LiveGate({ live, title = 'Jonli dars' }) {
   const [mentorCode, setMentorCode] = useState('');
   const [role, setRole] = useState('student');
   const card = { position: 'relative', width: '100%', maxWidth: 420, background: LT.paper, borderRadius: 20, padding: 'clamp(24px,4vw,36px)', boxShadow: '0 10px 40px -12px rgba(58,53,48,0.22)', display: 'flex', flexDirection: 'column', gap: 18 };
-  const wrap = { minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
+  const wrap = { minHeight: 'calc(100dvh / var(--lz, 1))', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 };
   const link = { background: 'none', border: 'none', color: LT.ink3, fontSize: 13, cursor: 'pointer', alignSelf: 'center' };
   if (role === 'mentor') {
     return (<div style={wrap}><div style={card}>
@@ -285,7 +299,7 @@ function LiveBadge({ live, total }) {
 const T = {
   bg: '#F6F4EF', ink: '#0E0E10', ink2: '#5A5A60', ink3: '#A7A6A2',
   paper: '#FFFFFF', accent: '#FF4F28', accentSoft: '#FFE8E1', accentVivid: '#FF4F28',
-  success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', link: '#1a56db',
+  success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', blueSoft: '#E2F4FA', link: '#1a56db',
   shadowBase: '58, 53, 48'
 };
 const CODE = { bg: '#1A2436', text: '#E8E5DD', tag: '#FF7755', attr: '#FFD380', str: '#7DD181', comment: '#6B7585', punct: '#9FB4D8' };
@@ -432,7 +446,7 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(768); // mobil: Mentor yig'ilish rejimi
   const collapseOn = (isNarrow || mentorCollapse) && !mentorStatic; // mentorCollapse — desktopda ham yig'iladi
-  const padH = isMobile ? 12 : 100;
+  const padH = isMobile ? 12 : 60; // desktop: 100 → 60 (kontent kengaydi, shriftlar o'z o'lchamida)
   const [mCollapsed, setMCollapsed] = useState(false);
   const contentRef = useRef(null);
   useEffect(() => { setMCollapsed(false); }, [screen]); // har ekranda Mentor ochiq holatdan boshlanadi
@@ -482,7 +496,7 @@ const NavNext = ({ disabled, label = 'Davom etish', onClick, optionalLive }) => 
   return <button className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
 };
 
-const FeedbackBlock = ({ show, isCorrect, children }) => {
+const FeedbackBlock = ({ show, isCorrect, neutral, children }) => {
   const [mounted, setMounted] = useState(show);
   const [visible, setVisible] = useState(false);
   const ref = useRef(null);
@@ -491,7 +505,7 @@ const FeedbackBlock = ({ show, isCorrect, children }) => {
     else { setVisible(false); const t = setTimeout(() => setMounted(false), 400); return () => clearTimeout(t); }
   }, [show]);
   if (!mounted) return null;
-  return <div ref={ref} className={`feedback-block ${visible ? 'visible' : ''}`}><div className={isCorrect ? 'frame-success' : 'frame-soft'}>{children}</div></div>;
+  return <div ref={ref} className={`feedback-block ${visible ? 'visible' : ''}`}><div className={neutral ? 'frame-wait' : isCorrect ? 'frame-success' : 'frame-soft'}>{children}</div></div>;
 };
 
 const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, options, correctIdx, explainCorrect, explainWrong, audioText, audioOk, audioWrong, storedAnswer, onAnswer, onNext, onPrev }) => {
@@ -510,7 +524,11 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
   // 📖 Qayta tushuntirish (recap) — natija past chiqsa mentor ochadi; o'quvchi xato qilsa o'zi ham ochishi mumkin
   const [recapOpen, setRecapOpen] = useState(false);
   const hasRecap = !!RECAPS[screen];
-  const doReveal = () => { setMReveal(true); if (storedAnswer === undefined) onAnswer(screen, { mentorRevealed: true }); };
+  // «Natijani ochish» — proyektorda ham, BARCHA o'quvchilar ekranida ham birdan ochiladi (Kahoot reveal)
+  const doReveal = () => { setMReveal(true); if (live) live.mentorReveal(screen); if (storedAnswer === undefined) onAnswer(screen, { mentorRevealed: true }); };
+  // Mentor sahifani yangilagan bo'lsa — reveal holati serverdan tiklanadi
+  const liveRevealScreen = live ? live.revealScreen : -1;
+  useEffect(() => { if (isMentorLive && liveRevealScreen === screen) setMReveal(true); }, [isMentorLive, liveRevealScreen, screen]);
   const pick = (i) => {
     if (solved || isMentorLive) return;
     const isCorrect = i === correctIdx;
@@ -528,9 +546,12 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
     if (audioText) { audio.triggerEvent('option_picked'); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(isCorrect ? (audioOk || "To'g'ri.") : (audioWrong || "Unchalik emas. Qaytadan urinib ko'ring.")); }, 300); }
   };
   const wrongLocked = oneShot && solved && picked !== correctIdx; // jonli darsda xato bosib qotgan
-  // Xato bosganda to'g'ri javob DARHOL ochilmaydi (yashil yashirin) — mentor keyingi
-  // sahifaga o'tganda / dars tugaganda hamma ekranda birdan ochiladi (Kahoot uslubidagi reveal)
-  const revealed = !wrongLocked || !!(live && (live.mentorScreen > screen || live.status === 'ended' || !live.mentorAlive));
+  // KAHOOT REVEAL: jonli darsda javob bosilgach to'g'ri/XATO ham sir saqlanadi —
+  // faqat «javob qabul qilindi» ko'rinadi. Mentor «Natijani ochish»ni bosganda
+  // (reveal_screen) yoki keyingi sahifaga o'tganda / dars tugaganda hammada birdan ochiladi.
+  // Erkin rejimda (ended / mentor uzilgan / self) natija darhol ko'rinadi.
+  const revealed = !oneShot || !!(live && (live.revealScreen === screen || live.mentorScreen > screen || live.status === 'ended' || !live.mentorAlive));
+  const waiting = oneShot && solved && !revealed; // javob qotdi — natija mentordan kutilmoqda
   return (
     <Stage eyebrow={eyebrow} screen={screen} narrow audioState={audioText ? audio : undefined} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={isMentorLive ? !mReveal : !solved} label={isMentorLive ? (mReveal ? 'Davom etish' : 'Avval natijani oching') : solved ? 'Davom etish' : (oneShot ? 'Javob tanlang' : "To'g'ri javobni toping")} onClick={onNext} /></>}>
       <div className="screen" style={{ justifyContent: isMentorLive ? 'flex-start' : 'safe center', gap: 'clamp(16px,2.5vw,24px)' }}>
@@ -542,7 +563,7 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
             if (isMentorLive) {
               if (mReveal) { if (i === correctIdx) cls += ' option-correct'; else cls += ' option-wrong'; } // reveal'gacha hammasi neytral — proyektorda sir saqlanadi
             } else if (solved) {
-              if (wrongLocked && !revealed) { if (i === picked) cls += ' option-picked-wrong'; } // faqat o'ziniki qizil — to'g'risi hali sir
+              if (waiting) { if (i === picked) cls += ' option-wait'; } // faqat neytral belgi — to'g'ri/xato hali sir
               else { if (i === correctIdx) cls += ' option-correct'; else cls += ' option-wrong'; if (wrongLocked && i === picked) cls += ' option-picked-wrong'; }
             }
             else if (i === picked) cls += ' option-picked-wrong';
@@ -555,22 +576,24 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
             );
           })}
         </div>
-        <FeedbackBlock show={isMentorLive ? mReveal : picked !== null} isCorrect={isMentorLive ? true : (solved && !wrongLocked)}>
-          <p className="small mono" style={{ margin: '0 0 6px', fontWeight: 600, color: (isMentorLive || (solved && !wrongLocked)) ? T.success : T.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <FeedbackBlock show={isMentorLive ? mReveal : picked !== null} isCorrect={isMentorLive ? true : (solved && !wrongLocked)} neutral={waiting}>
+          <p className="small mono" style={{ margin: '0 0 6px', fontWeight: 600, color: waiting ? T.blue : (isMentorLive || (solved && !wrongLocked)) ? T.success : T.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {isMentorLive
               ? `✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
-              : wrongLocked
-                ? (revealed ? `To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}` : '📨 Javobingiz qabul qilindi')
-                : solved ? "To'g'ri" : "Qaytadan urinib ko'ring"}
+              : waiting
+                ? '📨 Javobingiz qabul qilindi'
+                : wrongLocked
+                  ? `To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+                  : solved ? "To'g'ri" : "Qaytadan urinib ko'ring"}
           </p>
           <p className="body" style={{ margin: 0 }}>
             {isMentorLive
               ? explainCorrect
-              : wrongLocked
-                ? (revealed
+              : waiting
+                ? "Javobingiz yozib olindi 🤫 To'g'rimi-xatomi — hozircha sir! Mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
+                : wrongLocked
                   ? (explainWrong[picked] ?? explainWrong.default)
-                  : "Bu safar to'g'ri chiqmadi. To'g'ri javob mentor keyingi sahifaga o'tganda ochiladi — hozircha o'zingiz o'ylab ko'ring: qaysi variant bo'lishi mumkin edi? 🤔")
-                : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
+                  : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
           </p>
           {/* Xato qilgan o'quvchi (yoki mustaqil o'quvchi) mavzuni qisqa kartalarda qayta ko'radi.
               Jonli darsda — javob sirini saqlash uchun faqat reveal'dan keyin chiqadi. */}
@@ -642,7 +665,7 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
         </div>
       )}
       {!reveal && answered > 0 && (
-        <p className="mstats-hidden">🙈 Kim nimani tanlagani va ✅/❌ soni yashirin — «Natijani ochish» bosilganda ochiladi.</p>
+        <p className="mstats-hidden">🙈 Kim nimani tanlagani va ✅/❌ soni yashirin — «Natijani ochish» bosilganda sizda ham, o'quvchilar ekranida ham birdan ochiladi.</p>
       )}
 
       {/* Variantlar taqsimoti — FAQAT reveal'dan keyin (to'g'risi yashil ajralib turadi) */}
@@ -793,7 +816,7 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
   return (
     <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext optionalLive disabled={picked === null} label="Davom etish" onClick={onNext} />}>
       <div className="screen">
-        <h1 className="title h-title fade-up" style={{ maxWidth: 760 }}>Sayt manzilini yozib Enter bossangiz, u <span className="italic" style={{ color: T.accent }}>qayerdan</span> keladi?</h1>
+        <h1 className="title h-title fade-up">Sayt manzilini yozib Enter bossangiz, u <span className="italic" style={{ color: T.accent }}>qayerdan</span> keladi?</h1>
         <Mentor>Telefon yoki kompyuterda <b style={{ color: T.ink }}>youtube.com</b> yozib Enter bossangiz — bir soniyada sayt chiqadi. Lekin shu bir soniya ichida ekran ortida so'rovingiz katta <b style={{ color: T.ink }}>yo'lni</b> bosib o'tadi. Avval tugmani bosing, keyin taxmin qiling: sayt qayerdan keladi?</Mentor>
         <Split>
           <Col>
@@ -2229,6 +2252,8 @@ const QZ_BG_SHAPES = [
   { ch: '▲', l: 93, t: 42, s: 48,  c: 'rgba(160,120,255,0.14)', d: 24, dl: 1.3 },
   { ch: '●', l: 2,  t: 45, s: 44,  c: 'rgba(255,80,110,0.10)',  d: 26, dl: 2.6 },
 ];
+// Server-baholash javob kaliti (dars ichidagi testlar). quiz-N jang savollari QUIZ_BANK'dan avto-qo'shiladi.
+const INLINE_KEYS = { s4: 1, s5b: 2, s9: 3, s12: 1, s15: 2 };
 const QUIZ_BANK = [
   { q: "youtube.com yozib Enter bosdingiz. Brauzer ENG BIRINCHI kimga murojaat qiladi?", opts: ['Serverga', "DNS'ga", 'Ekranga', "Wi-Fi routerga"], correct: 1 },
   { q: "DNS'ning asl vazifasi qaysi qatorda?", opts: ['Saytni ekranga chizish', 'Sahifalarni saqlash', "Domenni IP raqamga aylantirish", 'Internet tezligini oshirish'], correct: 2 },
@@ -2335,7 +2360,8 @@ function QuizArena({ live, onClose, startSolo }) {
         const st1 = row ? (row.quiz_state || 'off') : null;
         const ph = st1 === 'r' ? 'reveal' : st1 === 'done' ? 'done' : st1 === 'lobby' ? 'lobby' : st1 === 'q' ? 'q' : phaseRef.current;
         if (on) setClassEnded(!row || row.status === 'ended'); // mentor «Erkin qilish» bosgan — arenada qutqaruv ko'rinadi
-        if (ph === 'lobby' || ph === 'reveal' || ph === 'done') {
+        // phaseRef sharti — himoya: lokal reveal (taymer tugagan), server hali 'q' bo'lsa ham natijalar yuklanadi
+        if (ph === 'lobby' || ph === 'reveal' || ph === 'done' || phaseRef.current === 'reveal') {
           const [pl, qa] = await Promise.all([livePlayers(live.pin), liveQuizAnswers(live.pin)]);
           if (on) { setPlayers(pl); setQRows(qa); }
         } else if (ph === 'q' && isMentor) {
@@ -2349,16 +2375,22 @@ function QuizArena({ live, onClose, startSolo }) {
     return () => { on = false; clearTimeout(t); };
   }, []); // eslint-disable-line
 
-  // Taymer — 100ms aniqlikda; vaqt tugasa javob ochiladi
+  // Taymer — 100ms aniqlikda; vaqt tugasa javob ochiladi.
+  // MENTOR: serverni ham 'r' ga o'tkazamiz — aks holda server 'q'ligicha qolib,
+  // poll natijalarni yuklamaydi va hisoblagichlar/TOP-5 nolda qotib qolardi.
   useEffect(() => {
     if (phase !== 'q') return;
     const iv = setInterval(() => {
       const rem = deadlineRef.current - Date.now();
       setRemaining(rem > 0 ? rem : 0);
-      if (rem <= 0) setPhase('reveal');
+      if (rem <= 0) {
+        clearInterval(iv);
+        setPhase('reveal');
+        if (isMentor && !soloRef.current) ctrl('r', seenQRef.current); // Kahoot: vaqt tugadi — natija hammaga ochiladi
+      }
     }, 100);
     return () => clearInterval(iv);
-  }, [phase, qi]);
+  }, [phase, qi]); // eslint-disable-line
 
   // Mentor boshqaruvi (optimistik lokal o'tish + server)
   const ctrl = async (state, q) => {
@@ -2668,13 +2700,29 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
   const [screen, setScreen] = useState(0);
   const [answers, setAnswers] = useState({});
   const startTimeRef = useRef(Date.now());
+  // ETALON — 1920px: shu kenglikda tasdiqlangan ko'rinish (1100px konteyner, 1x shrift).
+  // Kengroq oynada (2K monitor, ultrawide, brauzer zoom <100%) butun dars proportsional
+  // kattalashadi — ko'rinish har qanday keng ekranda ham etalondagidek qoladi.
+  // 1920 va undan tor ekranlarda z=1 (hech narsa o'zgarmaydi, mobil ham tegilmaydi).
+  useEffect(() => {
+    const upd = () => {
+      const z = Math.min(1.5, Math.max(1, window.innerWidth / 1920));
+      document.documentElement.style.setProperty('--lz', String(Math.round(z * 1000) / 1000));
+    };
+    upd();
+    window.addEventListener('resize', upd);
+    return () => window.removeEventListener('resize', upd);
+  }, []);
+
   const next = () => setScreen(s => Math.min(s + 1, TOTAL_SCREENS - 1));
   const prev = () => setScreen(s => Math.max(s - 1, 0));
   const recordAnswer = (idx, data) => setAnswers(a => ({ ...a, [idx]: data }));
   const reset = () => { setAnswers({}); setScreen(0); startTimeRef.current = Date.now(); };
 
   // Jonli dars: o'quvchi mentordan oldinga o'tolmaydi (high-water mark)
-  const live = useLiveSession(LESSON_META.lessonId);
+  // Javob kaliti: inline testlar + jang savollari (QUIZ_BANK'dan) — mentor darsni ochganda serverga yuklanadi
+  const answerKey = { ...INLINE_KEYS, ...Object.fromEntries(QUIZ_BANK.map((q, i) => [`quiz-${i}`, q.correct])) };
+  const live = useLiveSession(LESSON_META.lessonId, answerKey);
   const isStudentLive = live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
   const locked = isStudentLive && (screen + 1 > live.mentorScreen);
   // Mentor: har sahifa almashganda o'z holatini e'lon qiladi
@@ -2710,7 +2758,7 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,500&family=Manrope:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400&family=JetBrains+Mono:wght@400;500;700&display=swap');
         html, body { margin: 0; padding: 0; }
         .lesson-root, .lesson-root * { box-sizing: border-box; }
-        .lesson-root { font-family: 'Manrope', system-ui, sans-serif; color: ${T.ink}; background: ${T.bg}; height: 100dvh; overflow: hidden; -webkit-font-smoothing: antialiased; font-feature-settings: "ss01","cv11"; }
+        .lesson-root { font-family: 'Manrope', system-ui, sans-serif; color: ${T.ink}; background: ${T.bg}; zoom: var(--lz, 1); height: calc(100dvh / var(--lz, 1)); overflow: hidden; -webkit-font-smoothing: antialiased; font-feature-settings: "ss01","cv11"; }
         .lesson-root h1,.lesson-root h2,.lesson-root h3,.lesson-root h4,.lesson-root h5,.lesson-root h6,.lesson-root p,.lesson-root ul,.lesson-root ol { margin: 0; padding: 0; }
         .bp-body ul { list-style-type: disc; list-style-position: outside; padding-left: 24px; }
         .bp-body ol { list-style-type: decimal; list-style-position: outside; padding-left: 24px; }
@@ -2731,7 +2779,7 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .zoom-btn { position: absolute; top: 6px; right: 6px; z-index: 5; width: 30px; height: 30px; border-radius: 8px; border: none; background: rgba(255,255,255,0.82); color: ${T.ink2}; font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.22); transition: all 0.2s; }
         .zoom-btn:hover { background: ${T.paper}; color: ${T.accent}; transform: scale(1.08); }
         .zoom-backdrop { position: fixed; inset: 0; background: rgba(14,14,16,0.55); z-index: 1000; animation: fade-step 0.25s ease; }
-        .zoom-on { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(880px,94vw); max-height: 90vh; overflow: auto; z-index: 1001; background: ${T.paper}; border-radius: 18px; padding: clamp(20px,4vw,42px); box-shadow: 0 30px 80px -20px rgba(${T.shadowBase},0.5); animation: zoom-pop 0.3s cubic-bezier(.34,1.3,.4,1); }
+        .zoom-on { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(880px,94vw); max-height: calc(90vh / var(--lz, 1)); overflow: auto; z-index: 1001; background: ${T.paper}; border-radius: 18px; padding: clamp(20px,4vw,42px); box-shadow: 0 30px 80px -20px rgba(${T.shadowBase},0.5); animation: zoom-pop 0.3s cubic-bezier(.34,1.3,.4,1); }
         @keyframes zoom-pop { from { opacity: 0; transform: translate(-50%,-50%) scale(0.93); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
         .d1 { animation-delay: 0.12s; } .d2 { animation-delay: 0.24s; } .d3 { animation-delay: 0.36s; } .d4 { animation-delay: 0.48s; }
 
@@ -2756,6 +2804,8 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .option-correct { background: ${T.successSoft} !important; color: ${T.success} !important; box-shadow: 0 8px 22px -6px rgba(31,122,77,0.32) !important; }
         .option-wrong { background: ${T.paper} !important; color: ${T.ink3} !important; opacity: 0.55 !important; box-shadow: 0 4px 12px -6px rgba(${T.shadowBase},0.08) !important; }
         .option-picked-wrong { background: ${T.accentSoft} !important; color: ${T.accent} !important; box-shadow: 0 8px 22px -6px rgba(255,79,40,0.38) !important; }
+        /* Kahoot-reveal: javob qotdi, natija hali sir — neytral ko'k belgi (to'g'ri/xato sezdirmaydi) */
+        .option-wait { background: ${T.blueSoft} !important; color: ${T.blue} !important; box-shadow: inset 0 0 0 2px ${T.blue}, 0 8px 22px -8px rgba(1,154,203,0.3) !important; }
 
         .chip { font-family: 'Manrope', sans-serif; font-weight: 600; font-size: clamp(13px,1.6vw,15px); display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 99px; border: none; background: ${T.paper}; color: ${T.ink}; cursor: pointer; transition: all 0.18s; box-shadow: 0 4px 12px -5px rgba(${T.shadowBase},0.18); }
         .tagpill { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; background: ${T.paper}; color: ${T.ink}; box-shadow: 0 3px 10px -5px rgba(${T.shadowBase},0.18); transition: opacity 0.2s; }
@@ -2820,7 +2870,7 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .small { font-size: clamp(12.5px,1.4vw,13.5px); }
 
         /* === STAGE v15 (sticky header, 936px) === */
-        .stage { max-width: 936px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; }
+        .stage { max-width: 1100px; margin: 0 auto; height: calc(100dvh / var(--lz, 1)); display: flex; flex-direction: column; }
         .stage-header { flex-shrink: 0; background: ${T.bg}; padding-top: clamp(12px,2vw,18px); padding-bottom: clamp(8px,1.5vw,12px); }
         .stage-content { flex: 1; min-height: 0; padding-top: clamp(10px,1.7vw,16px); padding-bottom: clamp(17px,3.4vw,34px); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
         .stage-content.narrow { max-width: 680px; width: 100%; margin: 0 auto; }
@@ -2837,6 +2887,7 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .frame-success { background: ${T.successSoft}; border-left: 4px solid ${T.success}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -6px rgba(31,122,77,0.22); }
         .frame-ok { background: ${T.successSoft}; border-left: 4px solid ${T.success}; border-radius: 12px; padding: 12px 15px; }
         .frame-warn { background: ${T.accentSoft}; border-left: 4px solid ${T.accent}; border-radius: 12px; padding: 12px 15px; }
+        .frame-wait { background: ${T.blueSoft}; border-left: 4px solid ${T.blue}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -8px rgba(1,154,203,0.22); }
         .frame-dash { border: 1.5px dashed ${T.ink3}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); }
 
         /* === LAYOUT === */
