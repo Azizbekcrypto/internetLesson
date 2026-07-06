@@ -2355,10 +2355,9 @@ function DragDropOrder({ items, hints, onSolved }) {
   );
 }
 
-// 🐞 Qayta ishlatiladigan DEBUG CHALLENGE — buzuq kod + JONLI preview (buzuq→to'g'ri).
-// O'quvchi xato qatorni topib bosadi → kod tuzaladi VA preview ko'z oldida to'g'rilanadi.
-// Boshqa darsga: `lines`, `fixed`, `explain`, `renderPreview(ok)` almashtiriladi.
-function DebugChallenge({ lines, fixed, explain, renderPreview, onSolved }) {
+// 🐞 Qayta ishlatiladigan DEBUG CHALLENGE — buzuq koddan xato qatorni topib bosish → tuzatiladi.
+// Boshqa darsga: `lines` (bittasida bug:true), `fixed` (to'g'ri qator), `explain` almashtiriladi.
+function DebugChallenge({ lines, fixed, explain, onSolved }) {
   const bugIdx = lines.findIndex(l => l.bug);
   const [picked, setPicked] = useState(-1);
   const [wrongIdx, setWrongIdx] = useState(-1);
@@ -2371,30 +2370,17 @@ function DebugChallenge({ lines, fixed, explain, renderPreview, onSolved }) {
   };
   return (
     <div className="dbg fade-up">
-      <div className="dbg-split">
-        <div className="dbg-codewrap">
-          <span className="dbg-lbl">&lt;/&gt; HTML kod{!solved ? ' — bittasi buzuq' : ''}</span>
-          <div className="dbg-code">
-            {lines.map((l, i) => (
-              <div key={i} className={`dbg-line ${solved && i === bugIdx ? 'fixed' : ''} ${wrongIdx === i ? 'wrong' : ''}`} onClick={() => click(i)}>
-                <span className="dbg-ln">{i + 1}</span>
-                <span className="dbg-txt">{solved && i === bugIdx ? fixed : l.text}</span>
-                {solved && i === bugIdx && <span className="dbg-badge">✓</span>}
-              </div>
-            ))}
+      <div className="dbg-code">
+        {lines.map((l, i) => (
+          <div key={i} className={`dbg-line ${solved && i === bugIdx ? 'fixed' : ''} ${wrongIdx === i ? 'wrong' : ''}`} onClick={() => click(i)}>
+            <span className="dbg-ln">{i + 1}</span>
+            <span className="dbg-txt">{solved && i === bugIdx ? fixed : l.text}</span>
+            {solved && i === bugIdx && <span className="dbg-badge">✓ tuzatildi</span>}
           </div>
-        </div>
-        <div className="dbg-codewrap">
-          <span className="dbg-lbl">📺 Sahifada shunday ko'rinadi</span>
-          <div className={`dbg-preview ${solved ? 'ok' : 'bad'}`}>
-            <div className="bp-bar"><span className="bb-dots"><i /><i /><i /></span><span className="bp-title">sahifa.html</span></div>
-            <div className="dbg-pv-body">{renderPreview ? renderPreview(solved) : null}</div>
-          </div>
-          <span className={`dbg-pv-tag ${solved ? 'ok' : 'bad'}`}>{solved ? "✓ endi to'g'ri ko'rinyapti" : "⚠️ nimadir xato ko'rinyapti"}</span>
-        </div>
+        ))}
       </div>
       {!solved
-        ? <p className="dbg-hint">👆 Preview'ga qarang — nega hammasi katta chiqdi? Koddan sababini (xato qatorni) toping.</p>
+        ? <p className="dbg-hint">👆 Xato bor qatorni toping va bosing</p>
         : <div className="dbg-ok">✓ Topdingiz! {explain}</div>}
     </div>
   );
@@ -2554,18 +2540,11 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
         {wrapped && (
           <div className="dbg-box">
             <p className="eyebrow" style={{ color: T.accent, margin: '2px 0 0' }}>🐞 Endi xatoni toping</p>
-            <p className="body" style={{ margin: '2px 0 8px', color: T.ink2, fontSize: 13.5 }}>Sahifada <b style={{ color: T.ink }}>hamma matn katta</b> bo'lib ketgan — bitta teg yopilmagan. Koddan xato qatorni toping.</p>
+            <p className="body" style={{ margin: '2px 0 8px', color: T.ink2, fontSize: 13.5 }}>Bu kodda bitta teg <b style={{ color: T.ink }}>noto'g'ri yopilgan</b>. Xato qatorni bosing.</p>
             <DebugChallenge
-              lines={[
-                { text: '<h1>Mening saytim', bug: true },
-                { text: '<p>Xush kelibsiz!</p>' },
-                { text: '<p>Bu — birinchi saytim.</p>' },
-              ]}
+              lines={[{ text: '<h1>Mening saytim<h1>', bug: true }, { text: '<p>Xush kelibsiz!</p>' }]}
               fixed={'<h1>Mening saytim</h1>'}
-              explain={"<h1> yopilmagani uchun keyingi matnlar ham katta bo'lib ketdi. </h1> qo'shsak — faqat sarlavha katta qoladi."}
-              renderPreview={(ok) => ok
-                ? (<><p className="pv-h1">Mening saytim</p><p className="pv-plain">Xush kelibsiz!</p><p className="pv-plain">Bu — birinchi saytim.</p></>)
-                : (<><p className="pv-h1">Mening saytim</p><p className="pv-h1">Xush kelibsiz!</p><p className="pv-h1">Bu — birinchi saytim.</p></>)}
+              explain={"Yopuvchi tegda / belgisi bo'lishi kerak: </h1>"}
               onSolved={() => setDbgDone(true)} />
           </div>
         )}
@@ -2968,17 +2947,24 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
             </div>
           </div>
           <div className="col">
+            {/* JONLI preview — boshidan BUZUQ ko'rinadi (h1 yopilmagani uchun hammasi katta), tuzatgach to'g'rilanadi */}
+            <div className="flow-label">{fixed ? "Endi sahifa to'g'ri ishlaydi" : "Hozir sahifa shunday ko'rinadi"}</div>
+            <div className="bp-window fade-up delay-2" style={{ border: `2px solid ${fixed ? T.success : 'rgba(226,72,72,0.5)'}`, transition: 'border-color 0.35s' }}>
+              <div className="bp-bar"><span className="bb-dots"><i /><i /><i /></span><span className="bp-title">sahifa.html</span></div>
+              <div className="bp-body" style={{ display: 'block' }}>
+                {fixed
+                  ? (<><h1 key="okh" className="fade-step" style={{ fontFamily: G, fontSize: 'clamp(20px,2.8vw,26px)', color: T.ink, margin: '0 0 6px' }}>Salom!</h1><p style={{ fontFamily: G, color: T.ink2, margin: 0, fontSize: 'clamp(13px,1.8vw,15px)' }}>Bu mening saytim.</p></>)
+                  : (<><p style={{ fontFamily: G, fontWeight: 700, fontSize: 'clamp(19px,2.7vw,25px)', color: T.ink, margin: '0 0 6px' }}>Salom!</p><p style={{ fontFamily: G, fontWeight: 700, fontSize: 'clamp(19px,2.7vw,25px)', color: T.ink, margin: 0 }}>Bu mening saytim.</p></>)}
+              </div>
+            </div>
+            <p style={{ margin: 0, fontFamily: "'Manrope', sans-serif", fontWeight: 700, fontSize: 12.5, color: fixed ? T.success : '#E24848' }}>{fixed ? "✓ endi to'g'ri ko'rinyapti" : "⚠️ ikkala matn ham katta bo'lib ketgan — bitta teg yopilmagan"}</p>
             {!found && (
               picked === 'p'
                 ? (<div className="frame-warn fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>Bu qator to'g'ri — <span className="mono">&lt;p&gt;</span> ochildi va <span className="mono">&lt;/p&gt;</span> bilan yopildi. Yana qarang: qaysi teg yopilmagan?</p></div>)
-                : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Endi siz teglarni bilasiz — AI yozgan kodni <b style={{ color: T.ink }}>tekshira olasiz</b>. Qaysi teg ochilib, yopilmagan?</p></div>)
+                : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Preview'ga qarang — nega <b style={{ color: T.ink }}>ikkala matn ham katta</b>? Koddan qaysi teg <b style={{ color: T.ink }}>ochilib, yopilmaganini</b> toping.</p></div>)
             )}
-            {found && !fixed && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>✓ Topdingiz!</p><p className="body" style={{ margin: 0, color: T.ink }}><span className="mono">&lt;h1&gt;</span> ochildi, lekin <span className="mono">&lt;/h1&gt;</span> bilan yopilmagan. Chap tomondagi tugmani bosib tuzating →</p></div>)}
-            {fixed && (<>
-              <div className="flow-label">Endi sahifa to'g'ri ishlaydi</div>
-              <div className="bp-window fade-step"><div className="bp-bar"><span className="bb-dots"><i /><i /><i /></span><span className="bp-title">sahifa.html</span></div><div className="bp-body" style={{ display: 'block' }}><h1 style={{ fontFamily: G, fontSize: 'clamp(20px,2.8vw,26px)', color: T.ink, margin: '0 0 6px' }}>Salom!</h1><p style={{ fontFamily: G, color: T.ink2, margin: 0, fontSize: 'clamp(13px,1.8vw,15px)' }}>Bu mening saytim.</p></div></div>
-              <div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Topding va tuzatding — bu debugging!</p><p className="ta-sub">AI tez yozadi, siz tekshirib tuzatasiz — zo'r jamoa</p></div>
-            </>)}
+            {found && !fixed && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>✓ Topdingiz!</p><p className="body" style={{ margin: 0, color: T.ink }}><span className="mono">&lt;h1&gt;</span> ochildi, lekin <span className="mono">&lt;/h1&gt;</span> bilan yopilmagan — shu tufayli pastdagi matn ham sarlavhaga qo'shilib ketdi. Chap tomondagi tugmani bosib tuzating →</p></div>)}
+            {fixed && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Topding va tuzatding — bu debugging!</p><p className="ta-sub">AI tez yozadi, siz tekshirib tuzatasiz — zo'r jamoa</p></div>)}
           </div>
         </div>
       </div>
@@ -4141,19 +4127,6 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         /* === 🐞 DEBUG CHALLENGE (reusable) === */
         .dbg-box { display: flex; flex-direction: column; border-top: 1.5px dashed ${T.line}; padding-top: 12px; margin-top: 6px; animation: sk-swapin 0.5s cubic-bezier(.34,1.3,.4,1); }
         .dbg { display: flex; flex-direction: column; gap: 10px; }
-        .dbg-split { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; align-items: start; }
-        @media (max-width: 720px) { .dbg-split { grid-template-columns: 1fr; } }
-        .dbg-codewrap { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-        .dbg-lbl { font-family: 'Manrope'; font-weight: 700; font-size: 11.5px; letter-spacing: 0.03em; color: ${T.ink3}; text-transform: uppercase; }
-        .dbg-preview { border-radius: 14px; overflow: hidden; background: ${T.paper}; box-shadow: 0 10px 26px -14px rgba(${T.shadowBase},0.35); border: 2px solid transparent; transition: border-color .3s; }
-        .dbg-preview.bad { border-color: rgba(226,72,72,0.55); }
-        .dbg-preview.ok { border-color: ${T.success}; }
-        .dbg-pv-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; min-height: 118px; }
-        .dbg-pv-body .pv-h1 { font-size: clamp(19px,2.6vw,25px); }
-        .dbg-pv-body .pv-plain { font-family: 'Georgia, serif'; color: ${T.ink2}; margin: 0; font-size: 15px; }
-        .dbg-pv-tag { font-family: 'Manrope'; font-weight: 700; font-size: 12.5px; }
-        .dbg-pv-tag.bad { color: #E24848; }
-        .dbg-pv-tag.ok { color: ${T.success}; }
         .dbg-code { background: ${CODE.bg}; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 10px 26px -14px rgba(${T.shadowBase},0.4); overflow-x: auto; }
         .dbg-line { display: flex; align-items: center; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: clamp(13px,1.8vw,15px); color: ${CODE.text}; padding: 8px 12px; border-radius: 9px; cursor: pointer; border: 1.5px solid transparent; transition: background .15s, border-color .15s; white-space: nowrap; }
         .dbg-line:hover { background: rgba(255,255,255,0.06); }
