@@ -1314,6 +1314,7 @@ const SCREEN_META = [
   { id: 's14', type: 'case',        template: 'custom',   scored: false, scope: null },
   { id: 's13', type: 'rule',        template: 'custom',   scored: false, scope: null },
   { id: 's15b', type: 'stats',      template: 'custom',   scored: false, scope: null },
+  { id: 'sflash', type: 'review',   template: 'custom',   scored: false, scope: null },
   { id: 's16', type: 'summary',     template: 'custom',   scored: false, scope: null }
 ];
 const TOTAL_SCREENS = SCREEN_META.length;
@@ -3065,6 +3066,21 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
+// ===== SCREEN: FLASHCARD TAKRORLASH (yakuniy summarydan oldin) =====
+const ScreenFlashcards = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 'sflash', text: `Darsni yakunlashdan oldin, bugun o'rgangan teglarni tez takrorlaymiz. Har kartada bir vazifa — qaysi teg ekanini o'ylang, keyin kartani bosib tekshiring.`, trigger: 'on_mount', waits_for: null }]);
+  useEffect(() => { if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, []); // eslint-disable-line
+  return (
+    <Stage eyebrow="Takrorlash" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={false} label="Yakunlash →" onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up">Teglarni <span className="italic" style={{ color: T.accent }}>tez takrorlaymiz</span>.</h2></div>
+        <Mentor>Darsni yakunlashдан oldin bugun o'rgangan teglarni takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>qaysi teg</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
+        <div className="fc-center"><Flashcards cards={HTML_FLASHCARDS} /></div>
+      </div>
+    </Stage>
+  );
+};
+
 // ===== SCREEN 16 — YAKUN =====
 const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
   const _gate = useContext(LiveGateCtx) || {};
@@ -3085,6 +3101,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
   const audio = useAudio([{ id: 's16', text: "Dars yakunlandi. Birinchi saytingizni yasadingiz! Asosiyni eslab qoling: HTML — veb-sahifalar tili, brauzer HTMLni o'qib sahifani ko'rsatadi, teg ochiladi va yopiladi.", trigger: 'on_mount', waits_for: null }]);
   const RECAP = ['HTML bilan veb-sahifa yasash', 'Sahifa skeletini qurish (head, body)', 'Teglarni ochish va yopish', 'Sarlavha (h1–h6) va matn (strong, em)', "Ro'yxat (ul/ol) va havola (a) qo'shish"];
   const HOMEWORK = [{ b: 'Sarlavha (h1)', t: '— ismingiz' }, { b: '2–3 paragraf', t: "— o'zingiz haqingizda" }, { b: "Ro'yxat", t: "— sevimli mashg'ulotlaringiz" }, { b: 'Havola', t: '— sevimli saytingizga' }];
+  const GLOSSARY = [{ b: 'HTML', t: '— veb tili' }, { b: 'Skelet', t: '— DOCTYPE, html, head, body' }, { b: 'Teg', t: '— ochiluvchi/yopiluvchi' }, { b: 'Atribut', t: "— href kabi qo'shimcha" }, { b: 'Teglar', t: '— h1–h6, p, strong, em, ul, ol, li, a' }];
   const correct = SCORED_IDX.filter(i => answers[i]?.correct).length;
   const total = SCORED_IDX.length;
   const PASSED = (total ? correct / total : 0) >= 0.6;
@@ -3113,7 +3130,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
           <div className="card fade-up d3"><div className="card-lbl" style={{ color: T.success }}><span className="tick" style={{ width: 16, height: 16, borderRadius: '50%', background: T.success, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</span> Endi siz bilasiz</div><ul className="recap">{RECAP.map((r, i) => (<li key={i} style={{ animationDelay: `${0.3 + i * 0.07}s` }}><span className="ck">✓</span><span>{r}</span></li>))}</ul></div>
           <div className="card hw fade-up d4"><div className="card-lbl" style={{ color: T.accent }}>📝 Uyga vazifa</div><p className="body" style={{ margin: '0 0 10px', color: T.ink }}>O'zingiz haqingizda HTML sahifa yarating:</p><ul>{HOMEWORK.map((h, i) => (<li key={i}><b>{h.b}</b> <span className="t">{h.t}</span></li>))}</ul><p className="hw-note">Avval o'z qo'lingiz bilan yozing — keyin AI'ga tekshirtiring. Tayyor bo'lsa platformaga yuklang — mentor 4 mezon bo'yicha baholaydi.</p></div>
         </div>
-        <div className="gloss fade-up d4"><div className="gloss-head" onClick={() => setOpen(o => !o)}><span className="lbl">🃏 Teglarni takrorlang — {HTML_FLASHCARDS.length} ta flashcard</span><span className="gloss-toggle">{open ? '−' : '+'}</span></div>{open && (<div style={{ padding: '6px 2px 2px' }}><Flashcards cards={HTML_FLASHCARDS} /></div>)}</div>
+        <div className="gloss fade-up d4"><div className="gloss-head" onClick={() => setOpen(o => !o)}><span className="lbl">💡 Kalit so'zlar (takrorlash)</span><span className="gloss-toggle">{open ? '−' : '+'}</span></div>{open && (<div className="gloss-body">{GLOSSARY.map((g, i) => (<span key={i}><b>{g.b}</b> {g.t}{i < GLOSSARY.length - 1 ? ' · ' : ''}</span>))}</div>)}</div>
       </div>
     </Stage>
   );
@@ -3853,7 +3870,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
     if (typeof onFinished === 'function') onFinished(payload);
   };
 
-  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, ScreenSkeletTest, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen14, Screen13, ScreenPodium, Screen16];
+  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, ScreenSkeletTest, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen14, Screen13, ScreenPodium, ScreenFlashcards, Screen16];
   const Current = screens[screen];
   return (
     <LangContext.Provider value={lang}>
@@ -4131,13 +4148,17 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .dbg-ok { font-weight: 700; color: ${T.success}; font-size: 14px; background: ${T.successSoft}; border-radius: 12px; padding: 10px 14px; }
 
         /* === 🃏 FLASHCARDS (reusable, 3D flip) === */
-        .fc { display: flex; flex-direction: column; gap: 11px; max-width: 480px; }
+        .fc-center { display: flex; justify-content: center; padding-top: 4px; }
+        .fc { display: flex; flex-direction: column; gap: 11px; max-width: 480px; width: 100%; }
         .fc-top { display: flex; justify-content: space-between; align-items: baseline; font-family: 'Manrope'; font-weight: 700; font-size: 13px; }
         .fc-count { color: ${T.ink2}; } .fc-count b { color: ${T.accent}; font-size: 1.15em; }
         .fc-remain { color: ${T.ink3}; font-size: 12px; }
         .fc-bar { height: 7px; background: ${T.line}; border-radius: 99px; overflow: hidden; }
         .fc-bar-fill { display: block; height: 100%; background: linear-gradient(90deg, #FF8A3D, ${T.accent}); border-radius: 99px; transition: width .4s cubic-bezier(.34,1.2,.4,1); }
-        .fc-cardwrap { perspective: 1200px; }
+        .fc-cardwrap { perspective: 1200px; position: relative; }
+        .fc-cardwrap::before, .fc-cardwrap::after { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-radius: 20px; background: ${T.paper}; border: 2px solid ${T.line}; z-index: -1; }
+        .fc-cardwrap::before { transform: translateY(7px) scale(0.965); opacity: 0.7; }
+        .fc-cardwrap::after { transform: translateY(15px) scale(0.93); opacity: 0.4; }
         .fc-card { position: relative; height: clamp(160px,26vw,188px); cursor: pointer; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.4,0,.2,1); }
         .fc-card.flip { transform: rotateY(180deg); }
         .fc-card:not(.flip):hover { transform: translateY(-3px); }
