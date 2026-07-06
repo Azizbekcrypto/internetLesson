@@ -961,6 +961,7 @@ const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURICompon
 const PRACTICE_DONE_BASE = 500;
 
 const LiveGateCtx = createContext(null);
+const AchCtx = createContext(null); // 🏅 olingan nishonlar (Set) — Stage hisoblagichi uchun
 
 function useLiveSession(lessonId, answerKey) {
   const keyRef = useRef(answerKey); keyRef.current = answerKey; // javob kaliti — mentor darsni ochganda serverga avto-yuklanadi (SQL shart emas)
@@ -1330,6 +1331,35 @@ const Preview = ({ children, title = 'preview.html', minH }) => (
 const Split = ({ children }) => <div className="split">{children}</div>;
 const Col = ({ children, gap }) => <div className="col" style={gap ? { gap } : undefined}>{children}</div>;
 
+// 🏅 Yuqori paneldagi nishon hisoblagichi — doim ko'rinadi, yangi olinganda pulslaydi, bosilsa ro'yxat chiqadi
+function AchCounter() {
+  const earned = useContext(AchCtx);
+  const count = earned ? earned.size : 0;
+  const total = Object.keys(ACHIEVEMENTS).length;
+  const prevRef = useRef(count);
+  const [bump, setBump] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (count > prevRef.current) { setBump(true); const t = setTimeout(() => setBump(false), 800); prevRef.current = count; return () => clearTimeout(t); }
+    prevRef.current = count;
+  }, [count]);
+  return (
+    <div className="ach-cnt-wrap">
+      <button className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Nishonlar" title="Nishonlaringiz">
+        <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
+      </button>
+      {open && (
+        <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
+          <div className="ach-pop-h">🏅 Nishonlar — {count}/{total}</div>
+          {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
+            <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
+          ); })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navContent, narrow, mentorStatic }) => {
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(768); // mobil: Mentor yig'ilish rejimi
@@ -1360,8 +1390,8 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
           <div className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
           <div className="chrome">
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {/* AUDIOSIZ: ovoz tugmasi (AudioIndicator) ko'rsatilmaydi — ovoz allaqachon o'chirilgan */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <AchCounter />
               <div className="mono small" style={{ color: T.ink3 }}>{String(screen + 1).padStart(2, '0')} / {String(totalScreens).padStart(2, '0')}</div>
             </div>
           </div>
@@ -4263,6 +4293,24 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .ach-badge-name { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: ${T.ink}; }
         .ach-badge.locked .ach-badge-name { color: ${T.ink3}; }
         .ach-badge-desc { font-family: 'Manrope'; font-size: 10.5px; color: ${T.ink2}; line-height: 1.3; }
+        /* Yuqori paneldagi nishon hisoblagichi */
+        .ach-cnt-wrap { position: relative; }
+        .ach-counter { display: inline-flex; align-items: center; gap: 4px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-radius: 99px; padding: 5px 11px 5px 9px; font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink2}; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .ach-counter.has { border-color: ${T.accent}66; }
+        .ach-counter:hover { border-color: ${T.accent}; box-shadow: 0 6px 16px -8px rgba(255,79,40,0.4); }
+        .ach-counter b { color: ${T.accent}; font-size: 14px; font-variant-numeric: tabular-nums; }
+        .ach-cnt-tot { color: ${T.ink3}; font-size: 11.5px; }
+        .ach-cnt-ic { font-size: 14px; }
+        .ach-counter.bump { animation: ach-bump 0.8s cubic-bezier(.34,1.6,.4,1); }
+        @keyframes ach-bump { 0% { transform: scale(1); } 30% { transform: scale(1.35) rotate(-6deg); box-shadow: 0 0 0 6px rgba(255,79,40,0.18); } 60% { transform: scale(0.96) rotate(3deg); } 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 0 rgba(255,79,40,0); } }
+        .ach-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 200; width: 222px; background: ${T.paper}; border: 1px solid ${T.line}; border-radius: 14px; padding: 10px; box-shadow: 0 18px 44px -14px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 3px; animation: fade-step 0.22s ease; }
+        .ach-pop-h { font-family: 'Manrope'; font-weight: 800; font-size: 12px; color: ${T.accent}; padding: 2px 6px 6px; }
+        .ach-pop-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; }
+        .ach-pop-row.got { background: ${T.accentSoft}66; }
+        .ach-pop-ic { font-size: 17px; width: 20px; text-align: center; }
+        .ach-pop-row:not(.got) .ach-pop-ic { filter: grayscale(1) opacity(0.5); font-size: 13px; }
+        .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
+        .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
 
         /* === LADDER (sarlavhalar) === */
         .ladder { display: flex; flex-direction: column; gap: 6px; }
@@ -4861,6 +4909,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .frame-wait { background: ${T.blueSoft}; border-left: 4px solid ${T.blue}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -8px rgba(1,154,203,0.22); }
       `}</style>
       <LiveGateCtx.Provider value={{ locked, live }}>
+        <AchCtx.Provider value={earned}>
         <div className="lesson-root">
           {live.mode === 'choosing' ? (
             <LiveGate live={live} title="1-Modul" />
@@ -4872,6 +4921,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
             </>
           )}
         </div>
+        </AchCtx.Provider>
       </LiveGateCtx.Provider>
       {/* Lokal praktika overlay (LMS compilatorining o'rnini bosadi — test rejimi).
           Production'da onPractice berilsa, bu overlay umuman ochilmaydi. */}
