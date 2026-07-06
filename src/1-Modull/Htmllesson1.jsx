@@ -3016,61 +3016,6 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 15 — YAKUNIY (qo'lda yozadigan amaliy topshiriq) =====
-const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's15', text: `Oxirgi qadam. Eslang, gazeta misolida ko'rdik: eng katta sarlavha — h1. Endi o'zingiz yozing: ochuvchi teg, ismingiz, yopuvchi teg — to'liq.`, trigger: 'on_mount', waits_for: { type: 'typed_ok' } }]);
-  const gate = useContext(LiveGateCtx) || {};
-  const live = gate.live;
-  const isMentorLive = !!(live && live.mode === 'mentor');
-  const [value, setValue] = useState(storedAnswer?.picked || '');
-  const [passed, setPassed] = useState(!!storedAnswer?.correct);
-  const norm = value.replace(/\s+/g, ' ').trim();
-  const m = norm.match(/^<\s*h1\s*>(.+?)<\s*\/\s*h1\s*>$/i);
-  const inner = m ? m[1].trim() : '';
-  const valid = !!inner;
-  const hasOpen = /<\s*h1\s*>/i.test(value);
-  const hasClose = /<\s*\/\s*h1\s*>/i.test(value);
-  useEffect(() => {
-    if (valid && !passed) {
-      setPassed(true);
-      onAnswer(screen, { correct: true, picked: value });
-      audio.triggerEvent('typed_ok');
-      if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff(`Zo'r! Ochuvchi h1, ismingiz, yopuvchi h1 — to'liq yozdingiz.`); }, 300);
-    }
-  }, [valid]);
-  return (
-    <Stage eyebrow="Yakuniy · amaliy" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={isMentorLive ? false : !passed} label={isMentorLive ? "✍️ Praktika →" : (passed ? "✍️ Praktika →" : "Sarlavhani yozing")} onClick={onNext} /></>}>
-      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
-        <div className="head"><h2 className="title h-title fade-up">Oxirgi qadam: ismingizni <span className="italic" style={{ color: T.accent }}>sarlavha</span> qiling.</h2></div>
-        <Mentor>Eslang, gazeta misolida ko'rdik: eng katta sarlavha — <span className="mono">h1</span>. Endi o'zingiz yozing: <b style={{ color: T.ink }}>ochuvchi teg</b>, ismingiz, <b style={{ color: T.ink }}>yopuvchi teg</b> — to'liq.</Mentor>
-        <div className="split">
-          <div className="col">
-            <input className="fade-up delay-2" value={value} onChange={e => setValue(e.target.value)} placeholder="<h1>Ismingiz</h1>" spellCheck={false} autoCapitalize="off" autoCorrect="off" style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 16, padding: '14px 16px', borderRadius: 12, border: 'none', background: T.paper, color: T.ink, outline: 'none', transition: 'box-shadow 0.2s', boxShadow: valid ? `0 0 0 2px ${T.success}, 0 8px 20px -8px rgba(${T.shadowBase},0.2)` : `0 4px 14px -6px rgba(${T.shadowBase},0.16)` }} />
-            <div className="fade-up delay-2" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span className="tagpill" style={{ opacity: hasOpen ? 1 : 0.4 }}>{hasOpen ? '✓' : '1'} ochuvchi &lt;h1&gt;</span>
-              <span className="tagpill" style={{ opacity: inner ? 1 : 0.4 }}>{inner ? '✓' : '2'} ismingiz</span>
-              <span className="tagpill" style={{ opacity: hasClose ? 1 : 0.4 }}>{hasClose ? '✓' : '3'} yopuvchi &lt;/h1&gt;</span>
-            </div>
-            {passed
-              ? (<div className="frame-success fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>✓ Zo'r! Ochuvchi va yopuvchi teg to'g'ri — bu to'liq <span className="mono">&lt;h1&gt;</span> element.</p></div>)
-              : (<p className="body" style={{ margin: 0, color: T.ink3, fontSize: 13 }}>Bu — baholanadigan topshiriqlardan biri; yakka o'zi bahoni hal qilmaydi.</p>)}
-          </div>
-          <div className="col">
-            <div className="flow-label">natija</div>
-            <div style={{ background: T.paper, borderRadius: 14, minHeight: 130, padding: '20px 22px', boxShadow: `0 8px 22px -10px rgba(${T.shadowBase},0.16)`, display: 'flex', alignItems: 'center', justifyContent: valid ? 'flex-start' : 'center' }}>
-              {valid
-                ? <h1 key={inner} className="fade-step" style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(26px,4.5vw,38px)', color: T.ink, lineHeight: 1.1, margin: 0 }}>{inner}</h1>
-                : <p style={{ fontFamily: 'Georgia, serif', color: T.ink3, fontStyle: 'italic', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>To'liq yozing: ochuvchi <span className="mono" style={{ fontStyle: 'normal' }}>&lt;h1&gt;</span> + ismingiz + yopuvchi <span className="mono" style={{ fontStyle: 'normal' }}>&lt;/h1&gt;</span></p>}
-            </div>
-          </div>
-        </div>
-        {isMentorLive && <MentorWorkStats live={live} screenIdx={screen} taskLabel="Yakuniy: h1 yozish" />}
-      </div>
-    </Stage>
-  );
-};
-
-
 // ===== SCREEN 16 — YAKUN =====
 const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
   const _gate = useContext(LiveGateCtx) || {};
@@ -3102,7 +3047,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
         <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Dars tugadi</span><h2 className="title h-title fade-up d1">Birinchi <span className="italic" style={{ color: T.accent }}>saytingizni</span> yasadingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi o\u2019zingiz veb-sahifa yasay olasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\u2019ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
         <div className={`qz-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
           <div className="qz-cta-txt">
-            <span className="qz-cta-h">🦉 CoddyHoot testi</span>
+            <span className="qz-cta-h">🦉 CoddyHoot jangi</span>
             <span className="qz-cta-s">{studentSolo
               ? `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · mashq rejimi — natija faqat sizga`
               : `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · tezkorlar podiumga 🏆`}</span>
