@@ -2355,6 +2355,37 @@ function DragDropOrder({ items, hints, onSolved }) {
   );
 }
 
+// 🐞 Qayta ishlatiladigan DEBUG CHALLENGE — buzuq koddan xato qatorni topib bosish → tuzatiladi.
+// Boshqa darsga: `lines` (bittasida bug:true), `fixed` (to'g'ri qator), `explain` almashtiriladi.
+function DebugChallenge({ lines, fixed, explain, onSolved }) {
+  const bugIdx = lines.findIndex(l => l.bug);
+  const [picked, setPicked] = useState(-1);
+  const [wrongIdx, setWrongIdx] = useState(-1);
+  const solved = picked === bugIdx;
+  useEffect(() => { if (solved) onSolved && onSolved(); }, [solved]); // eslint-disable-line
+  const click = (i) => {
+    if (solved) return;
+    if (i === bugIdx) setPicked(i);
+    else { setWrongIdx(i); setTimeout(() => setWrongIdx(w => (w === i ? -1 : w)), 500); }
+  };
+  return (
+    <div className="dbg fade-up">
+      <div className="dbg-code">
+        {lines.map((l, i) => (
+          <div key={i} className={`dbg-line ${solved && i === bugIdx ? 'fixed' : ''} ${wrongIdx === i ? 'wrong' : ''}`} onClick={() => click(i)}>
+            <span className="dbg-ln">{i + 1}</span>
+            <span className="dbg-txt">{solved && i === bugIdx ? fixed : l.text}</span>
+            {solved && i === bugIdx && <span className="dbg-badge">✓ tuzatildi</span>}
+          </div>
+        ))}
+      </div>
+      {!solved
+        ? <p className="dbg-hint">👆 Xato bor qatorni toping va bosing</p>
+        : <div className="dbg-ok">✓ Topdingiz! {explain}</div>}
+    </div>
+  );
+}
+
 // ===== SCREEN 5 — SKELET (savol + Mentor) =====
 const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const audio = useAudio([{ id: 's5', text: `Odamda ham ko'rinadigan va ko'rinmaydigan tomon bor: yuzingizni hamma ko'radi, lekin miyangiz ichkarida, ko'rinmasdan ishlaydi. Sahifa ham xuddi shunaqa — head ko'rinmaydigan qism, body ko'rinadigan qism. Har bir qismni bosib, nima ekanini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
@@ -2459,14 +2490,15 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   };
   const [wrapped, setWrapped] = useState(false);
   const [active, setActive] = useState(null);
+  const [dbgDone, setDbgDone] = useState(!!storedAnswer);
   const isNarrow = useIsMobile(768);
-  const done = wrapped;
+  const done = dbgDone; // Davom etish — teg qamragач xato ham topilganda
   const tap = (k) => { if (!wrapped) return; setActive(k); };
   const ic = (k, base) => `${base} ${active === k ? 'active' : ''}`;
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
 
   return (
-    <Stage eyebrow="Teg" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Avval tegga o'rang"} onClick={onNext} /></>}>
+    <Stage eyebrow="Teg" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (wrapped ? "🐞 Xatoni toping" : "Avval tegga o'rang")} onClick={onNext} /></>}>
       <div className="screen">
         <div className="head"><h2 className="title h-title fade-up">Brauzer matn qayerda <span className="italic" style={{ color: T.accent }}>tugashini</span> qanday biladi?</h2></div>
         <Mentor>Brauzer aqlli emas — matn qayerda <b style={{ color: T.ink }}>boshlanib</b>, qayerda <b style={{ color: T.ink }}>tugashini</b> o'zi bilmaydi. Buni unga teglar aytadi: ochuvchi teg — boshlanishi, yopuvchi teg — tugashi. Xuddi yozuvdagi <b style={{ color: T.ink }}>qo'shtirnoq</b> kabi — ochasiz va albatta yopasiz. Tugmani bosib, <b style={{ color: T.ink }}>"Salom!"</b> so'ziga teg qo'shing.</Mentor>
@@ -2505,6 +2537,17 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
             {wrapped && (<div className="frame-ok fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>✓ Endi brauzer biladi: <span className="mono">&lt;h1&gt;</span> boshladi, <span className="mono">&lt;/h1&gt;</span> tugatdi — orasidagi <b>"Salom!"</b> katta sarlavhaga aylandi.</p></div>)}
           </div>)}
         </div>
+        {wrapped && (
+          <div className="dbg-box">
+            <p className="eyebrow" style={{ color: T.accent, margin: '2px 0 0' }}>🐞 Endi xatoni toping</p>
+            <p className="body" style={{ margin: '2px 0 8px', color: T.ink2, fontSize: 13.5 }}>Bu kodda bitta teg <b style={{ color: T.ink }}>noto'g'ri yopilgan</b>. Xato qatorni bosing.</p>
+            <DebugChallenge
+              lines={[{ text: '<h1>Mening saytim<h1>', bug: true }, { text: '<p>Xush kelibsiz!</p>' }]}
+              fixed={'<h1>Mening saytim</h1>'}
+              explain={"Yopuvchi tegda / belgisi bo'lishi kerak: </h1>"}
+              onSolved={() => setDbgDone(true)} />
+          </div>
+        )}
       </div>
     </Stage>
   );
@@ -4073,6 +4116,20 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .dd-pool { z-index: 1; } /* sudralган pool chip slotlar ustida ko'rinsin */
         .dd-done { font-weight: 700; color: ${T.success}; font-size: 14.5px; }
         .dd-wrong { font-weight: 700; color: #E24848; font-size: 13.5px; }
+
+        /* === 🐞 DEBUG CHALLENGE (reusable) === */
+        .dbg-box { display: flex; flex-direction: column; border-top: 1.5px dashed ${T.line}; padding-top: 12px; margin-top: 6px; animation: sk-swapin 0.5s cubic-bezier(.34,1.3,.4,1); }
+        .dbg { display: flex; flex-direction: column; gap: 10px; }
+        .dbg-code { background: ${CODE.bg}; border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 10px 26px -14px rgba(${T.shadowBase},0.4); overflow-x: auto; }
+        .dbg-line { display: flex; align-items: center; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: clamp(13px,1.8vw,15px); color: ${CODE.text}; padding: 8px 12px; border-radius: 9px; cursor: pointer; border: 1.5px solid transparent; transition: background .15s, border-color .15s; white-space: nowrap; }
+        .dbg-line:hover { background: rgba(255,255,255,0.06); }
+        .dbg-line.wrong { border-color: #E24848; background: rgba(226,72,72,0.16); animation: dd-shake .4s; }
+        .dbg-line.fixed { border-color: ${T.success}; background: rgba(18,169,104,0.16); cursor: default; }
+        .dbg-ln { color: ${CODE.comment}; font-size: 12px; min-width: 16px; text-align: right; flex-shrink: 0; }
+        .dbg-txt { flex: 1; }
+        .dbg-badge { font-family: 'Manrope'; font-weight: 700; font-size: 11px; color: ${T.success}; background: rgba(18,169,104,0.2); border-radius: 99px; padding: 3px 9px; flex-shrink: 0; }
+        .dbg-hint { margin: 0; font-size: 13px; color: ${T.ink3}; font-style: italic; }
+        .dbg-ok { font-weight: 700; color: ${T.success}; font-size: 14px; background: ${T.successSoft}; border-radius: 12px; padding: 10px 14px; }
 
         /* === LADDER (sarlavhalar) === */
         .ladder { display: flex; flex-direction: column; gap: 6px; }
