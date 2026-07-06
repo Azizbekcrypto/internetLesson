@@ -2958,7 +2958,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
         <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Dars tugadi</span><h2 className="title h-title fade-up d1">Birinchi <span className="italic" style={{ color: T.accent }}>saytingizni</span> yasadingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi o\u2019zingiz veb-sahifa yasay olasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\u2019ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
         <div className={`qz-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
           <div className="qz-cta-txt">
-            <span className="qz-cta-h">⚔️ Mustahkamlash testi</span>
+            <span className="qz-cta-h">🦉 CoddyHoot testi</span>
             <span className="qz-cta-s">{studentSolo
               ? `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · mashq rejimi — natija faqat sizga`
               : `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · tezkorlar podiumga 🏆`}</span>
@@ -3118,23 +3118,22 @@ const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   );
 };
 
-// ===== ⚔️ MUSTAHKAMLASH-JANG (Kahoot arena) =====
+// ===== 🦉 CODDYHOOT (CoddyCamp jonli test arenasi) =====
 const QUIZ_MS = 20000;
 const QUIZ_BASE_IDX = 100;
-const QUIZ_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C']; // Kahoot ranglari
+const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CoddyHoot brend palitrasi: coral · ocean · sun · leaf
 const QUIZ_SHAPES = ['▲', '◆', '●', '■'];
-// Arena foni: suzuvchi neon shakllar (statik pozitsiyalar)
+// Arena foni: suzuvchi kod tokenlari (kodlash maktabi hisси)
 const QZ_BG_SHAPES = [
-  { ch: '▲', l: 5,  t: 10, s: 88,  c: 'rgba(255,80,110,0.16)',  d: 19, dl: 0 },
-  { ch: '●', l: 86, t: 7,  s: 64,  c: 'rgba(255,201,77,0.15)',  d: 23, dl: 1.5 },
-  { ch: '◆', l: 8,  t: 72, s: 104, c: 'rgba(80,150,255,0.18)',  d: 27, dl: 0.8 },
-  { ch: '■', l: 82, t: 68, s: 76,  c: 'rgba(90,220,120,0.16)',  d: 21, dl: 2.2 },
-  { ch: '▲', l: 44, t: 86, s: 54,  c: 'rgba(255,201,77,0.12)',  d: 25, dl: 1.1 },
-  { ch: '◆', l: 66, t: 26, s: 46,  c: 'rgba(255,80,110,0.12)',  d: 17, dl: 0.4 },
-  { ch: '●', l: 26, t: 34, s: 38,  c: 'rgba(90,220,120,0.12)',  d: 20, dl: 1.9 },
-  { ch: '■', l: 55, t: 5,  s: 42,  c: 'rgba(80,150,255,0.14)',  d: 22, dl: 0.6 },
-  { ch: '▲', l: 93, t: 42, s: 48,  c: 'rgba(160,120,255,0.14)', d: 24, dl: 1.3 },
-  { ch: '●', l: 2,  t: 45, s: 44,  c: 'rgba(255,80,110,0.10)',  d: 26, dl: 2.6 },
+  { ch: '</>',  l: 6,  t: 18, s: 40, c: 'rgba(20,17,14,0.05)',   d: 19, dl: 0 },
+  { ch: '{ }',  l: 84, t: 12, s: 34, c: 'rgba(20,17,14,0.05)',   d: 23, dl: 1.5 },
+  { ch: '<h1>', l: 9,  t: 74, s: 30, c: 'rgba(255,79,40,0.08)',  d: 27, dl: 0.8 },
+  { ch: '</ul>',l: 78, t: 70, s: 28, c: 'rgba(20,17,14,0.045)',  d: 21, dl: 2.2 },
+  { ch: '//',   l: 46, t: 86, s: 30, c: 'rgba(20,17,14,0.05)',   d: 25, dl: 1.1 },
+  { ch: 'href', l: 66, t: 24, s: 22, c: 'rgba(15,166,214,0.09)', d: 17, dl: 0.4 },
+  { ch: ';',    l: 24, t: 36, s: 26, c: 'rgba(20,17,14,0.05)',   d: 20, dl: 1.9 },
+  { ch: '<a>',  l: 92, t: 46, s: 24, c: 'rgba(34,160,92,0.09)',  d: 24, dl: 1.3 },
+  { ch: '<p>',  l: 2,  t: 46, s: 24, c: 'rgba(20,17,14,0.045)',  d: 26, dl: 2.6 },
 ];
 const QUIZ_BANK = [
   { q: "Yopuvchi teg qaysi belgi bilan boshlanadi?", opts: ["/", "\\", "!", "#"], correct: 0 },
@@ -3173,12 +3172,57 @@ function QzTimer({ remaining }) {
   return (
     <div className={`qz-timer ${remaining <= 5000 && remaining > 0 ? 'urgent' : ''}`}>
       <svg width="64" height="64" viewBox="0 0 64 64">
-        <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="6" />
+        <circle cx="32" cy="32" r={R} fill="none" stroke="#DDE4F1" strokeWidth="6" />
         <circle cx="32" cy="32" r={R} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - frac)} transform="rotate(-90 32 32)" style={{ transition: 'stroke-dashoffset 0.12s linear, stroke 0.4s' }} />
       </svg>
       <span className="qz-timer-n" style={{ color: col }}>{sec}</span>
     </div>
   );
+}
+
+// 🦉 CoddyHoot boyqush mascot (brend belgisi)
+const QzOwl = ({ size = 72 }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="qz-owl">
+    <defs><linearGradient id="qzog" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF8A3D" /><stop offset="1" stopColor="#FF4F28" /></linearGradient></defs>
+    <rect x="6" y="6" width="88" height="88" rx="24" fill="url(#qzog)" />
+    <ellipse cx="50" cy="58" rx="30" ry="30" fill="#fff" />
+    <path d="M28 32 L40 44 L24 46 Z" fill="#E23A16" /><path d="M72 32 L60 44 L76 46 Z" fill="#E23A16" />
+    <circle cx="38" cy="52" r="13" fill="#fff" stroke="#14110E" strokeWidth="2.5" />
+    <circle cx="62" cy="52" r="13" fill="#fff" stroke="#14110E" strokeWidth="2.5" />
+    <circle cx="38" cy="53" r="6.5" fill="#14110E" /><circle cx="62" cy="53" r="6.5" fill="#14110E" />
+    <circle cx="40" cy="50.5" r="2" fill="#fff" /><circle cx="64" cy="50.5" r="2" fill="#fff" />
+    <path d="M44 66 L50 74 L56 66 Z" fill="#FF8A3D" />
+    <path d="M30 78 Q50 88 70 78" stroke="#FF8A3D" strokeWidth="4" fill="none" strokeLinecap="round" />
+  </svg>
+);
+
+// Jonli fon: suzuvchi uchqunlar + «web» chiziqlari + kod tokenlari (canvas)
+function QzFX() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+    const ctx = cv.getContext('2d'); const DPR = Math.min(2, window.devicePixelRatio || 1);
+    let W = 1, H = 1, raf = 0;
+    const size = () => { W = cv.width = Math.max(1, cv.offsetWidth * DPR); H = cv.height = Math.max(1, cv.offsetHeight * DPR); };
+    size(); window.addEventListener('resize', size);
+    const TOK = ['<h1>', '</ul>', '<a>', 'href', '{ }', '//', '<li>', ';'];
+    const em = [], toks = [];
+    for (let i = 0; i < 26; i++) em.push({ x: Math.random() * W, y: Math.random() * H, z: .3 + Math.random() * .7, ph: Math.random() * 6.28, sw: .3 + Math.random() * .6 });
+    for (let i = 0; i < 9; i++) toks.push({ x: Math.random() * W, y: Math.random() * H, z: .4 + Math.random() * .9, vx: (Math.random() - .5) * .16, t: TOK[i % TOK.length], r: (Math.random() - .5) * .5 });
+    const draw = (tm) => {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of em) { p.y -= (.15 + p.z * .35) * DPR; p.x += Math.sin(tm / 1400 + p.ph) * p.sw * DPR * .35; if (p.y < -12) { p.y = H + 12; p.x = Math.random() * W; } }
+      ctx.lineWidth = 1 * DPR;
+      for (let a = 0; a < em.length; a++) for (let b = a + 1; b < em.length; b++) { const dx = em[a].x - em[b].x, dy = em[a].y - em[b].y, d = Math.sqrt(dx * dx + dy * dy), mx = 95 * DPR; if (d < mx) { ctx.strokeStyle = 'rgba(255,79,40,' + (.055 * (1 - d / mx)) + ')'; ctx.beginPath(); ctx.moveTo(em[a].x, em[a].y); ctx.lineTo(em[b].x, em[b].y); ctx.stroke(); } }
+      for (const p of em) { const s = (1.3 + p.z * 2.2) * DPR, tw = .16 + p.z * .24 + Math.sin(tm / 600 + p.ph) * .08; ctx.fillStyle = 'rgba(245,166,35,' + tw + ')'; ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, 6.29); ctx.fill(); }
+      for (const t of toks) { t.x += t.vx * DPR; t.y -= (.08 + t.z * .12) * DPR; if (t.y < -34) t.y = H + 34; if (t.x < -50) t.x = W + 50; if (t.x > W + 50) t.x = -50; ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.r * .12); ctx.font = '700 ' + ((13 + t.z * 22) * DPR) + 'px "JetBrains Mono",monospace'; ctx.fillStyle = 'rgba(20,17,14,' + (.03 + t.z * .05) + ')'; ctx.textAlign = 'center'; ctx.fillText(t.t, 0, 0); ctx.restore(); }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', size); };
+  }, []);
+  return <canvas ref={ref} className="qz-fx" aria-hidden="true" />;
 }
 
 function QuizArena({ live, onClose, startSolo }) {
@@ -3336,6 +3380,7 @@ function QuizArena({ live, onClose, startSolo }) {
           <span key={i} className="qz-shp" style={{ left: `${s.l}%`, top: `${s.t}%`, fontSize: s.s, color: s.c, animationDuration: `${s.d}s`, animationDelay: `${s.dl}s` }}>{s.ch}</span>
         ))}
       </div>
+      <QzFX />
       <button className="qz-x" onClick={closeArena} aria-label="Yopish">✕</button>
 
       {/* QUTQARUV: jonli dars tugadi — o'quvchi osilib qolmaydi, mashq rejimida davom etadi */}
@@ -3349,8 +3394,7 @@ function QuizArena({ live, onClose, startSolo }) {
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
-          <div className="qz-logo">⚔️</div>
-          <h2 className="qz-h">Mustahkamlash Testi</h2>
+          <div className="qz-brand"><QzOwl size={74} /><span className="qz-wm">Coddy<span className="qz-wm-h">Hoot</span></span></div>
           <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {solo && isStudent && <p className="qz-sub" style={{ color: '#FFC94D' }}>📖 Mashq rejimi — o'z tezligingizda ishlaysiz, natija faqat sizga ko'rinadi.</p>}
           {!solo && (
@@ -3447,7 +3491,8 @@ function QuizArena({ live, onClose, startSolo }) {
       {phase === 'done' && (
         <div className="qz-view fade-step">
           <Confetti />
-          <h2 className="qz-h">🏆 Test yakunlandi!</h2>
+          <div className="qz-brand sm"><QzOwl size={48} /><span className="qz-wm">Coddy<span className="qz-wm-h">Hoot</span></span></div>
+          <h2 className="qz-h" style={{ fontSize: 'clamp(20px,3.4vw,30px)' }}>Test yakunlandi! 🎉</h2>
           {solo ? (
             <div className="qz-solo-res">
               <div className="qz-solo-pts">{soloScore.pts}</div>
@@ -4355,104 +4400,109 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         }
 
         /* === ⚔️ CTA (yakun sahifasida) === */
-        .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #1D1145, #35206B); border-radius: 18px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 14px 36px -14px rgba(29,17,69,0.55); }
+        /* ===== 🦉 CODDYHOOT — CTA (dars ichida) ===== */
+        .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #FFF3EA, #FFE7DC); border: 1px solid #F3D9CC; border-radius: 20px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 16px 40px -18px rgba(255,79,40,0.28); }
         .qz-cta-txt { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
-        .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #fff; }
-        .qz-cta-s { font-family: 'Manrope'; font-weight: 500; font-size: 13px; color: rgba(255,255,255,0.72); }
-        .qz-cta-btn { background: ${T.accent}; color: #fff; border: none; border-radius: 14px; padding: 13px 24px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); transition: transform 0.2s; }
+        .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #121826; }
+        .qz-cta-s { font-family: 'Manrope'; font-weight: 500; font-size: 13px; color: #525A6B; }
+        .qz-cta-btn { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border: none; border-radius: 14px; padding: 13px 24px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); transition: transform 0.2s; }
         .qz-cta-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); }
-        .qz-cta-btn:disabled { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.55); cursor: default; box-shadow: none; }
+        .qz-cta-btn:disabled { background: #E9E6DF; color: #98A0B4; cursor: default; box-shadow: none; }
         .qz-cta.ready .qz-cta-btn { animation: qz-pulse 1.1s ease-in-out infinite; }
-        @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); } 50% { transform: scale(1.06); box-shadow: 0 10px 30px -6px rgba(255,79,40,0.95); } }
-
-        /* === ⚔️ ARENA — to'liq ekran, tiniq qorong'u muhit === */
-        .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px);
-          background:
-            radial-gradient(120% 85% at 50% -18%, rgba(88,58,200,0.55) 0%, rgba(88,58,200,0) 55%),
-            radial-gradient(70% 60% at 108% 112%, rgba(196,37,126,0.30) 0%, rgba(196,37,126,0) 60%),
-            radial-gradient(55% 45% at -8% 108%, rgba(19,104,206,0.28) 0%, rgba(19,104,206,0) 60%),
-            linear-gradient(168deg, #241560 0%, #170F3D 52%, #0D0826 100%);
-        }
-        .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-        .qz-shp { position: absolute; line-height: 1; user-select: none; animation: qz-drift ease-in-out infinite; text-shadow: 0 0 34px currentColor; will-change: transform; }
-        @keyframes qz-drift { 0%,100% { transform: translate(0,0) rotate(-7deg) scale(1); } 50% { transform: translate(22px,-28px) rotate(9deg) scale(1.07); } }
+        @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); } 50% { transform: scale(1.06); box-shadow: 0 16px 34px -6px rgba(255,79,40,0.9); } }
+        /* ===== 🦉 ARENA — issiq CoddyCamp muhiti ===== */
+        .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px); background: radial-gradient(60% 45% at 12% 8%, rgba(255,79,40,0.10) 0%, rgba(255,79,40,0) 55%), radial-gradient(58% 48% at 90% 14%, rgba(15,166,214,0.16) 0%, rgba(15,166,214,0) 55%), radial-gradient(60% 50% at 78% 100%, rgba(245,166,35,0.12) 0%, rgba(245,166,35,0) 60%), radial-gradient(80% 48% at 50% -6%, #E9F0FD 0%, rgba(233,240,253,0) 52%), #F0F4FC; }
+        .qz-arena::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: radial-gradient(rgba(30,44,80,0.05) 1.1px, transparent 1.2px); background-size: 24px 24px; -webkit-mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); }
+        .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .qz-shp { position: absolute; line-height: 1; user-select: none; font-family: 'JetBrains Mono', monospace; font-weight: 700; animation: qz-drift ease-in-out infinite; will-change: transform; }
+        @keyframes qz-drift { 0%,100% { transform: translate(0,0) rotate(-6deg) scale(1); } 50% { transform: translate(18px,-24px) rotate(6deg) scale(1.05); } }
+        .qz-fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
         @media (prefers-reduced-motion: reduce) { .qz-shp { animation: none; } }
-        .qz-x { position: fixed; top: 14px; right: 16px; z-index: 10600; width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #fff; font-size: 16px; cursor: pointer; transition: background 0.2s; }
-        .qz-x:hover { background: rgba(255,255,255,0.25); }
-        .qz-view { position: relative; z-index: 1; width: 100%; max-width: 780px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
-        .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; filter: drop-shadow(0 8px 24px rgba(255,79,40,0.5)); }
-        .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(24px,4.4vw,40px); color: #fff; margin: 0; text-align: center; letter-spacing: -0.02em; }
-        .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: rgba(255,255,255,0.75); margin: 0; text-align: center; max-width: 560px; line-height: 1.55; }
-        .qz-dimtxt { color: rgba(255,255,255,0.5); font-family: 'Manrope'; font-size: 14px; font-style: italic; }
+        .qz-x { position: fixed; top: 14px; right: 16px; z-index: 10600; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #DDE4F1; background: #fff; color: #525A6B; font-size: 16px; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(30,44,80,0.4); transition: transform 0.25s, color 0.2s; }
+        .qz-x:hover { color: #121826; transform: rotate(90deg); }
+        .qz-view { position: relative; z-index: 1; width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
+        .qz-brand { display: flex; align-items: center; gap: 12px; }
+        .qz-brand.sm { gap: 9px; }
+        .qz-owl { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
+        .qz-wm { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,5vw,46px); letter-spacing: -0.03em; color: #121826; line-height: 1; }
+        .qz-wm-h { color: #FF4F28; }
+        .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; }
+        .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(22px,4vw,36px); color: #121826; margin: 0; text-align: center; letter-spacing: -0.02em; }
+        .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: #525A6B; margin: 0; text-align: center; max-width: 540px; line-height: 1.55; font-weight: 500; }
+        .qz-sub b { color: #121826; }
+        .qz-dimtxt { color: #98A0B4; font-family: 'Manrope'; font-size: 14px; font-style: italic; }
         .qz-lobby-players { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 640px; }
-        .qz-pchip { background: rgba(255,255,255,0.12); color: #fff; font-family: 'Manrope'; font-weight: 700; font-size: 14px; border-radius: 99px; padding: 7px 16px; animation: qz-pop 0.4s cubic-bezier(.34,1.5,.4,1); }
-        .qz-pchip.me { background: ${T.accent}; }
+        .qz-pchip { background: #fff; border: 1.5px solid #DDE4F1; color: #121826; font-family: 'Manrope'; font-weight: 700; font-size: 14px; border-radius: 99px; padding: 7px 16px; box-shadow: 0 5px 12px -8px rgba(30,44,80,0.3); animation: qz-pop 0.4s cubic-bezier(.34,1.5,.4,1); }
+        .qz-pchip.me { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border-color: transparent; }
         @keyframes qz-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .qz-btn { background: ${T.accent}; color: #fff; border: none; border-radius: 14px; padding: 13px 26px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 10px 26px -8px rgba(255,79,40,0.65); transition: transform 0.18s; }
+        .qz-btn { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border: none; border-radius: 14px; padding: 13px 26px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 14px 26px -10px rgba(255,79,40,0.6), inset 0 2px 0 rgba(255,255,255,0.3); transition: transform 0.18s; }
         .qz-btn:hover:not(:disabled) { transform: translateY(-2px); }
-        .qz-btn:disabled { opacity: 0.45; cursor: default; }
-        .qz-btn.big { font-size: clamp(16px,2.2vw,19px); padding: clamp(14px,2vw,17px) clamp(30px,4vw,44px); }
-        .qz-btn.ghost { background: rgba(255,255,255,0.12); box-shadow: none; }
-        .qz-waitmsg { margin: 0; font-family: 'Manrope'; font-weight: 600; font-size: 14.5px; color: #2BD97C; text-align: center; }
-        .qz-qview { max-width: 860px; }
+        .qz-btn:disabled { opacity: 0.5; cursor: default; }
+        .qz-btn.big { font-size: clamp(16px,2.2vw,19px); padding: clamp(15px,2vw,18px) clamp(32px,4vw,46px); }
+        .qz-btn.ghost { background: #fff; color: #121826; border: 1.5px solid #DDE4F1; box-shadow: 0 6px 16px -10px rgba(30,44,80,0.4); }
+        .qz-waitmsg { margin: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #12A968; text-align: center; }
+        .qz-qview { max-width: 880px; }
         .qz-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .qz-count { font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: rgba(255,255,255,0.75); }
-        .qz-count b { color: #fff; font-size: 1.25em; }
-        .qz-ansn { font-family: 'Manrope'; font-weight: 700; font-size: clamp(13px,1.8vw,16px); color: #FFC94D; min-width: 64px; text-align: right; }
+        .qz-count { font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: #525A6B; }
+        .qz-count b { color: #121826; font-size: 1.25em; }
+        .qz-ansn { font-family: 'Manrope'; font-weight: 800; font-size: clamp(13px,1.8vw,16px); color: #FF4F28; min-width: 64px; text-align: right; }
         .qz-timer { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
         .qz-timer-n { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Manrope'; font-weight: 800; font-size: 20px; }
         .qz-timer.urgent { animation: qz-shake 0.5s ease-in-out infinite; }
         @keyframes qz-shake { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        .qz-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(19px,3.2vw,28px); color: #fff; margin: 0; text-align: center; line-height: 1.35; background: rgba(255,255,255,0.07); border-radius: 18px; padding: clamp(16px,2.6vw,24px) clamp(18px,3vw,30px); width: 100%; }
-        .qz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px,1.6vw,14px); width: 100%; }
-        @media (max-width: 560px) { .qz-grid { grid-template-columns: 1fr; } }
-        .qz-tile { position: relative; display: flex; align-items: center; gap: 12px; border: none; border-radius: 16px; padding: clamp(15px,2.4vw,22px) clamp(14px,2.2vw,20px); cursor: pointer; text-align: left; min-height: 64px; box-shadow: 0 10px 26px -10px rgba(0,0,0,0.55); transition: transform 0.16s, opacity 0.3s, box-shadow 0.16s; }
-        .qz-tile:hover:not(:disabled):not(.rv) { transform: translateY(-3px) scale(1.015); box-shadow: 0 16px 34px -10px rgba(0,0,0,0.6); }
+        .qz-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(19px,3.2vw,28px); color: #121826; margin: 0; text-align: center; line-height: 1.35; background: #fff; border: 1px solid #DDE4F1; border-radius: 20px; padding: clamp(18px,2.8vw,28px) clamp(18px,3vw,30px); width: 100%; box-shadow: 0 14px 34px -20px rgba(30,44,80,0.4); text-wrap: balance; }
+        .qz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(11px,1.6vw,15px); width: 100%; }
+        @media (max-width: 560px) { .qz-grid { grid-template-columns: 1fr; } .qz-wm { font-size: clamp(24px,7vw,34px); } }
+        .qz-tile { position: relative; display: flex; align-items: center; gap: 14px; border: none; border-radius: 18px; padding: clamp(15px,2.4vw,22px) clamp(14px,2.2vw,20px); cursor: pointer; text-align: left; min-height: 66px; color: #fff; overflow: hidden; box-shadow: 0 14px 26px -14px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.32), inset 0 -4px 0 rgba(0,0,0,0.16); transition: transform 0.14s, opacity 0.3s, box-shadow 0.14s, filter 0.2s; }
+        .qz-tile:hover:not(:disabled):not(.rv) { transform: translateY(-3px); box-shadow: 0 20px 34px -14px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -4px 0 rgba(0,0,0,0.18); }
+        .qz-tile:active:not(:disabled):not(.rv) { transform: translateY(2px) scale(0.985); }
         .qz-tile:disabled { cursor: default; }
-        .qz-shape { font-size: clamp(17px,2.4vw,22px); color: rgba(255,255,255,0.9); flex-shrink: 0; }
-        .qz-opt { flex: 1; font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #fff; line-height: 1.3; }
-        .qz-tile.faded { opacity: 0.28; }
-        .qz-tile.picked { outline: 3px solid #fff; animation: qz-pop 0.3s; }
-        .qz-pbadge { position: absolute; top: -9px; right: -7px; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: #17103B; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-        .qz-tile.rv.win { outline: 4px solid #2BD97C; box-shadow: 0 0 34px rgba(43,217,124,0.55); animation: qz-pop 0.4s; }
-        .qz-tile.rv.lose { opacity: 0.3; }
-        .qz-cnt { font-family: 'Manrope'; font-weight: 800; font-size: clamp(15px,2.2vw,19px); color: #fff; background: rgba(0,0,0,0.28); border-radius: 99px; padding: 4px 13px; flex-shrink: 0; }
+        .qz-shape { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,0.22); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; font-size: clamp(16px,2.2vw,20px); color: #fff; flex-shrink: 0; }
+        .qz-opt { flex: 1; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(14px,2vw,17px); color: #fff; line-height: 1.3; letter-spacing: -0.01em; }
+        .qz-tile.faded { filter: saturate(0.5); opacity: 0.4; }
+        .qz-tile.picked { outline: 3px solid #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.4), 0 14px 26px -12px rgba(0,0,0,0.4); animation: qz-pop 0.3s; }
+        .qz-pbadge { position: absolute; top: -9px; right: -7px; width: 27px; height: 27px; border-radius: 50%; background: #fff; color: #12A968; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 12px rgba(0,0,0,0.28); }
+        .qz-tile.rv.win { outline: 4px solid #fff; box-shadow: 0 0 0 5px rgba(18,169,104,0.35), 0 0 44px rgba(18,169,104,0.45), 0 14px 30px -12px rgba(0,0,0,0.4); animation: qz-pop 0.4s; }
+        .qz-tile.rv.lose { filter: saturate(0.45); opacity: 0.4; }
+        .qz-cnt { font-family: 'Manrope'; font-weight: 800; font-size: clamp(15px,2.2vw,19px); color: #fff; background: rgba(0,0,0,0.22); border-radius: 99px; padding: 4px 13px; flex-shrink: 0; margin-left: auto; font-variant-numeric: tabular-nums; }
         .qz-mrow { display: flex; align-items: center; gap: 14px; }
-        .qz-allin { font-family: 'Manrope'; font-weight: 700; font-size: 15px; color: #2BD97C; animation: qz-pop 0.4s; }
+        .qz-allin { font-family: 'Manrope'; font-weight: 700; font-size: 15px; color: #12A968; animation: qz-pop 0.4s; }
         .qz-res { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: center; border-radius: 16px; padding: 14px 26px; animation: qz-pop 0.45s cubic-bezier(.34,1.5,.4,1); }
-        .qz-res.good { background: rgba(43,217,124,0.16); outline: 1.5px solid rgba(43,217,124,0.5); }
-        .qz-res.bad { background: rgba(255,90,90,0.14); outline: 1.5px solid rgba(255,90,90,0.4); }
-        .qz-res-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,4.4vw,40px); color: #2BD97C; line-height: 1; }
-        .qz-res-t { font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #fff; }
-        .qz-res-rank { font-family: 'Manrope'; font-weight: 600; font-size: 13.5px; color: rgba(255,255,255,0.7); width: 100%; text-align: center; }
-        .qz-board { width: 100%; max-width: 480px; background: rgba(255,255,255,0.07); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }
+        .qz-res.good { background: rgba(18,169,104,0.12); outline: 1.5px solid rgba(18,169,104,0.4); }
+        .qz-res.bad { background: rgba(226,72,72,0.1); outline: 1.5px solid rgba(226,72,72,0.35); }
+        .qz-res-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,4.4vw,40px); color: #12A968; line-height: 1; font-variant-numeric: tabular-nums; }
+        .qz-res-t { font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #121826; }
+        .qz-res-rank { font-family: 'Manrope'; font-weight: 600; font-size: 13.5px; color: #525A6B; width: 100%; text-align: center; }
+        .qz-board { width: 100%; max-width: 480px; background: #fff; border: 1px solid #DDE4F1; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 16px 36px -22px rgba(30,44,80,0.45); }
         .qz-board.wide { max-width: 640px; max-height: 260px; overflow: auto; }
-        .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FFC94D; margin-bottom: 3px; }
-        .qz-brow { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); }
-        .qz-brow.me { background: rgba(255,79,40,0.3); outline: 1.5px solid rgba(255,79,40,0.6); }
-        .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.55); min-width: 20px; }
-        .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FFC94D; }
-        .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: rgba(255,255,255,0.6); }
-        .qz-bpts { font-family: 'Manrope'; font-weight: 800; font-size: 15px; color: #FFC94D; min-width: 52px; text-align: right; }
+        .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FF4F28; margin-bottom: 3px; text-transform: uppercase; }
+        .qz-brow { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 11px; background: #E6ECF8; }
+        .qz-brow.me { background: linear-gradient(90deg,#FFEBE1,rgba(255,235,225,0.4)); outline: 1.5px solid rgba(255,79,40,0.4); }
+        .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; color: #fff; background: #98A0B4; border-radius: 8px; min-width: 23px; height: 23px; display: flex; align-items: center; justify-content: center; }
+        .qz-brow:first-of-type .qz-brank { background: #FFCE3D; color: #121826; }
+        .qz-brow.me .qz-brank { background: #FF4F28; }
+        .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #121826; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FF8A3D; }
+        .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: #525A6B; }
+        .qz-bpts { font-family: 'Manrope'; font-weight: 800; font-size: 15px; color: #FF4F28; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
         .qz-pod { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px,2.4vw,24px); padding-top: 18px; }
         .qz-pod-col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: clamp(92px,24vw,170px); }
         .qz-crown { position: absolute; top: -30px; font-size: 28px; animation: qz-float-sm 2s ease-in-out infinite; }
-        @keyframes qz-float-sm { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        .qz-pod-medal { font-size: clamp(30px,5vw,46px); line-height: 1; }
-        .qz-pod-name { font-family: 'Manrope'; font-weight: 800; font-size: clamp(14px,2vw,18px); color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .qz-pod-pts { font-family: 'Manrope'; font-weight: 600; font-size: clamp(11px,1.5vw,13px); color: rgba(255,255,255,0.72); }
-        .qz-pod-bar { width: 100%; border-radius: 12px 12px 0 0; animation: qz-rise 0.9s cubic-bezier(.3,1.2,.4,1); transform-origin: bottom; }
+        @keyframes qz-float-sm { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(4deg); } }
+        .qz-pod-medal { font-size: clamp(30px,5vw,46px); line-height: 1; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.16)); }
+        .qz-pod-name { font-family: 'Manrope'; font-weight: 800; font-size: clamp(14px,2vw,18px); color: #121826; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-pod-pts { font-family: 'Manrope'; font-weight: 600; font-size: clamp(11px,1.5vw,13px); color: #525A6B; font-variant-numeric: tabular-nums; }
+        .qz-pod-bar { width: 100%; border-radius: 14px 14px 0 0; box-shadow: inset 0 2px 0 rgba(255,255,255,0.45); animation: qz-rise 0.9s cubic-bezier(.3,1.2,.4,1); transform-origin: bottom; }
         @keyframes qz-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-        .qz-pod-col.p1 .qz-pod-bar { height: clamp(90px,14vw,150px); background: linear-gradient(180deg, #FFD34D, #E8A13A); box-shadow: 0 0 44px rgba(255,211,77,0.4); }
-        .qz-pod-col.p2 .qz-pod-bar { height: clamp(62px,10vw,104px); background: linear-gradient(180deg, #D8DCE8, #9AA2B8); }
-        .qz-pod-col.p3 .qz-pod-bar { height: clamp(44px,7vw,74px); background: linear-gradient(180deg, #D89A5C, #A9682F); }
-        .qz-pod-col.me .qz-pod-name { color: #FFC94D; }
-        .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: rgba(255,255,255,0.85); }
-        .qz-mypl b { color: #FFC94D; }
+        .qz-pod-col.p1 .qz-pod-bar { height: clamp(96px,14vw,156px); background: linear-gradient(180deg, #FFCE3D, #F5A623); box-shadow: inset 0 2px 0 rgba(255,255,255,0.5), 0 0 40px rgba(245,166,35,0.35); }
+        .qz-pod-col.p2 .qz-pod-bar { height: clamp(66px,10vw,110px); background: linear-gradient(180deg, #D6D9E0, #A2A8B4); }
+        .qz-pod-col.p3 .qz-pod-bar { height: clamp(48px,7vw,82px); background: linear-gradient(180deg, #EDB183, #CB8149); }
+        .qz-pod-col.me .qz-pod-name { color: #FF4F28; }
+        .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: #525A6B; }
+        .qz-mypl b { color: #FF4F28; }
         .qz-solo-res { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-        .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FFC94D; text-shadow: 0 8px 34px rgba(255,201,77,0.4); }
-        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 16px; padding: 10px 16px; color: #fff; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; backdrop-filter: blur(6px); }
+        .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FF4F28; text-shadow: 0 8px 30px rgba(255,79,40,0.3); font-variant-numeric: tabular-nums; }
+        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.92); border: 1px solid #DDE4F1; border-radius: 16px; padding: 10px 16px; color: #121826; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; box-shadow: 0 12px 30px -14px rgba(30,44,80,0.4); backdrop-filter: blur(6px); }
 
         /* === 🏆 PODIUM / STATISTIKA SAHIFASI === */
         .pod-stage { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px,2vw,20px); padding-top: 8px; }
