@@ -2496,7 +2496,7 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
               <div className="sk-buildbox">
                 <p className="eyebrow" style={{ color: T.accent, margin: '0 0 2px' }}>🧲 Endi o'zingiz yig'ing</p>
                 <p className="body" style={{ margin: '0 0 10px', color: T.ink2, fontSize: 13.5 }}>Bo'laklarni to'g'ri tartibda joylang — sudrab yoki bosib.</p>
-                <DragDropOrder items={SKELET_PIECES} hints={["eng boshi", "hujjat", "ichida", "oxiri"]} onSolved={() => setDragDone(true)} />
+                <DragDropOrder items={SKELET_PIECES} hints={["eng boshida", "butun sahifa qobig'i", "ko'rinmas qism", "ko'rinadigan qism"]} onSolved={() => setDragDone(true)} />
               </div>
             ) : (
             <div className="bskel fade-up delay-2">
@@ -2571,7 +2571,7 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const [active, setActive] = useState(null);
   const [dbgDone, setDbgDone] = useState(!!storedAnswer);
   const isNarrow = useIsMobile(768);
-  const done = dbgDone; // Davom etish — teg qamragач xato ham topilganda
+  const done = dbgDone; // Davom etish — teg qamragach xato ham topilganda
   const tap = (k) => { if (!wrapped) return; setActive(k); };
   const ic = (k, base) => `${base} ${active === k ? 'active' : ''}`;
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
@@ -3104,7 +3104,7 @@ const ScreenFlashcards = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) =>
     <Stage eyebrow="Takrorlash" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={false} label="Yakunlash →" onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Teglarni <span className="italic" style={{ color: T.accent }}>tez takrorlaymiz</span>.</h2></div>
-        <Mentor>Darsni yakunlashдан oldin bugun o'rgangan teglarni takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>qaysi teg</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
+        <Mentor>Darsni yakunlashdan oldin bugun o'rgangan teglarni takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>qaysi teg</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
         <div className="fc-center"><Flashcards cards={HTML_FLASHCARDS} /></div>
       </div>
     </Stage>
@@ -3319,7 +3319,7 @@ const QUIZ_MS = 20000;
 const QUIZ_BASE_IDX = 100;
 const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CoddyHoot brend palitrasi: coral · ocean · sun · leaf
 const QUIZ_SHAPES = ['▲', '◆', '●', '■'];
-// Arena foni: suzuvchi kod tokenlari (kodlash maktabi hisси)
+// Arena foni: suzuvchi kod tokenlari (kodlash maktabi hissi)
 const QZ_BG_SHAPES = [
   { ch: '</>',  l: 6,  t: 18, s: 40, c: 'rgba(20,17,14,0.05)',   d: 19, dl: 0 },
   { ch: '{ }',  l: 84, t: 12, s: 34, c: 'rgba(20,17,14,0.05)',   d: 23, dl: 1.5 },
@@ -4216,7 +4216,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .dd-chip:hover { transform: translateY(-2px); }
         .dd-chip:active { cursor: grabbing; }
         .dd-slots, .dd-pool { position: relative; }
-        .dd-pool { z-index: 1; } /* sudralган pool chip slotlar ustida ko'rinsin */
+        .dd-pool { z-index: 1; } /* sudralgan pool chip slotlar ustida ko'rinsin */
         .dd-done { font-weight: 700; color: ${T.success}; font-size: 14.5px; }
         .dd-wrong { font-weight: 700; color: #E24848; font-size: 13.5px; }
 
