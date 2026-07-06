@@ -1313,7 +1313,6 @@ const SCREEN_META = [
   { id: 's12', type: 'exploration', template: 'custom',   scored: false, scope: null },
   { id: 's14', type: 'case',        template: 'custom',   scored: false, scope: null },
   { id: 's13', type: 'rule',        template: 'custom',   scored: false, scope: null },
-  { id: 's15', type: 'test',        template: 'MCScreen', scored: true,  scope: 'final' },
   { id: 's15b', type: 'stats',      template: 'custom',   scored: false, scope: null },
   { id: 's16', type: 'summary',     template: 'custom',   scored: false, scope: null }
 ];
@@ -3129,7 +3128,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
 
 // ============================================================ LESSON ROOT — ({ lang, onFinished })
 // Podium yorliqlari (scored indeks -> qisqa nom)
-const Q_LABELS = { 4: "Brauzer roli", 6: "Ko'rinadigan matn — body", 8: "Yopuvchi teg (</h1>)", 12: "Raqamli ro'yxat — ol", 16: "To'liq h1 yozish (yakuniy)" };
+const Q_LABELS = { 4: "Brauzer roli", 6: "Ko'rinadigan matn — body", 8: "Yopuvchi teg (</h1>)", 12: "Raqamli ro'yxat — ol" };
 
 const Confetti = () => {
   const COLORS = [T.accent, T.success, T.blue, '#FFD380', '#FF7755', '#7DD181'];
@@ -3153,7 +3152,7 @@ const Confetti = () => {
 };
 
 // Server-baholash javob kaliti (mentor darsni ochganda avto-yuklanadi). s15 = -1 (yakuniy amaliy).
-const INLINE_KEYS = { s4: 2, s5b: 3, s7: -1, s11: 1, s15: -1 };
+const INLINE_KEYS = { s4: 2, s5b: 3, s7: -1, s11: 1 };
 
 const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   const gate = useContext(LiveGateCtx) || {};
@@ -3752,7 +3751,7 @@ const STARTER_LINK = `<!-- href ichiga manzil, teg ichiga matn yozing -->
 <a href="">Bu yerni bosing</a>
 `;
 
-// — P5: yakuniy (Screen15 — yakuniy testdan — keyin) —
+// — P5: yakuniy (Screen13 Debugging dan keyin — Screen15 "ismingizni sarlavha qiling" olib tashlandi) —
 const TASK_FINAL = {
   eyebrow: 'Praktika · yakuniy',
   title: "Hammasi birga — o'z sahifangiz",
@@ -3779,7 +3778,7 @@ const PRACTICE_AFTER = {
   10: { task: TASK_TEXT,     starter: STARTER_TEXT },
   11: { task: TASK_LIST,     starter: STARTER_LIST },
   13: { task: TASK_LINK,     starter: STARTER_LINK },
-  16: { task: TASK_FINAL,    starter: STARTER_FINAL },
+  15: { task: TASK_FINAL,    starter: STARTER_FINAL }, // Screen15 olib tashlandi → yakuniy praktika Debugging (idx 15) dan keyin
 };
 
 export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
@@ -3861,7 +3860,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
     if (typeof onFinished === 'function') onFinished(payload);
   };
 
-  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, ScreenSkeletTest, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen14, Screen13, Screen15, ScreenPodium, Screen16];
+  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, ScreenSkeletTest, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen14, Screen13, ScreenPodium, Screen16];
   const Current = screens[screen];
   return (
     <LangContext.Provider value={lang}>
