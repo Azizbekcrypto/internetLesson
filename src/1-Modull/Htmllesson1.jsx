@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
-import mentorImg from '../assets/common/mentor.png';
 
 // ============================================================
 //  KOD COMPILATOR (HtmlCompiler) — ILGARI ./HtmlCompiler.jsx EDI,
@@ -227,7 +226,7 @@ const DEFAULT_TASK = {
     "Quyidagi shartlarni bajaring. Har biri bajarilganda yashil ✓ yonadi. Hammasi yashil bo'lsa — “Davom etish” ochiladi.",
   requirements: [
     { id: 'h1', label: '<h1> sarlavha (matn bilan)', check: checks.text('h1', "`<h1>` ichiga sarlavha matnini yozing") },
-    { id: 'p', label: '<p> xatboshi (matn bilan)', check: checks.text('p', "`<p>` ichiga bir-ikki gap yozing") },
+    { id: 'p', label: '<p> — matn (paragraf)', check: checks.text('p', "`<p>` ichiga bir-ikki gap yozing") },
     { id: 'img', label: '<img> — src va alt bilan', check: checks.attrs('img', ['src', 'alt'], "`<img>` da `src` va `alt` ikkalasini to'ldiring") },
   ],
 };
@@ -506,13 +505,15 @@ const baseStyle = `
   body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:24px;color:#13141A;line-height:1.6;background:#fff}
   h1{font-family:Georgia,serif;margin:0 0 12px;letter-spacing:-.01em}
   img{max-width:100%;border-radius:12px;display:block;margin:10px 0}
-  p{margin:0 0 12px}`;
+  p{margin:0 0 12px}
+  li:empty{display:none}`;
 
 const wrapDoc = (html, css, js, opts = {}) => `<!doctype html>
 <html lang="uz">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_blank">
 <style>${baseStyle}
 ${css || ''}</style>
 ${opts.capture ? CONSOLE_CAPTURE : ''}
@@ -743,7 +744,7 @@ function HtmlCompiler({
           <iframe
             className="hc-frame"
             title="natija"
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
             srcDoc={doc}
           />
           {showConsole && (
@@ -933,7 +934,7 @@ async function liveGet(pin) {
   const r = await fetch(`${LIVE_SUPABASE_URL}/rest/v1/live_sessions?pin=eq.${encodeURIComponent(pin)}&select=lesson_id,max_screen,status,updated_at,quiz_state,quiz_q,quiz_started_at,reveal_screen`, { headers: _liveHdr });
   if (!r.ok) throw new Error(`get: ${r.status}`);
   const rows = await r.json(); return (rows && rows[0]) || null;
-  
+
 }
 const _lsKey = (id) => `liveSession:${id}`;
 const liveRead = (id) => { try { return JSON.parse(localStorage.getItem(_lsKey(id)) || 'null'); } catch { return null; } };
@@ -954,10 +955,15 @@ const livePlayers = (pin) => liveList(`live_players?pin=eq.${encodeURIComponent(
 // screenIdx berilmasa — faqat DARS javoblari (<100); Mustahkamlash javoblari 100+ indekslarda
 const liveAnswers = (pin, screenIdx) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}${screenIdx == null ? '&screen_idx=lt.100' : `&screen_idx=eq.${screenIdx}`}&select=player_id,screen_idx,picked,correct,elapsed_ms`);
 const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}&screen_idx=gte.100&select=player_id,screen_idx,picked,correct,elapsed_ms`);
+// Praktika-tugadi signali: o'quvchi kod mashqini bajarib bo'lgach 500+screenIdx ga yoziladi.
+// 500+ diapazon — DARS testlari (<100) va Mustahkamlash/quiz (100+, aniq indeks bilan
+// o'qiladi) bilan to'qnashmaydi; faqat mentorning praktika paneli aniq indeks bilan o'qiydi.
+const PRACTICE_DONE_BASE = 500;
 
 const LiveGateCtx = createContext(null);
 
-function useLiveSession(lessonId) {
+function useLiveSession(lessonId, answerKey) {
+  const keyRef = useRef(answerKey); keyRef.current = answerKey; // javob kaliti — mentor darsni ochganda serverga avto-yuklanadi (SQL shart emas)
   const initRef = useRef(undefined);
   if (initRef.current === undefined) initRef.current = LIVE_ENABLED ? liveRead(lessonId) : null;
   const init = initRef.current;
@@ -1038,6 +1044,9 @@ function useLiveSession(lessonId) {
       if (!row?.pin) throw new Error('no pin');
       tokenRef.current = row.token; setPin(row.pin); setMode('mentor'); setEnded(false);
       liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
+      // Javob kalitini serverga avto-yuklash (mentor-kod bilan) — server-baholash uchun SHART.
+      // Busiz server javoblarni kalitsiz baholaydi va hammasini «xato» deb hisoblaydi (podium 0/5).
+      if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
     } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
     finally { setBusy(false); }
   }, [lessonId]);
@@ -1464,7 +1473,10 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
   if (data.players === null) return null;
   const total = data.players.length;
   const answered = data.rows.length;
-  const ok = data.rows.filter(a => a.correct).length;
+  // «To'g'ri» sanog'ini ustunlar bilan BIR XIL mantiqdan olamiz (picked === correctIdx),
+  // serverdagi eskirishi mumkin bo'lgan `a.correct` boolean'iga tayanmaymiz — aks holda
+  // pastdagi ustun «to'g'ri javobda 1 o'quvchi», yuqoridagi sanoq esa «1 xato» deb zid chiqadi.
+  const ok = data.rows.filter(a => a.picked === correctIdx).length;
   const bad = answered - ok;
   const allIn = total > 0 && answered >= total;
   const struggling = answered >= 2 && bad > ok;
@@ -1578,6 +1590,78 @@ function MentorWorkStats({ live, screenIdx, taskLabel }) {
         </div>
       )}
       {doneN === 0 && <p className="mstats-wait">O'quvchilar yozib tugatishi bilan shu yerda ✓ belgisi chiqadi…</p>}
+    </div>
+  );
+}
+
+// ===== MENTOR PRAKTIKA PANELI — jonli darsda kod mashqi uchun =====
+// Oqim: mentor "Davom etish" bosadi → o'quvchilar OCHILADI va o'z qurilmasida mashqni
+// yozadi; mentor bu panelda kim tugatganini JONLI kuzatadi. Ko'pchilik tugagach —
+// mentor «🖊 Doskada yozib ko'rsatish» bilan AYNAN shu mashqni proyektorda yozib beradi.
+// Shunday qilib: avval o'quvchilar mustaqil yozadi, keyin mentor birga yechib tushuntiradi.
+function MentorPracticeOverlay({ entry, live, onClose }) {
+  const [view, setView] = useState('watch'); // 'watch' | 'demo'
+  const [data, setData] = useState({ players: null, rows: [] });
+  const doneIdx = PRACTICE_DONE_BASE + entry.fromScreen;
+  useEffect(() => {
+    let on = true, t = null;
+    const tick = async () => {
+      try {
+        const [players, rows] = await Promise.all([livePlayers(live.pin), liveAnswers(live.pin, doneIdx)]);
+        if (on) setData({ players, rows });
+      } catch {}
+      if (on) t = setTimeout(tick, 3000);
+    };
+    tick();
+    return () => { on = false; clearTimeout(t); };
+  }, [live.pin, doneIdx]);
+
+  if (view === 'demo') {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: T.bg }}>
+        <HtmlCompiler task={entry.task} starterCode={entry.starter} onContinue={() => setView('watch')} onBack={() => setView('watch')} />
+      </div>
+    );
+  }
+
+  const total = data.players ? data.players.length : 0;
+  const doneN = data.rows.length;
+  const allIn = total > 0 && doneN >= total;
+  const doneIds = new Set(data.rows.map(r => r.player_id));
+  return (
+    <div className="mp-overlay">
+      <div className="mp-card">
+        <div className="mp-eyebrow">✍️ Amaliyot · jonli</div>
+        <h2 className="mp-title">{entry.task.title}</h2>
+        <p className="mp-brief">{entry.task.brief}</p>
+        <div className="mp-flow">
+          <span className="mp-step cur">1 · O'quvchilar o'z qurilmasida yozmoqda</span>
+          <span className="mp-arr">→</span>
+          <span className="mp-step">2 · Mentor doskada yozib ko'rsatadi</span>
+        </div>
+        {data.players === null ? (
+          <p className="mstats-wait">Ulanish…</p>
+        ) : (
+          <div className="mstats" style={{ marginTop: 2 }}>
+            <div className="mstats-head">
+              <span className="mstats-lbl">👨‍🎓 Praktikani tugatdi</span>
+              <span className="mstats-n">{allIn ? '✓ Hamma tugatdi!' : <>Tugatdi: <b>{doneN}</b> / {total}</>}</span>
+            </div>
+            <div className="mstats-prog"><span className={`mstats-prog-fill ${allIn ? 'full' : ''}`} style={{ width: `${total ? Math.round((doneN / total) * 100) : 0}%` }} /></div>
+            {total > 0 && (
+              <div className="mstats-waitrow" style={{ marginTop: 10 }}>
+                {data.players.map(p => <span key={p.id} className="mstats-wait-chip" style={doneIds.has(p.id) ? { background: T.successSoft, color: T.success, fontWeight: 700 } : undefined}>{doneIds.has(p.id) ? '✓ ' : '✏️ '}{p.nickname}</span>)}
+              </div>
+            )}
+            {total === 0 && <p className="mstats-wait">Hali o'quvchi qo'shilmagan — ular praktikani boshlashi bilan bu yerda ✓ chiqadi…</p>}
+          </div>
+        )}
+        <div className="mp-actions">
+          <button className="mp-demo" onClick={() => setView('demo')}>🖊 Doskada yozib ko'rsatish</button>
+          <button className="mp-next" onClick={onClose}>Keyingi mavzuga →</button>
+        </div>
+        <p className="mp-tip">💡 Ko'pchilik tugatgach, aynan shu mashqni doskada birga yozing — shunda o'quvchilar o'zini tekshiradi va mavzu mustahkamlanadi.</p>
+      </div>
     </div>
   );
 }
@@ -1717,9 +1801,7 @@ const Mentor = ({ children }) => {
   const expand = (e) => { e.stopPropagation(); if (ctx.forced && ctx.setForced) ctx.setForced(false); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
     <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
-      <div className="mentor-ava" aria-hidden="true">
-        <img src={mentorImg} alt="" />
-      </div>
+      <div className="mentor-ava" aria-hidden="true">🧑‍🏫</div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
         <div className="mentor-msg body">{children}</div>
@@ -2404,7 +2486,7 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     prevCollapsedRef.current = mctx.collapsed;
   }, [mctx.collapsed]);
   return (
-    <Stage eyebrow="Sarlavhalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? 'Davom etish' : 'Avval tanlang'} onClick={onNext} /></>}>
+    <Stage eyebrow="Sarlavhalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? '✍️ Praktika →' : 'Avval tanlang'} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Gazetada <span className="italic" style={{ color: T.accent }}>nima</span> darrov ko'zga tashlanadi?</h2></div>
         <Mentor>Mana oddiy gazeta sahifasi. Hatto o'qib chiqmasangiz ham, qaysi yozuv eng muhim ekanini <b style={{ color: T.ink }}>darrov</b> bilib olasiz. Sizningcha, qaysi biri eng muhim?</Mentor>
@@ -2486,7 +2568,7 @@ const Screen9 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   };
 
   return (
-    <Stage eyebrow="Matn" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "B va I ni sinang"} onClick={onNext} /></>}>
+    <Stage eyebrow="Matn" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "✍️ Praktika →" : "B va I ni sinang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }} onClick={() => setSel(null)}>
         <div className="head"><h2 className="title h-title fade-up">Muhim so'zni qanday <span className="italic" style={{ color: T.accent }}>ajratasiz</span>?</h2></div>
         <Mentor>Telegram'da so'zni <b style={{ color: T.ink }}>belgilab</b>, <b style={{ color: T.ink }}>B</b>/<b style={{ color: T.ink }}>I</b> bilan formatlab yuborasiz. Veb-saytda esa o'sha ishni <b style={{ color: T.ink }}>HTML tegi</b> qiladi: <span className="mono">strong</span> — qalin, <span className="mono">em</span> — yotiq.</Mentor>
@@ -2562,7 +2644,7 @@ const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 
   return (
-    <Stage eyebrow="Ro'yxatlar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext label="Davom etish" onClick={onNext} /></>}>
+    <Stage eyebrow="Ro'yxatlar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext label="✍️ Praktika →" onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Xarid ro'yxati va retsept — <span className="italic" style={{ color: T.accent }}>farqi</span> nimada?</h2></div>
         <Mentor>Xarid ro'yxatida tartib <b style={{ color: T.ink }}>muhim emas</b> (non, sut — qaysi avval bo'lsa ham bari bir). Retseptda esa qadamlar <b style={{ color: T.ink }}>aniq tartibda</b>. Shuning uchun HTML'da <b style={{ color: T.ink }}>ikki xil</b> ro'yxat bor — pastdan farqini ko'ring.</Mentor>
@@ -2673,7 +2755,7 @@ const Screen12 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   useEffect(() => { if (isNarrow && mctx.collapsed === false) setRevealed(false); }, [mctx.collapsed]);
   return (
-    <Stage eyebrow="Havolalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Havolani bosing"} onClick={onNext} /></>}>
+    <Stage eyebrow="Havolalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "✍️ Praktika →" : "Havolani bosing"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(8px,1.2vw,12px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Bir bosishda boshqa sahifaga qanday <span className="italic" style={{ color: T.accent }}>o'tamiz</span>?</h2></div>
         <Mentor>YouTube'da bitta videoni ko'rib bo'lgach, yonidagisiga bosib o'tasiz-ku. O'sha bosish — <b style={{ color: T.ink }}>havola</b>. HTML'da havola <span className="mono">{'<a href="…">'}</span> bilan yasaladi. Menyuni bosib, sahifalar o'rtasida yuring.</Mentor>
@@ -2813,7 +2895,7 @@ const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     }
   }, [valid]);
   return (
-    <Stage eyebrow="Yakuniy · amaliy" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={isMentorLive ? false : !passed} label={isMentorLive ? "Davom etish" : (passed ? "Davom etish" : "Sarlavhani yozing")} onClick={onNext} /></>}>
+    <Stage eyebrow="Yakuniy · amaliy" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={isMentorLive ? false : !passed} label={isMentorLive ? "✍️ Praktika →" : (passed ? "✍️ Praktika →" : "Sarlavhani yozing")} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Oxirgi qadam: ismingizni <span className="italic" style={{ color: T.accent }}>sarlavha</span> qiling.</h2></div>
         <Mentor>Eslang, gazeta misolida ko'rdik: eng katta sarlavha — <span className="mono">h1</span>. Endi o'zingiz yozing: <b style={{ color: T.ink }}>ochuvchi teg</b>, ismingiz, <b style={{ color: T.ink }}>yopuvchi teg</b> — to'liq.</Mentor>
@@ -3421,12 +3503,12 @@ function QuizArena({ live, onClose, startSolo }) {
 // — P1: sarlavhalar (Screen8 — Sarlavhalar — dan keyin) —
 const TASK_HEADINGS = {
   eyebrow: 'Praktika · sarlavha',
-  title: "Sarlavha va xatboshi yozing",
-  brief: "Sahifaga bosh sarlavha, kichik sarlavha va bir xatboshi qo'shing. To'g'ri bo'lsa o'ngda ko'rinadi va “Davom etish” yonadi.",
+  title: "Sarlavha va matn (paragraf) yozing",
+  brief: "Sahifaga bosh sarlavha, kichik sarlavha va bir matn (paragraf) qo'shing. To'g'ri bo'lsa o'ngda ko'rinadi va “Davom etish” yonadi.",
   requirements: [
     { id: 'h1', label: '<h1> — bosh sarlavha', check: C.text('h1', "`<h1>` ichiga bosh sarlavha matnini yozing") },
     { id: 'h2', label: '<h2> — kichik sarlavha', check: C.text('h2', "`<h2>` ichiga kichik sarlavha yozing") },
-    { id: 'p', label: '<p> — xatboshi', check: C.text('p', "`<p>` ichiga bir-ikki gap yozing") },
+    { id: 'p', label: '<p> — matn (paragraf)', check: C.text('p', "`<p>` ichiga bir-ikki gap yozing") },
   ],
 };
 const STARTER_HEADINGS = `<!-- Quyidagilarni yozing: -->
@@ -3434,7 +3516,7 @@ const STARTER_HEADINGS = `<!-- Quyidagilarni yozing: -->
 
 <!-- 2) <h2> kichik sarlavha -->
 
-<!-- 3) <p> xatboshi (bir-ikki gap) -->
+<!-- 3) <p> matn / paragraf (bir-ikki gap) -->
 
 `;
 
@@ -3484,17 +3566,17 @@ const STARTER_LINK = `<!-- href ichiga manzil, teg ichiga matn yozing -->
 const TASK_FINAL = {
   eyebrow: 'Praktika · yakuniy',
   title: "Hammasi birga — o'z sahifangiz",
-  brief: "Bugun o'rgangan hamma narsa: sarlavha + xatboshi + ro'yxat + havola. Yetishmayotgan qismlarni o'zingiz to'ldiring.",
+  brief: "Bugun o'rgangan hamma narsa: sarlavha + matn (paragraf) + ro'yxat + havola. Yetishmayotgan qismlarni o'zingiz to'ldiring.",
   requirements: [
     { id: 'h1', label: '<h1> sarlavha (matn bilan)', check: C.text('h1', "`<h1>` ichiga sarlavha yozing") },
-    { id: 'p', label: '<p> xatboshi (matn bilan)', check: C.text('p', "`<p>` ichiga bir-ikki gap yozing") },
+    { id: 'p', label: '<p> — matn (paragraf)', check: C.text('p', "`<p>` ichiga bir-ikki gap yozing") },
     { id: 'li', label: 'ro\'yxatda kamida 2 ta <li>', check: C.count('li', 2, "`<ul>`/`<ol>` ichida kamida 2 ta `<li>` band yozing") },
     { id: 'a', label: '<a> havola — href bilan', check: C.attr('a', 'href', "`<a href=\"...\">matn</a>` havola qo'shing") },
   ],
 };
 const STARTER_FINAL = `<h1>Men haqimda</h1>
 
-<!-- 1) Bir xatboshi <p> yozing -->
+<!-- 1) Bir matn / paragraf <p> yozing -->
 
 <!-- 2) Ro'yxat: <ul> yoki <ol>, ichida <li> bandlar -->
 
@@ -3515,6 +3597,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   const [screen, setScreen] = useState(0);
   const [answers, setAnswers] = useState({});
   const [practice, setPractice] = useState(null);   // lokal overlay: { task, starter, done } yoki null
+  const [mentorPractice, setMentorPractice] = useState(null); // jonli darsda mentor praktika paneli: { task, starter, fromScreen }
   const startTimeRef = useRef(Date.now());
 
   // ETALON — 1920px (InternetLesson): keng oynada proportsional kattalashadi, <=1920 da z=1
@@ -3524,8 +3607,13 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   }, []);
   const advance = () => setScreen(s => Math.min(s + 1, TOTAL_SCREENS - 1));
   // Praktikani ishga tushiradi: production'da onPractice (LMS), lokalda overlay.
-  const runPractice = (entry) => {
-    const done = () => { setPractice(null); advance(); };
+  // fromScreen — praktika QAYSI ekrandan keyin ochilgani; tugatilganda mentor paneli
+  // uchun «tugatdim» signali serverga yoziladi (o'quvchi jonli darsda bo'lsa).
+  const runPractice = (entry, fromScreen) => {
+    const done = () => {
+      if (live && live.mode === 'student') live.submitAnswer(PRACTICE_DONE_BASE + fromScreen, `practice-${fromScreen}`, 0, true, 0);
+      setPractice(null); advance();
+    };
     if (typeof onPractice === 'function') {
       Promise.resolve(onPractice(entry.task)).then(done); // production: LMS compilatori
     } else {
@@ -3536,10 +3624,16 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   // bajarilgach keyingi ekranga o'tadi. Aks holda oddiy o'tadi.
   const next = () => {
     const entry = PRACTICE_AFTER[screen];
-    // Jonli mentor (proyektor) praktika overlay'ini ochmaydi — u sinfni boshqaradi,
-    // o'quvchilar praktikani o'z qurilmasida (yoki self rejimda) bajaradi.
-    if (entry && !(live && live.mode === 'mentor')) runPractice(entry);
-    else advance();
+    if (!entry) { advance(); return; }
+    if (live && live.mode === 'mentor') {
+      // Jonli mentor: avval o'quvchilarni OCHAMIZ (advance → ular praktikani o'z
+      // qurilmasida yozadi), so'ng mentor panelida kim tugatganini kuzatadi va
+      // «Doskada yozib ko'rsatish» bilan aynan shu mashqni proyektorda yechib beradi.
+      setMentorPractice({ ...entry, fromScreen: screen });
+      advance();
+    } else {
+      runPractice(entry, screen); // o'quvchi / self: mashqni o'zi bajaradi
+    }
   };
   const prev = () => setScreen(s => Math.max(s - 1, 0));
   const recordAnswer = (idx, data) => {
@@ -3547,7 +3641,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
     const _m = SCREEN_META[idx];
     if (_m && _m.scored && _m.scope === 'final' && data && data.correct && live.mode === 'student') live.submitAnswer(idx, _m.id, 0, true, 0);
   };
-  const reset = () => { setAnswers({}); setScreen(0); setPractice(null); startTimeRef.current = Date.now(); };
+  const reset = () => { setAnswers({}); setScreen(0); setPractice(null); setMentorPractice(null); startTimeRef.current = Date.now(); };
 
   // Javob kaliti: inline testlar + jang savollari (QUIZ_BANK'dan) — mentor ochganda serverga yuklanadi
   const answerKey = { ...INLINE_KEYS, ...Object.fromEntries(QUIZ_BANK.map((q, i) => [`quiz-${i}`, q.correct])) };
@@ -3643,8 +3737,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
 
         /* === MENTOR === */
         .mentor { display: flex; gap: 12px; align-items: flex-start; }
-        .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); }
-        .mentor-ava img { display: block; width: 100%; height: 100%; object-fit: contain; transform: scale(1.12); }
+        .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); display: flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
         .mentor-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
         .mentor-name { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13px; color: ${T.accent}; letter-spacing: 0.01em; }
         .mentor-msg { background: ${T.paper}; border-radius: 4px 14px 14px 14px; padding: 13px 16px; color: ${T.ink}; box-shadow: 0 6px 18px -6px rgba(${T.shadowBase},0.16); }
@@ -3816,7 +3909,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .hug-lbl { font-family: 'JetBrains Mono'; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: ${T.ink3}; }
         .role-line { background: ${T.paper}; border-radius: 10px; padding: 12px 15px; box-shadow: 0 6px 16px -6px rgba(${T.shadowBase},0.14); animation: fade-step 0.3s; }
         .hint { background: ${T.bg}; border: 1.5px dashed ${T.ink3}; border-radius: 12px; padding: 14px 16px; font-size: clamp(13px,1.5vw,14px); color: ${T.ink2}; }
-        .pv-h1 { font-family: 'Georgia, serif'; font-size: clamp(22px,3vw,30px); color: ${T.ink}; margin: 0; animation: tb-pvpop 0.5s cubic-bezier(.34,1.4,.5,1); }
+        .pv-h1 { font-family: 'Georgia, serif'; font-weight: 700; font-size: clamp(22px,3vw,30px); color: ${T.ink}; margin: 0; animation: tb-pvpop 0.5s cubic-bezier(.34,1.4,.5,1); }
 
         /* === LADDER (sarlavhalar) === */
         .ladder { display: flex; flex-direction: column; gap: 6px; }
@@ -4021,7 +4114,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .pz-title { font-family: 'Manrope'; font-weight: 700; font-size: 14px; color: ${T.accent}; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 3px; }
         .pz-sub { font-size: clamp(13px,1.6vw,15px); color: ${T.ink2}; line-height: 1.45; margin: 0; }
         /* ===== DINOZAVRNI DASTURLASH O'YINI ===== */
-        .rg-scene { position: relative; height: clamp(158px,35vw,196px); border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 0 1px ${T.line}; }
+        .rg-scene { position: relative; height: clamp(174px,38.5vw,216px); border-radius: 14px; overflow: hidden; box-shadow: inset 0 0 0 1px ${T.line}; }
         .rg-sky { position: absolute; inset: 0; background: linear-gradient(180deg,#EAF4FB 0%, #F5F9FC 58%); }
         .rg-ground { position: absolute; left: 0; right: 0; bottom: 0; height: 24%; background: linear-gradient(180deg,#DAC79F,#C8AF80); box-shadow: inset 0 2px 0 #E9DAB8; }
         .rg-cell { position: absolute; bottom: 16%; width: 6px; height: 6px; border-radius: 50%; background: rgba(80,60,20,0.18); transform: translateX(-50%); }
@@ -4197,6 +4290,22 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .mstats-warn { margin: 0; font-family: 'Manrope'; font-weight: 600; font-size: 13px; color: ${T.accent}; background: ${T.accentSoft}; border-radius: 10px; padding: 9px 12px; }
         .mstats-wait { margin: 0; font-size: 12.5px; color: ${T.ink3}; font-style: italic; }
         @media (max-width: 560px) { .mstats-count { min-width: 78px; font-size: 11px; } }
+        /* Mentor praktika paneli (jonli) */
+        .mp-overlay { position: fixed; inset: 0; z-index: 2000; background: ${T.bg}; display: flex; align-items: center; justify-content: center; padding: clamp(16px,3vw,34px); overflow: auto; }
+        .mp-card { width: 100%; max-width: 640px; background: ${T.paper}; border-radius: 22px; padding: clamp(22px,3.4vw,36px); box-shadow: 0 24px 60px -24px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 14px; animation: zoom-pop 0.3s cubic-bezier(.34,1.3,.4,1); }
+        .mp-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: ${T.accent}; }
+        .mp-title { font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: clamp(22px,3.2vw,30px); color: ${T.ink}; margin: 0; line-height: 1.15; }
+        .mp-brief { margin: 0; font-size: clamp(13.5px,1.8vw,15px); line-height: 1.55; color: ${T.ink2}; }
+        .mp-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 4px; }
+        .mp-step { font-family: 'Manrope'; font-weight: 700; font-size: 12.5px; color: ${T.ink2}; background: rgba(${T.shadowBase},0.06); border-radius: 99px; padding: 6px 13px; }
+        .mp-step.cur { color: ${T.success}; background: ${T.successSoft}; }
+        .mp-arr { color: ${T.ink3}; font-weight: 700; }
+        .mp-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+        .mp-demo { flex: 1; min-width: 200px; padding: 14px 20px; border: none; border-radius: 14px; background: ${T.ink}; color: ${T.paper}; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 10px 26px -10px rgba(${T.shadowBase},0.4); transition: transform 0.15s; }
+        .mp-demo:hover { transform: translateY(-2px); }
+        .mp-next { flex: 1; min-width: 160px; padding: 14px 20px; border: 1.5px solid rgba(${T.shadowBase},0.16); border-radius: 14px; background: ${T.paper}; color: ${T.ink}; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.15s; }
+        .mp-next:hover { border-color: ${T.accent}; color: ${T.accent}; }
+        .mp-tip { margin: 2px 0 0; font-size: 12.5px; line-height: 1.5; color: ${T.ink3}; }
         /* Verdikt + recap tugmalari */
         .mstats-verdict { border-radius: 12px; padding: 12px 15px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; animation: fade-step 0.3s ease-out; }
         .mstats-verdict.need { background: ${T.accentSoft}; border-left: 4px solid ${T.accent}; }
@@ -4416,6 +4525,10 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
             onBack={() => setPractice(null)}
           />
         </div>
+      )}
+      {/* Jonli darsda mentor praktika paneli — o'quvchilar yozadi, keyin mentor doskada ko'rsatadi */}
+      {mentorPractice && (
+        <MentorPracticeOverlay entry={mentorPractice} live={live} onClose={() => setMentorPractice(null)} />
       )}
     </LangContext.Provider>
   );

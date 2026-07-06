@@ -745,7 +745,9 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
   if (data.players === null) return null;
   const total = data.players.length;
   const answered = data.rows.length;
-  const ok = data.rows.filter(a => a.correct).length;
+  // «To'g'ri» sanog'ini ustunlar bilan BIR XIL mantiqdan olamiz (picked === correctIdx),
+  // serverdagi eskirishi mumkin bo'lgan `a.correct` boolean'iga tayanmaymiz.
+  const ok = data.rows.filter(a => a.picked === correctIdx).length;
   const bad = answered - ok;
   const allIn = total > 0 && answered >= total;
   const struggling = answered >= 2 && bad > ok;

@@ -64,7 +64,8 @@ const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURICompon
 
 const LiveGateCtx = createContext(null);
 
-function useLiveSession(lessonId) {
+function useLiveSession(lessonId, answerKey) {
+  const keyRef = useRef(answerKey); keyRef.current = answerKey; // javob kaliti — mentor sessiya ochganda serverga yuklanadi
   const initRef = useRef(undefined);
   if (initRef.current === undefined) initRef.current = LIVE_ENABLED ? liveRead(lessonId) : null;
   const init = initRef.current;
@@ -145,6 +146,7 @@ function useLiveSession(lessonId) {
       if (!row?.pin) throw new Error('no pin');
       tokenRef.current = row.token; setPin(row.pin); setMode('mentor'); setEnded(false);
       liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
+      if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
     } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
     finally { setBusy(false); }
   }, [lessonId]);
