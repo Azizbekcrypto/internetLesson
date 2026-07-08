@@ -131,7 +131,7 @@ function useLiveSession(lessonId, answerKey) {
       liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
       // Javob kalitini serverga avto-yuklash (mentor-kod bilan) — bu dars uchun endi kalit SQL SHART EMAS
       if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
-    } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
+    } catch { setJoinError('Mentor kodi noto\'g\'ri yoki ulanishda xato.'); }
     finally { setBusy(false); }
   }, [lessonId]);
 
@@ -590,7 +590,7 @@ const QuestionScreen = ({ screen, idx, scope, eyebrow, question, questionText, o
             {isMentorLive
               ? explainCorrect
               : waiting
-                ? "Javobingiz yozib olindi 🤫 To'g'rimi-xatomi — hozircha sir! Mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
+                ? "Javobingiz yozib olindi. To'g'ri yoki xato ekani mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
                 : wrongLocked
                   ? (explainWrong[picked] ?? explainWrong.default)
                   : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
@@ -1097,7 +1097,7 @@ const Screen4 = (props) => (
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Internetdagi saytlarni ochib, ekranga chiqaradigan dastur qanday nomlanadi?</h2></>}
     options={['Server', 'Brauzer', 'Domen', 'DNS']} correctIdx={1}
     explainCorrect="Zo'r! Brauzer (Chrome, Safari, Firefox, Edge) — saytlarni ochib beruvchi dastur. U saytni topadi va ekranga chizib beradi."
-    explainWrong={{ 0: 'Server — saytlar saqlanadigan kompyuter. Uni ochib ko’rsatadigan — brauzer.', 2: 'Domen — saytning manzili (youtube.com), dastur emas.', 3: 'DNS — manzilni IP raqamiga aylantiradi. Saytni ko’rsatadigan — brauzer.', default: 'Saytlarni ochib beradigan dastur — brauzer.' }} />
+    explainWrong={{ 0: 'Server — saytlar saqlanadigan kompyuter. Uni ochib ko\'rsatadigan — brauzer.', 2: 'Domen — saytning manzili (youtube.com), dastur emas.', 3: 'DNS — manzilni IP raqamiga aylantiradi. Saytni ko\'rsatadigan — brauzer.', default: 'Saytlarni ochib beradigan dastur — brauzer.' }} />
 );
 
 // ===== SCREEN 5 — DOMEN =====
@@ -1149,7 +1149,7 @@ const Screen5b = (props) => (
     question={<><p className="eyebrow" style={{ color: T.accent }}>Mustahkamlash</p><h2 className="title h-sub" style={{ marginTop: 8 }}><span className="italic" style={{ color: T.accent }}>youtube.com</span>, google.uz — bunday sayt manzili nima deb ataladi?</h2></>}
     options={['Brauzer', 'Parol', 'Domen', 'Server']} correctIdx={2}
     explainCorrect="Aniq topdingiz! Domen — saytning odam oson eslab qoladigan manzili (youtube.com)."
-    explainWrong={{ 0: 'Brauzer — saytni ochadigan dastur, manzil emas.', 1: 'Parol — maxfiy so’z. Sayt manzili — domen.', 3: 'Server — sayt saqlanadigan kompyuter. Uning manzili (nomi) — domen.', default: 'Sayt manzili — domen deb ataladi.' }} />
+    explainWrong={{ 0: 'Brauzer — saytni ochadigan dastur, manzil emas.', 1: 'Parol — maxfiy so\'z. Sayt manzili — domen.', 3: 'Server — sayt saqlanadigan kompyuter. Uning manzili (nomi) — domen.', default: 'Sayt manzili — domen deb ataladi.' }} />
 );
 // ===== SCREEN 6 — IP MANZIL =====
 const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
@@ -1301,7 +1301,7 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
               </div>
               <div className={`cs-node ${step >= 1 ? 'cs-active' : ''} ${step === 1 ? 'cs-proc' : ''}`}><span className="cs-ic">🖥️</span><span className="cs-l">Server<br />(sayt shu yerda)</span></div>
             </div>
-            <button className="btn" style={{ alignSelf: 'flex-start' }} disabled={step === 1} onClick={send}>{step === 1 ? 'Yuborilmoqda…' : (done ? '↻ Yana yuborish' : '📨 Serverga so’rov yuborish')}</button>
+            <button className="btn" style={{ alignSelf: 'flex-start' }} disabled={step === 1} onClick={send}>{step === 1 ? 'Yuborilmoqda…' : (done ? '↻ Yana yuborish' : '📨 Serverga so\'rov yuborish')}</button>
           </div>
           <div className="col">            {done ? (
               <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1326,7 +1326,7 @@ const Screen9 = (props) => (
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Domen nomini (youtube.com) kompyuter tushunadigan <span className="italic" style={{ color: T.accent }}>IP raqamiga</span> kim aylantiradi?</h2></>}
     options={['Brauzer', 'Domen', 'Server', 'DNS']} correctIdx={3}
     explainCorrect="Barakalla! DNS — internetning telefon kitobi: domen nomini IP raqamiga aylantiradi."
-    explainWrong={{ 0: 'Brauzer DNS’dan so’raydi, lekin aylantirishni DNS bajaradi.', 1: 'Domen — bu nomning o’zi. Uni IP’ga aylantiradigan — DNS.', 2: 'Server — sayt saqlanadigan kompyuter. Nomni IP’ga aylantiradigan — DNS.', default: 'Domen → IP aylantirishni DNS bajaradi.' }} />
+    explainWrong={{ 0: 'Brauzer DNS\'dan so\'raydi, lekin aylantirishni DNS bajaradi.', 1: 'Domen — bu nomning o\'zi. Uni IP\'ga aylantiradigan — DNS.', 2: 'Server — sayt saqlanadigan kompyuter. Nomni IP\'ga aylantiradigan — DNS.', default: 'Domen → IP aylantirishni DNS bajaradi.' }} />
 );
 
 // ===== SCREEN 10 — SO'ROV YO'LI (oldinga oqadigan ma'lumot konveyeri) =====
@@ -1561,10 +1561,10 @@ const Screen12 = (props) => (
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Server brauzerga aniq <span className="italic" style={{ color: T.accent }}>nima</span> qaytaradi?</h2></>}
     options={['Domen nomi', 'Sahifa kodi (HTML)', 'DNS manzili', 'Boshqa brauzer']} correctIdx={1}
     explainCorrect="To'ppa-to'g'ri! Server sahifa kodini — HTML'ni qaytaradi. Brauzer uni o'qib, chiroyli sahifaga aylantiradi."
-    explainWrong={{ 0: 'Domen nomini siz yozasiz, server emas. Server HTML kodini qaytaradi.', 2: 'DNS manzilini DNS beradi. Server esa sahifa kodini (HTML) qaytaradi.', 3: 'Brauzer sizda allaqachon bor. Server HTML kodini jo’natadi.', default: 'Server HTML — sahifa kodini qaytaradi.' }} />
+    explainWrong={{ 0: 'Domen nomini siz yozasiz, server emas. Server HTML kodini qaytaradi.', 2: 'DNS manzilini DNS beradi. Server esa sahifa kodini (HTML) qaytaradi.', 3: 'Brauzer sizda allaqachon bor. Server HTML kodini jo\'natadi.', default: 'Server HTML — sahifa kodini qaytaradi.' }} />
 );
 
-// ===== SCREEN 13 — SIMULATOR (o'zing so'rov yubor — 2-page kabi aylanma sayohat) =====
+// ===== SCREEN 13 — SIMULATOR (o'zingiz so'rov yuboring — 2-page kabi aylanma sayohat) =====
 // Har bir sayt uchun o'z ma'lumoti: ikonka, nomi, IP va brend rangi.
 // Tanlangan saytga qarab aylanma sayohat jonlanadi (google bersa Google, youtube bersa YouTube).
 const SITE_CATALOG = {
@@ -2100,7 +2100,7 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
           <div className="col">
             {stage === 'idle' && (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Manzilga diqqat bilan qarang. "Saytni ochish"ni bosib, nima bo'lishini ko'ring.</p></div>)}
             {stage === 'failed' && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>❌ DNS: domen topilmadi</p><p className="body" style={{ margin: 0, color: T.ink }}>DNS <span className="mono">youtub.com</span> ni topolmadi — bunday domen yo'q. Oxirida <b>"e"</b> harfi yetishmayapti (qizil katak ⌶). Chap tugma bilan qo'shing →</p></div>)}
-            {stage === 'fixed' && (<><Preview title="youtube.com" minH={130}><SiteMock site={siteInfo('youtube.com')} /></Preview><div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Xatoni topding va tuzatding!</p><p className="ta-sub">Domen to'g'ri bo'lsa — DNS topadi, sayt ochiladi</p></div></>)}
+            {stage === 'fixed' && (<><Preview title="youtube.com" minH={130}><SiteMock site={siteInfo('youtube.com')} /></Preview><div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Xatoni topdingiz va tuzatdingiz!</p><p className="ta-sub">Domen to'g'ri bo'lsa — DNS topadi, sayt ochiladi</p></div></>)}
           </div>
         </div>
       </div>
@@ -2619,7 +2619,7 @@ function QuizArena({ live, onClose, startSolo }) {
 
 // ===== SCREEN 16 — YAKUN =====
 const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
-  const audio = useAudio([{ id: 's16', text: "Internet qanday ishlashini bilib olding! Endi bilasiz: sayt boshqa kompyuterda — serverda yashaydi, domen uning manzili, DNS manzilni IP'ga aylantiradi, brauzer esa hammasini bog'lab, sahifani ekranga chizadi. Va server qaytargan narsa — HTML. Endi o'sha HTML'ni o'rganamiz.", trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's16', text: "Internet qanday ishlashini bilib oldingiz! Endi bilasiz: sayt boshqa kompyuterda — serverda yashaydi, domen uning manzili, DNS manzilni IP'ga aylantiradi, brauzer esa hammasini bog'lab, sahifani ekranga chizadi. Va server qaytargan narsa — HTML. Endi o'sha HTML'ni o'rganamiz.", trigger: 'on_mount', waits_for: null }]);
   // ⚔️ Mustahkamlash testi: jonli darsda mentor ochadi → o'quvchilar kiradi.
   // Dars tugagan / mentor uzilgan / test umuman ochilmagan bo'lsa — o'quvchi UYDA
   // xuddi shu taymer bilan SOLO (mashq) ishlaydi, natijani o'zi ko'radi.
@@ -2642,9 +2642,9 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
     setArenaSolo(studentSolo); // uydagi o'quvchi — mashq rejimida
     setArena(true);
   };
-  const RECAP = ['Internet — qurilmalarni bog’lovchi tarmoq', 'Brauzer — saytni ochib beruvchi dastur', 'Domen — saytning manzili (youtube.com)', 'IP — kompyuterlar uchun raqamli manzil', 'DNS — domenni IP’ga aylantiradi', 'Server — saytni saqlaydi va qaytaradi'];
-  const HOMEWORK = [{ b: 'Kuzating', t: '— sevimli saytingiz domeni nima?' }, { b: 'Tasavvur qiling', t: '— sayt brauzeringizga qanday yo’l bosib kelishini' }, { b: 'Tushuntiring', t: '— do’stingizga internet qanday ishlashini' }];
-  const GLOSSARY = [{ b: 'Internet', t: '— tarmoqlar tarmog’i' }, { b: 'Brauzer', t: '— saytni ochuvchi dastur' }, { b: 'Domen', t: '— sayt manzili' }, { b: 'IP', t: '— raqamli manzil' }, { b: 'DNS', t: '— domen → IP' }, { b: 'Server', t: '— saytni saqlovchi kompyuter' }, { b: 'So’rov', t: '— brauzer → DNS → server → ekran' }];
+  const RECAP = ['Internet — qurilmalarni bog\'lovchi tarmoq', 'Brauzer — saytni ochib beruvchi dastur', 'Domen — saytning manzili (youtube.com)', 'IP — kompyuterlar uchun raqamli manzil', 'DNS — domenni IP\'ga aylantiradi', 'Server — saytni saqlaydi va qaytaradi'];
+  const HOMEWORK = [{ b: 'Kuzating', t: '— sevimli saytingiz domeni nima?' }, { b: 'Tasavvur qiling', t: '— sayt brauzeringizga qanday yo\'l bosib kelishini' }, { b: 'Tushuntiring', t: '— do\'stingizga internet qanday ishlashini' }];
+  const GLOSSARY = [{ b: 'Internet', t: '— tarmoqlar tarmog\'i' }, { b: 'Brauzer', t: '— saytni ochuvchi dastur' }, { b: 'Domen', t: '— sayt manzili' }, { b: 'IP', t: '— raqamli manzil' }, { b: 'DNS', t: '— domen → IP' }, { b: 'Server', t: '— saytni saqlovchi kompyuter' }, { b: 'So\'rov', t: '— brauzer → DNS → server → ekran' }];
   const correct = SCORED_IDX.filter(i => answers[i]?.correct).length;
   const total = SCORED_IDX.length;
   const PASSED = (total ? correct / total : 0) >= 0.6;
@@ -2654,7 +2654,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
     <Stage eyebrow="Tayyor" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><button className="btn-ghost" onClick={onReset} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Qaytadan</button><button className="btn-white-accent" onClick={() => setShowDone(true)} style={{ marginLeft: 'auto', padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>🎉 Darsni yakunlash</button></>}>
       <div className="screen">
         {PASSED && <Confetti />}
-        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Kirish darsi tugadi</span><h2 className="title h-title fade-up d1">Internet <span className="italic" style={{ color: T.accent }}>qanday ishlashini</span> bilib olding.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi sayt sizgacha qanday yetib kelishini bilasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko’ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
+        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Kirish darsi tugadi</span><h2 className="title h-title fade-up d1">Internet <span className="italic" style={{ color: T.accent }}>qanday ishlashini</span> bilib oldingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi sayt sizgacha qanday yetib kelishini bilasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\'ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
         {/* ⚔️ Mustahkamlash testi — CTA */}
         <div className={`qz-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
           <div className="qz-cta-txt">
@@ -2684,7 +2684,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
             <button className="fin-x" onClick={() => setShowDone(false)} aria-label="Yopish">✕</button>
             <div className="fin-emoji">🎉</div>
             <h3 className="fin-h">Tabriklaymiz!</h3>
-            <p className="fin-sub">Internet darsini muvaffaqiyatli tugatding. Endi sayt sizgacha qanday yetib kelishini bilasiz.</p>
+            <p className="fin-sub">Internet darsini muvaffaqiyatli tugatdingiz. Endi sayt sizgacha qanday yetib kelishini bilasiz.</p>
             <button className="btn-white-accent" onClick={onFinish} style={{ padding: '12px 32px', fontSize: 15 }}>Tamom</button>
           </div>
         </div>

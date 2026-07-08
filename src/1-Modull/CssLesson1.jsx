@@ -1,5 +1,877 @@
-import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
-import mentorImg from '../assets/common/mentor.png';
+import React, { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from 'react';
+
+// ============================================================
+//  KOD COMPILATOR (HtmlCompiler) — praktika ekrani: kod editor + jonli preview + shart tekshiruvi.
+//  Htmllesson1/2 dan ko'chirilgan (mustaqil, HC_T o'z palitrasi). CSS praktikalari C.cssProp/cssValue bilan.
+// ============================================================
+
+const HC_T = {
+  bg: '#F6F4EF', ink: '#0E0E10', ink2: '#5A5A60', ink3: '#A7A6A2',
+  paper: '#FFFFFF', accent: '#FF4D26', accent2: '#FF8A3D', accentSoft: '#FFEDE5',
+  success: '#0FA968', successSoft: '#E4F7EE', warn: '#9A5400', shadowBase: '58, 53, 48', line: '#E9E6DF',
+};
+const HC_CODE = { bg: '#0E1525', text: '#E7EAF2', gutter: '#1C2740' };
+
+// ============================================================
+//  TEKSHIRUV YORDAMCHILARI (builders)
+//  Har biri ctx (kontekst) qabul qiladigan funksiya qaytaradi.
+//  Funksiya:  true  → shart bajarildi
+//             "..."  → bajarilmadi, qaytgan matn = o'quvchiga maslahat
+//
+//  ctx ichida nimalar bor:
+//    ctx.html / ctx.css / ctx.js  — xom (raw) manba matnlar
+//    ctx.doc                       — o'quvchi HTML'idan qurilgan real DOM
+//    ctx.$  / ctx.$$               — doc bo'yicha querySelector / All
+//    ctx.cssRules                  — [{selector, props:{...}}] — parslangan CSS
+// ============================================================
+const norm = (s) => (s || '').trim();
+
+// JS izohlarini olib tashlaymiz — izoh ichidagi matn `js` shartini ALDAB
+// o'tmasligi uchun (masalan starterdagi "// console.log ..." izohi).
+// Oddiy yondashuv (blok + satr izohi) — o'quv praktikalari uchun yetarli.
+const stripJsComments = (src) =>
+  (src || '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ') // /* ... */
+    .replace(/\/\/[^\n]*/g, ' ');      // // ...
+
+const checks = {
+  // Teg/selektor mavjudmi?
+  has: (sel, hint) => (x) =>
+    x.$(sel) ? true : (hint ?? `\`${sel}\` topilmadi`),
+
+  // Mavjud VA ichida bo'sh bo'lmagan matn bormi?
+  text: (sel, hint) => (x) => {
+    const el = x.$(sel);
+    if (!el) return hint ?? `\`${sel}\` topilmadi`;
+    return norm(el.textContent) ? true : (hint ?? `\`${sel}\` bor, lekin ichi bo'sh — matn yozing`);
+  },
+
+  // Atribut bormi va bo'sh emasmi? (yoki equals bilan aniq qiymat)
+  attr: (sel, attr, hint, equals) => (x) => {
+    const el = x.$(sel);
+    if (!el) return hint ?? `\`${sel}\` topilmadi`;
+    const v = el.getAttribute(attr);
+    if (v == null || !norm(v)) return hint ?? `\`${sel}\` da \`${attr}="..."\` to'ldiring`;
+    if (equals != null && norm(v) !== norm(equals)) return hint ?? `\`${sel}\` da \`${attr}\` qiymati \`${equals}\` bo'lsin`;
+    return true;
+  },
+
+  // Bir nechta atribut — hammasi bo'sh bo'lmasligi kerak
+  attrs: (sel, attrList, hint) => (x) => {
+    const el = x.$(sel);
+    if (!el) return hint ?? `\`${sel}\` topilmadi`;
+    const miss = attrList.filter((a) => !norm(el.getAttribute(a) || ''));
+    return miss.length ? (hint ?? `\`${sel}\` da \`${miss.join('` va `')}\` to'ldiring`) : true;
+  },
+
+  // child element parent ichidami?
+  nested: (parent, child, hint) => (x) =>
+    x.$(`${parent} ${child}`) ? true : (hint ?? `\`${child}\` ni \`${parent}\` ichiga joylang`),
+
+  // Kamida n ta bormi?
+  count: (sel, n, hint) => (x) =>
+    x.$$(sel).length >= n ? true : (hint ?? `Kamida ${n} ta \`${sel}\` kerak`),
+
+  // CSS: selektorga shu xossa yozilganmi?
+  cssProp: (selector, prop, hint) => (x) => {
+    const hit = x.cssRules.some(
+      (r) => r.selector.split(',').map(norm).includes(norm(selector)) && norm(r.props[prop])
+    );
+    return hit ? true : (hint ?? `\`${selector}\` uchun \`${prop}\` xossasini yozing`);
+  },
+
+  // CSS: selektorga shu xossa AYNAN shu qiymat bilan yozilganmi?
+  cssValue: (selector, prop, val, hint) => (x) => {
+    const hit = x.cssRules.some(
+      (r) => r.selector.split(',').map(norm).includes(norm(selector)) && norm(r.props[prop]) === norm(val)
+    );
+    return hit ? true : (hint ?? `\`${selector}\` da \`${prop}: ${val}\` yozing`);
+  },
+
+  // JS: manbada namuna (regex) bormi? (izohlar hisobga olinmaydi)
+  js: (re, hint) => (x) =>
+    re.test(stripJsComments(x.js)) ? true : (hint ?? `Skriptda kerakli qism topilmadi`),
+
+  // To'liq erkin tekshiruv: (ctx) => true | "maslahat"
+  custom: (fn) => fn,
+
+  // ── RUNTIME tekshiruvlar (kod iframe'da ishlatiladi) ──
+  // Bular funksiya emas, "probe" obyekti qaytaradi — komponent ularni
+  // iframe ichida ishlatib, natijani postMessage orqali oladi.
+
+  // console.log chiqishida shu qiymat bormi?
+  logs: (value, hint) => ({ __runtime: 'log_includes', value: String(value), hint }),
+
+  // JS ifoda (masalan global o'zgaruvchi yoki typeof) shu qiymatga tengmi?
+  evalEquals: (expr, expected, hint) => ({ __runtime: 'eval_equals', expr, expected: String(expected), hint }),
+
+  // clickSel bosilgach, readSel matni expected'ni o'z ichiga oladimi?
+  domAfterClick: (clickSel, readSel, expected, hint) =>
+    ({ __runtime: 'click_text', clickSel, readSel, expected: String(expected), hint }),
+
+  // ALMASHISH (toggle): clickSel ni ikki marta bosamiz.
+  //   boshida readSel matni = textA, 1-bosishdan keyin = textB,
+  //   2-bosishdan keyin yana = textA. Hammasi to'g'ri bo'lsa — haqiqiy toggle.
+  toggle: (clickSel, readSel, textA, textB, hint) =>
+    ({ __runtime: 'toggle', clickSel, readSel, textA: String(textA), textB: String(textB), hint }),
+};
+
+// ============================================================
+//  DEKLARATIV SHARTLAR — oddiy data → check (tarjimon)
+//  Dars yaratuvchi `C.has('form')` kabi kod yozmasdan, faqat data
+//  bilan shart bera oladi: { tag: 'form', attrs: ['action'] }.
+//  Istalgan teg/atribut ishlaydi — backend kerak emas, hammasi darsda.
+//  Qo'llab-quvvatlanadigan kalitlar:
+//    HTML:  { tag, text }                       → teg bor + ichi bo'sh emas
+//           { tag, attr, equals? }              → atribut bor (yoki aniq qiymat)
+//           { tag, attrs: ['src','alt'] }       → bir nechta atribut
+//           { tag, child: 'input' }             → child teg ichidami (nested)
+//           { tag, count: 3 }                   → kamida n ta
+//    CSS:   { css: { sel, prop, value? } }      → xossa (yoki aniq qiymat)
+//    JS:    { js: /addEventListener/ }          → manbada namuna
+//    Runtime: { logs: 5 }                       → console.log chiqishi
+//             { eval: 'typeof f', equals: 'function' }
+//             { click: '#btn', read: '#out', expect: 'Salom' }
+//  Har bir kalitga ixtiyoriy `hint` (maslahat matni) qo'shsa bo'ladi.
+// ============================================================
+function specToCheck(s) {
+  const hint = s.hint;
+  if (s.css) {
+    const { sel, prop, value } = s.css;
+    return value != null ? checks.cssValue(sel, prop, value, hint) : checks.cssProp(sel, prop, hint);
+  }
+  if (s.js) return checks.js(s.js instanceof RegExp ? s.js : new RegExp(s.js), hint);
+  if (s.logs !== undefined) return checks.logs(s.logs, hint);
+  if (s.eval !== undefined) return checks.evalEquals(s.eval, s.equals, hint);
+  if (s.toggle) return checks.toggle(s.toggle, s.read || s.toggle, s.a, s.b, hint);
+  if (s.click) return checks.domAfterClick(s.click, s.read, s.expect, hint);
+  const sel = s.tag || s.sel;
+  if (sel) {
+    if (s.child || s.nested) return checks.nested(sel, s.child || s.nested, hint);
+    if (s.count != null) return checks.count(sel, s.count, hint);
+    if (Array.isArray(s.attrs)) return checks.attrs(sel, s.attrs, hint);
+    if (s.attr) return checks.attr(sel, s.attr, hint, s.equals);
+    if (s.text) return checks.text(sel, hint);
+    return checks.has(sel, hint);
+  }
+  // Tanib bo'lmadi — yiqilmaydi, shunchaki bajarilmagan bo'lib qoladi
+  return () => (hint ?? 'shart aniqlanmadi');
+}
+
+// Deklarativ shartdan o'qiladigan label avtomatik yasaymiz (label berilmasa)
+function buildLabel(s) {
+  if (s.css) return `CSS: ${s.css.sel} { ${s.css.prop}${s.css.value != null ? `: ${s.css.value}` : ''} }`;
+  if (s.logs !== undefined) return `konsolda «${s.logs}»`;
+  if (s.toggle) return `${s.a} ⇄ ${s.b}`;
+  if (s.click) return `bosilsa «${s.expect}»`;
+  if (s.eval !== undefined) return `${s.eval} = ${s.equals}`;
+  if (s.js) return 'JS namunasi';
+  const sel = s.tag || s.sel;
+  if (sel) {
+    if (s.child || s.nested) return `<${sel}> ichida <${s.child || s.nested}>`;
+    if (Array.isArray(s.attrs)) return `<${sel}> — ${s.attrs.join(', ')}`;
+    if (s.attr) return `<${sel}> — ${s.attr}`;
+    if (s.count != null) return `kamida ${s.count} ta <${sel}>`;
+    if (s.text) return `<${sel}> (matn bilan)`;
+    return `<${sel}>`;
+  }
+  return 'shart';
+}
+
+// Shartni to'liq { id, label, check } shakliga keltiramiz.
+// Eski uslub (check: C.has(...) / runtime obyekt / re:/.../) — tegmaymiz,
+// faqat yetishmasa id/label to'ldiramiz. Deklarativ data bo'lsa — tarjima qilamiz.
+function normalizeReq(req, i = 0) {
+  const ready = typeof req.check === 'function' || (req.check && req.check.__runtime) || req.re;
+  if (ready) return { id: req.id ?? `r${i}`, label: req.label ?? '', ...req };
+  const check = specToCheck(req);
+  const id = req.id ?? `${req.tag || req.sel || 'r'}${i}`;
+  return { ...req, id, label: req.label ?? buildLabel(req), check };
+}
+
+// ============================================================
+//  STANDART SHART (komponent yakka ishga tushganda)
+// ============================================================
+const DEFAULT_FILES = [
+  { name: 'index.html', lang: 'html', starter: `<!-- Bu yerga yozing -->
+` },
+];
+
+const DEFAULT_TASK = {
+  eyebrow: 'Praktika',
+  title: "O'z sahifangizni quring",
+  brief:
+    "Quyidagi shartlarni bajaring. Har biri bajarilganda yashil ✓ yonadi. Hammasi yashil bo'lsa — “Davom etish” ochiladi.",
+  requirements: [
+    { id: 'h1', label: '<h1> sarlavha (matn bilan)', check: checks.text('h1', "`<h1>` ichiga sarlavha matnini yozing") },
+    { id: 'p', label: '<p> — matn (paragraf)', check: checks.text('p', "`<p>` ichiga bir-ikki gap yozing") },
+    { id: 'img', label: '<img> — src va alt bilan', check: checks.attrs('img', ['src', 'alt'], "`<img>` da `src` va `alt` ikkalasini to'ldiring") },
+  ],
+};
+
+// ============================================================
+//  CSS'ni xavfsiz parslash — vaqtinchalik <style> orqali,
+//  qiymatlarni oddiy obyektga ko'chirib olamiz (DOM'dan ajratamiz).
+// ============================================================
+function parseCss(css) {
+  if (!css || !css.trim() || typeof document === 'undefined') return [];
+  const el = document.createElement('style');
+  el.textContent = css;
+  document.head.appendChild(el);
+  let rules = [];
+  try {
+    rules = [...(el.sheet?.cssRules || [])]
+      .filter((r) => r.style) // faqat style qoidalari (media/keyframes emas)
+      .map((r) => {
+        const props = {};
+        for (let i = 0; i < r.style.length; i++) {
+          const p = r.style[i];
+          props[p] = r.style.getPropertyValue(p);
+        }
+        return { selector: r.selectorText || '', props };
+      });
+  } catch { /* parse xatosi — bo'sh qaytadi */ }
+  el.remove();
+  return rules;
+}
+
+// ============================================================
+//  HTML LINTER — sintaksis tekshiruvi (DOMParser kechirimchi,
+//  bu esa qattiqqo'l). Yopilmagan teg, yopish typo'si, yopilmagan
+//  tirnoq/izoh, noto'g'ri ichma-ichlikni ushlaydi.
+//  Qaytaradi: [{ line, msg }]
+// ============================================================
+const VOID_TAGS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'param', 'source', 'track', 'wbr',
+]);
+
+// Yopish tegi IXTIYORIY bo'lgan elementlar (HTML brauzer o'zi yopadi).
+// Bularni "yopilmagan" deb xato chiqarmaymiz — aks holda <li>, ketma-ket
+// <p> kabi to'g'ri kod noto'g'ri qizil bo'lardi.
+const OPTIONAL_CLOSE = new Set(['li', 'p', 'td', 'th', 'tr', 'dt', 'dd', 'option', 'thead', 'tbody', 'tfoot']);
+const BLOCK_TAGS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'details', 'div', 'dl', 'fieldset',
+  'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'header', 'hr', 'main', 'menu', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul',
+]);
+// Yangi ochuvchi teg (open) stack tepasidagi (top) ixtiyoriy tegni yopadimi?
+function closesOnOpen(open, top) {
+  if (top === 'li') return open === 'li';
+  if (top === 'p') return open === 'p' || BLOCK_TAGS.has(open);
+  if (top === 'option') return open === 'option';
+  if (top === 'td' || top === 'th') return open === 'td' || open === 'th' || open === 'tr';
+  if (top === 'tr') return open === 'tr';
+  if (top === 'dt' || top === 'dd') return open === 'dt' || open === 'dd';
+  if (top === 'thead' || top === 'tbody' || top === 'tfoot') return open === 'tbody' || open === 'tfoot' || open === 'thead';
+  return false;
+}
+
+function lintHtml(src) {
+  const errors = [];
+  if (!src) return errors;
+  const stack = []; // { name, line }
+  const n = src.length;
+  let i = 0, line = 1, col = 1;
+  const here = () => ({ line, col });
+  const step = () => { if (src[i] === '\n') { line++; col = 1; } else { col++; } i++; };
+  const skipTo = (idx) => { while (i < idx && i < n) step(); };
+
+  while (i < n) {
+    if (src[i] !== '<') { step(); continue; }
+    const next = src[i + 1];
+
+    // Izoh
+    if (src.startsWith('<!--', i)) {
+      const end = src.indexOf('-->', i + 4);
+      if (end === -1) { errors.push({ ...here(), msg: 'Izoh yopilmagan (`-->` yetishmayapti)' }); break; }
+      skipTo(end + 3); continue;
+    }
+    // <!doctype ...> yoki deklaratsiya
+    if (next === '!') {
+      const end = src.indexOf('>', i);
+      if (end === -1) { errors.push({ ...here(), msg: '`<! ... >` yopilmagan' }); break; }
+      skipTo(end + 1); continue;
+    }
+    // Yopuvchi teg </...>
+    if (next === '/') {
+      const start = here();
+      let j = i + 2, name = '';
+      while (j < n && /[a-zA-Z0-9-]/.test(src[j])) { name += src[j]; j++; }
+      while (j < n && src[j] !== '>') j++;
+      if (j >= n) { errors.push({ line: start.line, msg: `Yopuvchi teg \`</${name}>\` to'liq emas (\`>\` yetishmayapti)` }); break; }
+      const lname = name.toLowerCase();
+      // Ixtiyoriy yopiladigan teglarni jimgina yopamiz (masalan </ul> ochiq <li>'ni yopadi)
+      while (
+        stack.length &&
+        OPTIONAL_CLOSE.has(stack[stack.length - 1].name) &&
+        stack[stack.length - 1].name !== lname &&
+        stack.some((s, idx) => s.name === lname && idx < stack.length - 1)
+      ) {
+        stack.pop();
+      }
+      if (stack.length === 0) {
+        errors.push({ line: start.line, msg: `Ortiqcha yopuvchi teg \`</${name}>\` — mos ochuvchi yo'q` });
+      } else {
+        const top = stack[stack.length - 1];
+        if (top.name === lname) {
+          stack.pop();
+        } else {
+          const idx = stack.map((s) => s.name).lastIndexOf(lname);
+          if (idx === -1) {
+            errors.push({ line: start.line, msg: `\`</${name}>\` mos ochuvchi tegga ega emas (xato yoki typo)` });
+          } else {
+            errors.push({ line: top.line, msg: `\`<${top.name}>\` yopilmagan — \`</${top.name}>\` kutilgan, \`</${name}>\` keldi` });
+            stack.length = idx;
+          }
+        }
+      }
+      skipTo(j + 1); continue;
+    }
+    // Ochuvchi teg <...>
+    if (/[a-zA-Z]/.test(next || '')) {
+      const start = here();
+      let j = i + 1, name = '';
+      while (j < n && /[a-zA-Z0-9-]/.test(src[j])) { name += src[j]; j++; }
+      let selfClose = false, closed = false, quote = null, strayLt = false;
+      while (j < n) {
+        const c = src[j];
+        if (quote) { if (c === quote) quote = null; j++; continue; }
+        if (c === '"' || c === "'") { quote = c; j++; continue; }
+        if (c === '<') { strayLt = true; break; }
+        if (c === '/' && src[j + 1] === '>') { selfClose = true; closed = true; j += 2; break; }
+        if (c === '>') { closed = true; j++; break; }
+        j++;
+      }
+      if (quote && j >= n) { errors.push({ line: start.line, msg: `\`<${name}>\` ichida tirnoq (${quote}) yopilmagan` }); break; }
+      if (strayLt) {
+        errors.push({ line: start.line, msg: `\`<${name}\` tegi \`>\` bilan yopilmagan` });
+        skipTo(j); continue; // '<' dan qayta boshlaymiz
+      }
+      if (!closed && j >= n) { errors.push({ line: start.line, msg: `\`<${name}\` tegi \`>\` bilan yopilmagan` }); break; }
+      const lname = name.toLowerCase();
+      // Ochuvchi teg stack tepasidagi ixtiyoriy tegni yopsa — jimgina yopamiz
+      while (stack.length && closesOnOpen(lname, stack[stack.length - 1].name)) stack.pop();
+      if (!selfClose && !VOID_TAGS.has(lname)) stack.push({ name: lname, line: start.line });
+      skipTo(j); continue;
+    }
+    // '<' dan keyin harf/`/`/`!` emas → matn deb qaraladi (brauzer ham shunday)
+    step();
+  }
+  // Oxirida ochiq qolgan teglar (ixtiyoriy yopiladiganlardan tashqari)
+  for (const t of stack) {
+    if (OPTIONAL_CLOSE.has(t.name)) continue;
+    errors.push({ line: t.line, msg: `\`<${t.name}>\` ochiq qoldi — \`</${t.name}>\` bilan yoping` });
+  }
+  return errors;
+}
+
+// Bitta shartni ishga tushiramiz → { ok, hint }
+function runOne(req, ctx) {
+  try {
+    // Runtime probe — bu yerda emas, iframe'da tekshiriladi (placeholder)
+    if (req.check && req.check.__runtime) {
+      return { ok: false, hint: 'ishga tushirilmoqda…', runtime: true };
+    }
+    if (typeof req.check === 'function') {
+      const r = req.check(ctx);
+      if (r === true) return { ok: true, hint: null };
+      return { ok: false, hint: typeof r === 'string' ? r : (req.hint || null) };
+    }
+    // Eski uslub: regex (orqaga moslik). Izohlarni olib tashlab tekshiramiz.
+    if (req.re) {
+      const ok = req.re.test((ctx.html || '').replace(/<!--[\s\S]*?-->/g, ''));
+      return { ok, hint: ok ? null : (req.hint || null) };
+    }
+    return { ok: false, hint: null };
+  } catch {
+    return { ok: false, hint: 'tekshirishda xatolik' };
+  }
+}
+
+// ============================================================
+//  RUNTIME HARNESS — iframe ichida ishlaydigan kod.
+//  console.log'ni ushlaydi, probe'larni bajaradi, natijani
+//  postMessage bilan ota-oynaga (parent) yuboradi. Xavfsiz:
+//  sandbox buzilmaydi, faqat bool natijalar uzatiladi.
+// ============================================================
+const CONSOLE_CAPTURE = `<script>
+window.__logs=[];
+(function(){var _l=console.log;console.log=function(){
+  for(var i=0;i<arguments.length;i++){var a=arguments[i];
+    try{window.__logs.push(typeof a==='object'?JSON.stringify(a):String(a));}catch(e){window.__logs.push(String(a));}}
+  try{_l.apply(console,arguments);}catch(e){}
+};})();
+<\/script>`;
+
+// KO'RINADIGAN konsol uchun: console.log/info/warn/error va xatolarni
+// ota-oynaga (parent) postMessage bilan uzatadi → UI'da chiqaramiz.
+// nonce — eski va yangi natijalar aralashmasligi uchun.
+const CONSOLE_FORWARD = (nonce) => `<script>
+(function(){
+  var N=${JSON.stringify(nonce)};
+  function fmt(a){try{return typeof a==='object'?JSON.stringify(a):String(a);}catch(e){return String(a);}}
+  function send(level,args){
+    var parts=[];for(var i=0;i<args.length;i++)parts.push(fmt(args[i]));
+    try{parent.postMessage({__hcConsole:true,nonce:N,level:level,text:parts.join(' ')},'*');}catch(e){}
+  }
+  ['log','info','warn','error'].forEach(function(m){
+    var _o=console[m]?console[m].bind(console):function(){};
+    console[m]=function(){send(m,arguments);try{_o.apply(null,arguments);}catch(e){}};
+  });
+  window.addEventListener('error',function(e){send('error',[e.message]);});
+})();
+<\/script>`;
+
+const buildHarness = (probes, nonce) => `<script>
+(function(){
+  function runProbes(){
+    var P=${JSON.stringify(probes)};
+    var logs=window.__logs||[];
+    var joined=logs.join(' ');
+    var out={};
+    for(var k=0;k<P.length;k++){
+      var p=P[k],ok=false;
+      try{
+        if(p.type==='log_includes'){
+          var v=String(p.value).trim();
+          ok=joined.indexOf(v)!==-1||logs.some(function(l){return String(l).trim().indexOf(v)!==-1;});
+        }else if(p.type==='eval_equals'){
+          var r; try{r=eval(p.expr);}catch(e){r=undefined;}
+          ok=String(r)===String(p.expected);
+        }else if(p.type==='click_text'){
+          var exp=String(p.expected);
+          var t0=document.querySelector(p.readSel);
+          var before=t0?t0.textContent:'';
+          var b=document.querySelector(p.clickSel);
+          if(b){try{b.click();}catch(e){}}
+          var t1=document.querySelector(p.readSel);
+          var after=t1?t1.textContent:'';
+          // Matn bosishdan KEYIN paydo bo'lishi kerak (oldin bo'lmagan) — JS'siz o'tmaydi
+          ok=after.indexOf(exp)!==-1 && before.indexOf(exp)===-1;
+        }else if(p.type==='toggle'){
+          var A=String(p.textA).toLowerCase().trim();
+          var B=String(p.textB).toLowerCase().trim();
+          var rd=function(){var e=document.querySelector(p.readSel);return (e?e.textContent:'').toLowerCase();};
+          var b2=document.querySelector(p.clickSel);
+          var s0=rd();
+          var startOk=s0.indexOf(A)!==-1 && s0.indexOf(B)===-1; // boshida A
+          if(b2){try{b2.click();}catch(e){}}
+          var s1=rd();
+          var firstOk=s1.indexOf(B)!==-1 && s1.indexOf(A)===-1; // 1-bosish -> B
+          if(b2){try{b2.click();}catch(e){}}
+          var s2=rd();
+          var secondOk=s2.indexOf(A)!==-1 && s2.indexOf(B)===-1; // 2-bosish -> A
+          ok=startOk && firstOk && secondOk;
+        }
+      }catch(e){ok=false;}
+      out[p.id]=ok;
+    }
+    try{parent.postMessage({__hcReport:true,nonce:${JSON.stringify(nonce)},results:out},'*');}catch(e){}
+  }
+  // 'load' hodisasidan keyin ishga tushiramiz — o'quvchi handler'ni
+  // window.onload / addEventListener('load') ichida ulagan bo'lsa ham ulgursin.
+  function start(){ setTimeout(runProbes, 50); }
+  if(document.readyState==='complete') start();
+  else window.addEventListener('load', start);
+})();
+<\/script>`;
+
+// Foydalanuvchi 3 faylini bitta jonli HTML hujjatga birlashtiramiz
+const baseStyle = `
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;padding:24px;color:#13141A;line-height:1.6;background:#fff}
+  h1{font-family:Georgia,serif;margin:0 0 12px;letter-spacing:-.01em}
+  img{max-width:100%;border-radius:12px;display:block;margin:10px 0}
+  p{margin:0 0 12px}
+  li:empty{display:none}`;
+
+const wrapDoc = (html, css, js, opts = {}) => `<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_blank">
+<style>${baseStyle}
+${css || ''}</style>
+${opts.capture ? CONSOLE_CAPTURE : ''}
+${opts.consoleNonce != null ? CONSOLE_FORWARD(opts.consoleNonce) : ''}
+</head>
+<body>
+${html || ''}
+<script>${js || ''}<\/script>
+${opts.harness || ''}
+</body>
+</html>`;
+
+function HtmlCompiler({
+  task = DEFAULT_TASK,
+  starterCode,            // eski kontrakt: bitta HTML fayl uchun starter
+  onContinue,
+  onBack,
+}) {
+  // Shartlarni bir marta normalizatsiya: deklarativ data ham, eski C.has(...)
+  // uslubi ham bir xil { id, label, check } shaklga keladi. Quyidagi butun
+  // kod (runtimeProbes, results, merged, render) o'zgarmaydi.
+  const reqs = useMemo(
+    () => (task.requirements || []).map((r, i) => normalizeReq(r, i)),
+    [task.requirements]
+  );
+
+  // Fayllar: task.files bo'lsa o'shani, bo'lmasa eski yakka HTML faylni ishlatamiz
+  const files = useMemo(() => {
+    if (task.files && task.files.length) return task.files;
+    const single = { ...DEFAULT_FILES[0] };
+    if (starterCode != null) single.starter = starterCode;
+    return [single];
+  }, [task.files, starterCode]);
+
+  const [codes, setCodes] = useState(() =>
+    Object.fromEntries(files.map((f) => [f.name, f.starter ?? '']))
+  );
+  const [active, setActive] = useState(files[0].name);
+  const taRef = useRef(null);
+
+  // Til bo'yicha matnni olish (birlashtirilgan preview uchun)
+  const byLang = (lang) => {
+    const f = files.find((ff) => ff.lang === lang);
+    return f ? (codes[f.name] ?? '') : '';
+  };
+  const html = byLang('html'), css = byLang('css'), js = byLang('js');
+
+  // Runtime shartlar (iframe'da ishlatib tekshiriladi)
+  const runtimeProbes = useMemo(
+    () => reqs.filter((r) => r.check && r.check.__runtime)
+      .map((r) => ({ id: r.id, type: r.check.__runtime, ...r.check })),
+    [reqs]
+  );
+  const hasRuntime = runtimeProbes.length > 0;
+  const nonceRef = useRef(0);
+  const [runtimeResults, setRuntimeResults] = useState({});
+
+  // ── KO'RINADIGAN KONSOL — JS fayli bo'lsa ko'rsatamiz (console.log natijasi) ──
+  const showConsole = useMemo(() => files.some((f) => f.lang === 'js'), [files]);
+  const consoleNonceRef = useRef(0);
+  const [consoleLines, setConsoleLines] = useState([]);
+
+  // Ko'rinadigan preview — HECH QACHON tekshiruv tomonidan o'zgartirilmaydi
+  const [doc, setDoc] = useState(() => wrapDoc(html, css, js));
+  // Tekshiruv hujjati — alohida YASHIRIN iframe'da ishlaydi (tugmani bosadi,
+  // DOMni o'zgartiradi — lekin foydalanuvchi buni ko'rmaydi)
+  const [checkDoc, setCheckDoc] = useState('');
+  // Jonli natijani debounce bilan yangilaymiz (har bosishda emas)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const cn = showConsole ? ++consoleNonceRef.current : null;
+      if (showConsole) setConsoleLines([]); // yangi ishga tushishda konsol tozalanadi
+      setDoc(wrapDoc(html, css, js, cn != null ? { consoleNonce: cn } : {}));
+      if (hasRuntime) {
+        const nonce = ++nonceRef.current;
+        setRuntimeResults({}); // kutish holatiga qaytaramiz
+        setCheckDoc(wrapDoc(html, css, js, { capture: true, harness: buildHarness(runtimeProbes, nonce) }));
+      }
+    }, 300);
+    return () => clearTimeout(id);
+  }, [html, css, js, hasRuntime, runtimeProbes, showConsole]);
+
+  // iframe'dan kelgan runtime natijalarni qabul qilamiz (faqat oxirgi nonce)
+  useEffect(() => {
+    if (!hasRuntime) return;
+    const onMsg = (e) => {
+      const d = e.data;
+      if (d && d.__hcReport && d.nonce === nonceRef.current) {
+        setRuntimeResults(d.results || {});
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [hasRuntime]);
+
+  // Preview iframe'dan kelgan console.log xabarlarini yig'amiz (faqat oxirgi nonce)
+  useEffect(() => {
+    if (!showConsole) return;
+    const onMsg = (e) => {
+      const d = e.data;
+      if (d && d.__hcConsole && d.nonce === consoleNonceRef.current) {
+        setConsoleLines((prev) => (prev.length >= 200 ? prev : [...prev, { level: d.level, text: d.text }]));
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [showConsole]);
+
+  // ── TEKSHIRUV: real tahlil, sinxron, xavfsiz (iframe'ga tegmaydi) ──
+  const results = useMemo(() => {
+    const parsed = new DOMParser().parseFromString(html || '', 'text/html');
+    const ctx = {
+      html, css, js,
+      doc: parsed,
+      $: (s) => { try { return parsed.querySelector(s); } catch { return null; } },
+      $$: (s) => { try { return [...parsed.querySelectorAll(s)]; } catch { return []; } },
+      cssRules: parseCss(css),
+    };
+    return reqs.map((r) => runOne(r, ctx));
+  }, [html, css, js, reqs]);
+
+  // ── SINTAKSIS: HTML linter (DOMParser ushlamaydigan xatolarni tutadi) ──
+  const htmlErrors = useMemo(() => lintHtml(html), [html]);
+  const hasSyntaxError = htmlErrors.length > 0;
+
+  // Sinxron + runtime natijalarni birlashtiramiz
+  const merged = reqs.map((r, i) => {
+    if (r.check && r.check.__runtime) {
+      const got = runtimeResults[r.id];
+      if (got === undefined) return { ok: false, hint: 'ishga tushirilmoqda…' };
+      return { ok: !!got, hint: got ? null : (r.check.hint || 'natija kutilgancha emas') };
+    }
+    return results[i];
+  });
+
+  const passedCount = merged.filter((r) => r.ok).length;
+  const allPassed = reqs.length > 0 && passedCount === reqs.length && !hasSyntaxError;
+  const firstHint = merged.find((r) => !r.ok && r.hint)?.hint;
+
+  const setActiveCode = (val) => setCodes((prev) => ({ ...prev, [active]: val }));
+
+  // Tab tugmasi 2 bo'sh joy qo'shsin
+  const onKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const el = e.target;
+      const s = el.selectionStart, en = el.selectionEnd;
+      const cur = codes[active] ?? '';
+      const next = cur.slice(0, s) + '  ' + cur.slice(en);
+      setActiveCode(next);
+      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = s + 2; });
+    }
+  };
+
+  const runNow = () => {
+    const cn = showConsole ? ++consoleNonceRef.current : null;
+    if (showConsole) setConsoleLines([]);
+    setDoc(wrapDoc(html, css, js, cn != null ? { consoleNonce: cn } : {}));
+  };
+  const reset = () => setCodes(Object.fromEntries(files.map((f) => [f.name, f.starter ?? ''])));
+
+  return (
+    <div className="hc-root">
+      <StyleTag />
+
+      {/* ── Tepa: shart (markazda) ── */}
+      <header className="hc-top">
+        {task.eyebrow && <span className="hc-eyebrow">{task.eyebrow}</span>}
+        <h1 className="hc-title">{task.title}</h1>
+        {task.brief && <p className="hc-brief">{task.brief}</p>}
+        <div className="hc-checklist">
+          <span className="hc-count">{passedCount}/{reqs.length}</span>
+          {reqs.map((r, i) => (
+            <span key={r.id} className={`hc-chip ${merged[i]?.ok ? 'ok' : ''}`} title={merged[i]?.hint || ''}>
+              <span className="hc-dot">{merged[i]?.ok ? '✓' : i + 1}</span>
+              {r.label}
+            </span>
+          ))}
+        </div>
+        {hasSyntaxError ? (
+          <div className="hc-errors">
+            {htmlErrors.slice(0, 3).map((e, k) => (
+              <span key={k} className="hc-err">⚠ Sintaksis · qator {e.line}: {e.msg}</span>
+            ))}
+            {htmlErrors.length > 3 && <span className="hc-err">… va yana {htmlErrors.length - 3} ta xato</span>}
+          </div>
+        ) : (!allPassed && firstHint && (
+          <p className="hc-hint">💡 {firstHint}</p>
+        ))}
+      </header>
+
+      {/* ── O'rta: editor | natija ── */}
+      <main className="hc-split">
+        <section className="hc-pane hc-editor-pane">
+          <div className="hc-pane-bar hc-tabs-bar">
+            <span className="hc-dots"><i /><i /><i /></span>
+            <div className="hc-tabs">
+              {files.map((f) => (
+                <button
+                  key={f.name}
+                  className={`hc-tab ${active === f.name ? 'active' : ''}`}
+                  onClick={() => setActive(f.name)}
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+            <button className="hc-mini" onClick={runNow} title="Ishga tushirish">▶ Ishga tushirish</button>
+          </div>
+          <textarea
+            ref={taRef}
+            className="hc-code"
+            value={codes[active] ?? ''}
+            onChange={(e) => setActiveCode(e.target.value)}
+            onKeyDown={onKeyDown}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            placeholder="Kodingizni shu yerga yozing…"
+          />
+        </section>
+
+        <section className="hc-pane hc-preview-pane">
+          <div className="hc-pane-bar">
+            <span className="hc-pane-name">📺 Natija</span>
+            <span className="hc-live">jonli</span>
+          </div>
+          <iframe
+            className="hc-frame"
+            title="natija"
+            sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+            srcDoc={doc}
+          />
+          {showConsole && (
+            <div className="hc-console">
+              <div className="hc-console-bar">
+                <span className="hc-console-title">🖥️ Console</span>
+                {consoleLines.length > 0 && (
+                  <button className="hc-console-clear" onClick={() => setConsoleLines([])}>tozalash</button>
+                )}
+              </div>
+              <div className="hc-console-body">
+                {consoleLines.length === 0 ? (
+                  <div className="hc-console-empty">console.log(...) natijasi shu yerda chiqadi</div>
+                ) : (
+                  consoleLines.map((l, i) => (
+                    <div key={i} className={`hc-console-line lvl-${l.level}`}>
+                      <span className="hc-console-caret">›</span>
+                      <span className="hc-console-text">{l.text}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Yashirin tekshiruv iframe'i — probe'lar shu yerda ishlaydi (tugmani
+          bosadi, DOMni o'zgartiradi), foydalanuvchi ko'radigan preview esa toza qoladi */}
+      {hasRuntime && (
+        <iframe
+          aria-hidden="true"
+          tabIndex={-1}
+          title="tekshiruv"
+          sandbox="allow-scripts"
+          srcDoc={checkDoc}
+          style={{ position: 'fixed', left: '-9999px', top: 0, width: 1, height: 1, opacity: 0, pointerEvents: 'none', border: 'none' }}
+        />
+      )}
+
+      {/* ── Past: harakatlar ── */}
+      <footer className="hc-bottom">
+        {onBack && <button className="hc-ghost" onClick={onBack}>← Orqaga</button>}
+        <button className="hc-ghost" onClick={reset}>Qaytadan</button>
+        <div className="hc-status">
+          {allPassed
+            ? <span className="hc-ok-msg">✓ Barcha shartlar bajarildi!</span>
+            : <span className="hc-wait-msg">Shartlarni bajaring — natija o'ngda ko'rinadi</span>}
+        </div>
+        <button
+          className="hc-next"
+          disabled={!allPassed}
+          onClick={() => allPassed && onContinue && onContinue({ codes, code: html })}
+        >
+          Davom etish →
+        </button>
+      </footer>
+    </div>
+  );
+}
+
+function StyleTag() {
+  return (
+    <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+      .hc-root,.hc-root *{box-sizing:border-box}
+      .hc-root{font-family:'Manrope',system-ui,sans-serif;color:${HC_T.ink};background:
+        radial-gradient(120% 80% at 50% -10%, ${HC_T.accentSoft} 0%, rgba(255,237,229,0) 46%),
+        ${HC_T.bg};
+        height:100dvh;display:flex;flex-direction:column;justify-content:center;gap:clamp(12px,1.8vw,18px);padding:clamp(16px,2.4vw,30px);overflow:hidden;-webkit-font-smoothing:antialiased;width:100%;max-width:1160px;margin:0 auto}
+
+      .hc-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+      .hc-eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;color:${HC_T.accent};display:inline-flex;align-items:center;gap:7px}
+      .hc-eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:${HC_T.accent}}
+      .hc-title{font-family:Georgia,serif;font-size:clamp(22px,3vw,32px);margin:0;color:${HC_T.ink};font-weight:600;letter-spacing:-.015em;line-height:1.12}
+      .hc-brief{margin:0;color:${HC_T.ink2};font-size:clamp(13px,1.5vw,15px);line-height:1.55;max-width:60ch}
+
+      .hc-checklist{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:6px}
+      .hc-count{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#fff;background:linear-gradient(135deg,${HC_T.accent},${HC_T.accent2});padding:6px 11px;border-radius:99px;box-shadow:0 6px 16px -6px rgba(255,77,38,.5)}
+      .hc-chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:${HC_T.ink2};background:${HC_T.paper};padding:6px 14px 6px 7px;border-radius:99px;border:1px solid ${HC_T.line};box-shadow:0 1px 2px rgba(${HC_T.shadowBase},.04);transition:all .22s ease;cursor:default}
+      .hc-chip.ok{color:${HC_T.ink};font-weight:600;border-color:${HC_T.success}40;background:${HC_T.successSoft}}
+      .hc-dot{flex-shrink:0;width:21px;height:21px;border-radius:50%;background:${HC_T.bg};color:${HC_T.ink3};display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transition:all .25s}
+      .hc-chip.ok .hc-dot{background:${HC_T.success};color:#fff;box-shadow:0 3px 8px -2px ${HC_T.success}88}
+      .hc-hint{margin:3px 0 0;font-size:13px;color:${HC_T.warn};background:#FFF6EA;border:1px solid #F4DFBC;padding:8px 15px;border-radius:11px;max-width:60ch;line-height:1.5}
+      .hc-errors{display:flex;flex-direction:column;gap:5px;align-items:center;margin:3px 0 0}
+      .hc-err{font-size:12.5px;color:#C01024;background:#FDECEC;border:1px solid #F6CFCF;padding:7px 14px;border-radius:10px;font-family:'JetBrains Mono',monospace;max-width:74ch;line-height:1.5}
+
+      .hc-split{flex:none;height:62vh;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,1.6vw,18px)}
+      .hc-pane{display:flex;flex-direction:column;min-height:0;border-radius:18px;overflow:hidden;background:${HC_T.paper};box-shadow:0 1px 0 ${HC_T.line},0 18px 40px -22px rgba(${HC_T.shadowBase},.35)}
+      .hc-pane-bar{display:flex;align-items:center;gap:10px;padding:10px 15px;font-size:12px;font-weight:600;color:${HC_T.ink2}}
+      .hc-editor-pane .hc-pane-bar{background:${HC_CODE.bg};color:#A7B6D6;border-bottom:1px solid rgba(255,255,255,.06)}
+      .hc-preview-pane .hc-pane-bar{background:${HC_T.paper};border-bottom:1px solid ${HC_T.line}}
+      .hc-dots{display:inline-flex;gap:6px;flex-shrink:0}
+      .hc-dots i{width:11px;height:11px;border-radius:50%;background:#3A4760;display:block}
+      .hc-dots i:nth-child(1){background:#ff5f56}.hc-dots i:nth-child(2){background:#ffbd2e}.hc-dots i:nth-child(3){background:#27c93f}
+      .hc-pane-name{font-family:'JetBrains Mono',monospace;font-weight:700}
+      .hc-live{margin-left:auto;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:${HC_T.success};background:${HC_T.successSoft};padding:4px 9px;border-radius:99px;font-weight:800;display:inline-flex;align-items:center;gap:6px}
+      .hc-live::before{content:"";width:6px;height:6px;border-radius:50%;background:${HC_T.success};animation:hc-pulse 1.8s infinite}
+      @keyframes hc-pulse{0%{box-shadow:0 0 0 0 ${HC_T.success}66}70%{box-shadow:0 0 0 6px ${HC_T.success}00}100%{box-shadow:0 0 0 0 ${HC_T.success}00}}
+
+      .hc-tabs{display:flex;gap:4px;overflow:hidden}
+      .hc-tab{background:transparent;border:none;color:#7E92B4;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;padding:6px 13px;border-radius:9px;cursor:pointer;transition:all .15s;white-space:nowrap}
+      .hc-tab:hover{color:#cfe0ff;background:rgba(255,255,255,.06)}
+      .hc-tab.active{color:#fff;background:rgba(255,255,255,.14);box-shadow:inset 0 -2px 0 ${HC_T.accent}}
+      .hc-mini{margin-left:auto;background:linear-gradient(135deg,${HC_T.accent},${HC_T.accent2});color:#fff;border:none;border-radius:9px;padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:'Manrope',sans-serif;transition:all .18s;flex-shrink:0;box-shadow:0 6px 14px -6px rgba(255,77,38,.6)}
+      .hc-mini:hover{transform:translateY(-1px);box-shadow:0 9px 18px -6px rgba(255,77,38,.7)}
+      .hc-mini:active{transform:translateY(0)}
+
+      .hc-code{flex:1;min-height:0;resize:none;border:none;outline:none;background:${HC_CODE.bg};color:${HC_CODE.text};font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.7;padding:18px 20px;tab-size:2;white-space:pre;overflow:auto;caret-color:${HC_T.accent2}}
+      .hc-code::placeholder{color:#5B6B86}
+      .hc-code::selection{background:${HC_T.accent}55}
+
+      .hc-frame{flex:1;min-height:0;width:100%;border:none;background:#fff}
+
+      .hc-console{flex-shrink:0;height:34%;min-height:96px;display:flex;flex-direction:column;background:${HC_CODE.bg};border-top:1px solid rgba(255,255,255,.07)}
+      .hc-console-bar{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7E92B4;border-bottom:1px solid rgba(255,255,255,.06)}
+      .hc-console-title{font-family:'JetBrains Mono',monospace}
+      .hc-console-clear{margin-left:auto;background:rgba(255,255,255,.08);color:#cfe0ff;border:none;border-radius:7px;padding:4px 10px;font-size:10.5px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;font-family:'Manrope',sans-serif;transition:all .15s}
+      .hc-console-clear:hover{background:${HC_T.accent};color:#fff}
+      .hc-console-body{flex:1;min-height:0;overflow:auto;padding:6px 0;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6}
+      .hc-console-empty{color:#5B6B86;padding:4px 15px;font-style:italic}
+      .hc-console-line{display:flex;gap:8px;padding:2px 15px;color:#E7EAF2;border-bottom:1px solid rgba(255,255,255,.03);white-space:pre-wrap;word-break:break-word}
+      .hc-console-caret{color:#27c93f;flex-shrink:0;font-weight:700}
+      .hc-console-line.lvl-warn{color:#FFD380;background:rgba(255,189,46,.08)}
+      .hc-console-line.lvl-error{color:#ff8a7a;background:rgba(255,95,86,.1)}
+      .hc-console-line.lvl-error .hc-console-caret{color:#ff5f56}
+
+      .hc-bottom{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+      .hc-ghost{background:transparent;border:1px solid transparent;color:${HC_T.ink2};font-family:'Manrope',sans-serif;font-weight:600;font-size:14px;cursor:pointer;padding:11px 17px;border-radius:12px;transition:all .15s}
+      .hc-ghost:hover{background:${HC_T.paper};color:${HC_T.ink};border-color:${HC_T.line};box-shadow:0 6px 16px -10px rgba(${HC_T.shadowBase},.3)}
+      .hc-status{margin-left:auto}
+      .hc-ok-msg{color:${HC_T.success};font-weight:700;font-size:14px}
+      .hc-wait-msg{color:${HC_T.ink3};font-size:13px}
+      .hc-next{background:linear-gradient(135deg,${HC_T.accent},${HC_T.accent2});color:#fff;border:none;border-radius:13px;font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;cursor:pointer;padding:13px 30px;box-shadow:0 10px 24px -8px rgba(255,77,38,.6);transition:all .2s}
+      .hc-next:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 16px 32px -8px rgba(255,77,38,.7)}
+      .hc-next:active:not(:disabled){transform:translateY(0)}
+      .hc-next:disabled{background:#D7D8DE;color:#fff;cursor:not-allowed;box-shadow:none}
+
+      @media (max-width:820px){
+        .hc-split{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+        .hc-checklist{width:100%}
+      }
+    `}</style>
+  );
+}
+
+// Dars shartlarida ishlatiladigan qisqa alias (ilgari `checks as C`)
+const C = checks;
+
 
 // ============================================================
 // HTML 1-DARS — PLATFORM STANDARD v15 (Notion: design_system + platform_contract + infrastructure_v1)
@@ -61,7 +933,10 @@ const livePlayers = (pin) => liveList(`live_players?pin=eq.${encodeURIComponent(
 const liveAnswers = (pin, screenIdx) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}${screenIdx == null ? '&screen_idx=lt.100' : `&screen_idx=eq.${screenIdx}`}&select=player_id,screen_idx,picked,correct,elapsed_ms`);
 const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}&screen_idx=gte.100&select=player_id,screen_idx,picked,correct,elapsed_ms`);
 
+// Praktika "tugatdim" signali: screen_idx = 500 + fromScreen (testlar <100, jang >=100 bilan to'qnashmaydi)
+const PRACTICE_DONE_BASE = 500;
 const LiveGateCtx = createContext(null);
+const AchCtx = createContext(null); // 🏅 olingan nishonlar (Set) — Stage hisoblagichi uchun
 
 function useLiveSession(lessonId, answerKey) {
   const keyRef = useRef(answerKey); keyRef.current = answerKey; // javob kaliti — mentor sessiya ochganda serverga yuklanadi
@@ -146,7 +1021,7 @@ function useLiveSession(lessonId, answerKey) {
       tokenRef.current = row.token; setPin(row.pin); setMode('mentor'); setEnded(false);
       liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
       if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
-    } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
+    } catch { setJoinError('Mentor kodi noto\'g\'ri yoki ulanishda xato.'); }
     finally { setBusy(false); }
   }, [lessonId]);
 
@@ -414,6 +1289,7 @@ const SCREEN_META = [
   { id: 's14', type: 'rule',        template: 'custom',   scored: false, scope: null },
   { id: 's15', type: 'test',        template: 'custom',   scored: true,  scope: 'final' },
   { id: 's15b', type: 'stats',      template: 'custom',   scored: false, scope: null },
+  { id: 'sflash', type: 'review',   template: 'custom',   scored: false, scope: null },
   { id: 's16', type: 'summary',     template: 'custom',   scored: false, scope: null }
 ];
 const TOTAL_SCREENS = SCREEN_META.length;
@@ -428,6 +1304,35 @@ const Preview = ({ children, title = 'preview.html', minH }) => (
 );
 const Split = ({ children }) => <div className="split">{children}</div>;
 const Col = ({ children, gap }) => <div className="col" style={gap ? { gap } : undefined}>{children}</div>;
+
+// 🏅 Yuqori paneldagi nishon hisoblagichi — doim ko'rinadi, yangi olinganda pulslaydi, bosilsa ro'yxat chiqadi
+function AchCounter() {
+  const earned = useContext(AchCtx);
+  const count = earned ? earned.size : 0;
+  const total = Object.keys(ACHIEVEMENTS).length;
+  const prevRef = useRef(count);
+  const [bump, setBump] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (count > prevRef.current) { setBump(true); const t = setTimeout(() => setBump(false), 800); prevRef.current = count; return () => clearTimeout(t); }
+    prevRef.current = count;
+  }, [count]);
+  return (
+    <div className="ach-cnt-wrap">
+      <button className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Nishonlar" title="Nishonlaringiz">
+        <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
+      </button>
+      {open && (
+        <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
+          <div className="ach-pop-h">🏅 Nishonlar — {count}/{total}</div>
+          {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
+            <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
+          ); })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navContent, narrow, mentorStatic }) => {
   const isMobile = useIsMobile();
@@ -460,6 +1365,7 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               {/* AUDIOSIZ: ovoz tugmasi (AudioIndicator) ko'rsatilmaydi — ovoz allaqachon o'chirilgan */}
+              <AchCounter />
               <div className="mono small" style={{ color: T.ink3 }}>{String(screen + 1).padStart(2, '0')} / {String(totalScreens).padStart(2, '0')}</div>
             </div>
           </div>
@@ -507,8 +1413,70 @@ const RECAP_MIN_ANSWERS = 3; // foizga ishonch uchun kamida shuncha javob kerak
 const RcFlow = ({ items, sep = '→' }) => (
   <div className="rc-flow">{items.map((t, i) => <React.Fragment key={i}><span className="rc-chip">{t}</span>{sep && i < items.length - 1 && <span className="rc-arr">{sep}</span>}</React.Fragment>)}</div>
 );
-// RECAPS kontenti — Stage 4'da JS-intro testlariga to'ldiriladi (hozircha bo'sh)
-const RECAPS = {};
+// RECAPS — har scored test uchun «Qayta tushuntirish» kartalari (kalit = ekran indeksi)
+const RECAPS = {
+  // idx 4 — s4: «color nima deb ataladi?» (nazariya: CSS sintaksisi — selektor/xususiyat/qiymat)
+  4: {
+    title: 'CSS qoidasining 3 qismi', cards: [
+      { ic: '🎯', h: 'Selektor — kimni bezaymiz',
+        body: <>CSS qoidasi <b>selektor</b> bilan boshlanadi — qaysi elementni bezashni aytadi: <b className="mono">h1</b>, <b className="mono">p</b>. Undan keyin <b className="mono">{'{ }'}</b> qavs ichida bezaklar yoziladi.</>,
+        vis: <RcFlow items={['h1 — selektor', '{ ... }', 'bezaklar']} /> },
+      { ic: '🔧', h: "Xususiyat — nimani o'zgartiramiz",
+        body: <>Qavs ichida <b>xususiyat</b> (property) — nimani o'zgartirishni aytadi: <b className="mono">color</b> (rang), <b className="mono">font-size</b> (o'lcham). Undan keyin ikki nuqta <b className="mono">:</b> qo'yiladi.</>,
+        vis: <RcFlow items={['color', ':', 'qiymat']} sep="" />,
+        ask: "`color` xususiyati nimani o'zgartiradi?" },
+      { ic: '💡', h: "Qiymat — qanday qilib",
+        body: <>Ikki nuqtadan keyin <b>qiymat</b> — qanday bo'lishini aytadi: <b className="mono">red</b>, <b className="mono">24px</b>. Har satr oxiriga nuqta-vergul <b className="mono">;</b> qo'yiladi.</>,
+        vis: <RcFlow items={['color', 'red', ';']} sep="" />,
+        ask: "`color: red;` da qaysi qism qiymat?" },
+    ]
+  },
+  // idx 6 — s5b: «Matn rangini qaysi xususiyat?» (nazariya: color va background-color)
+  6: {
+    title: 'Ranglar: color va background', cards: [
+      { ic: '🖋️', h: 'color — matn (harflar) rangi',
+        body: <><b className="mono">color</b> — matnning, ya'ni harflarning rangini o'zgartiradi. Masalan <b className="mono">color: red</b> — harflar qizil bo'ladi.</>,
+        vis: <RcFlow items={['color: red', '→', '🔴 qizil matn']} />,
+        ask: "Matnni ko'k qilish uchun nima yozasiz?" },
+      { ic: '🎨', h: 'background-color — fon rangi',
+        body: <>Element ORTIDAGI fon rangi esa <b className="mono">background-color</b> bilan beriladi. Ikkisini adashtirmang: <b>color</b> — harflar, <b>background-color</b> — orqa fon.</>,
+        vis: <RcFlow items={['color — harflar', 'background-color — fon']} sep="·" /> },
+      { ic: '📇', h: 'Rangni qanday yozamiz',
+        body: <>Rangni nomi bilan (<b className="mono">red</b>, <b className="mono">blue</b>) yoki HEX kod bilan (<b className="mono">#FF4D26</b>) yozish mumkin. HEX — aniqroq, millionlab tus.</>,
+        vis: <RcFlow items={['red', '#FF4D26', 'rgb(...)']} sep="·" /> },
+    ]
+  },
+  // idx 10 — s9: «Shrift o'lchamini qaysi xususiyat?» (nazariya: font-size/family/weight)
+  10: {
+    title: 'Shrift xususiyatlari', cards: [
+      { ic: '📏', h: "font-size — o'lcham",
+        body: <><b className="mono">font-size</b> — harflarning <b>kattaligini</b> belgilaydi, masalan <b className="mono">font-size: 24px</b>. Raqam qancha katta — harf shuncha yirik.</>,
+        vis: <RcFlow items={['16px', '24px', '40px']} sep="·" />,
+        ask: "Sarlavhani kattaroq qilish uchun qaysi xususiyat?" },
+      { ic: '🔤', h: 'font-family — shrift turi',
+        body: <><b className="mono">font-family</b> — harflarning <b>ko'rinishini</b> (turini) tanlaydi: Arial, Georgia, Times. Bu o'lcham emas — shakl.</>,
+        vis: <RcFlow items={['Arial', 'Georgia', 'Times']} sep="·" /> },
+      { ic: '💪', h: 'font-weight — qalinlik',
+        body: <>Matnni <b>qalin</b> qilish uchun <b className="mono">font-weight: bold</b>. Adashtirmang: <b>size</b> — kattalik, <b>family</b> — tur, <b>weight</b> — qalinlik.</>,
+        vis: <RcFlow items={['size — kattalik', 'family — tur', 'weight — qalinlik']} sep="·" /> },
+    ]
+  },
+  // idx 13 — s12: «Ichki bo'shliq qaysi xususiyat?» (nazariya: padding va margin)
+  13: {
+    title: "Bo'shliqlar: padding va margin", cards: [
+      { ic: '📦', h: "padding — ICHKI bo'shliq",
+        body: <><b className="mono">padding</b> — kontent bilan elementning cheti orasidagi <b>ichki</b> bo'shliq. Quti ICHIDAGI havo — matn devorga yopishmaydi.</>,
+        vis: <RcFlow items={['quti cheti', '← padding →', 'kontent']} />,
+        ask: "Tugma ichidagi matnga havo berish uchun qaysi xususiyat?" },
+      { ic: '↔️', h: "margin — TASHQI bo'shliq",
+        body: <><b className="mono">margin</b> — element bilan BOSHQA elementlar orasidagi <b>tashqi</b> bo'shliq. Qutilar bir-biriga yopishmasligi uchun.</>,
+        vis: <RcFlow items={['quti A', '← margin →', 'quti B']} /> },
+      { ic: '🎁', h: "Eslab qolish yo'li",
+        body: <>Sovg'a qutisini tasavvur qiling: <b>padding</b> — quti ICHIDAGI to'ldirgich (sovg'a atrofida), <b>margin</b> — qutilar ORASIDAGI masofa.</>,
+        vis: <RcFlow items={['padding — ichkarida', 'margin — tashqarida']} sep="·" /> },
+    ]
+  },
+};
 
 // Overlay — ekran ustida (indekslarga tegmaydi)
 // Overlay — ekran USTIDA ochiladi (indekslarga tegmaydi), slayd-slayd o'tiladi.
@@ -553,6 +1521,11 @@ function RecapOverlay({ screenIdx, onClose }) {
 }
 
 // ===== MENTOR STATISTIKASI (jonli test paneli — InternetLesson bilan bir xil) =====
+// `...` bilan belgilangan kod atamalarini (xususiyat, qiymat) matndan ajratib chip qilib ko'rsatadi.
+const fmtCode = (s) => (typeof s === 'string' && s.includes('`'))
+  ? s.split('`').map((p, i) => i % 2 ? <code className="qcode" key={i}>{p}</code> : p)
+  : s;
+
 const MSTATS_COLORS = ['#019ACB', '#8B5CF6', '#E8A13A', '#E0559A']; // A B C D — brend-neytral
 function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onReveal, onOpenRecap }) {
   const [data, setData] = useState({ players: null, rows: [] });
@@ -571,7 +1544,7 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
   if (data.players === null) return null;
   const total = data.players.length;
   const answered = data.rows.length;
-  const ok = data.rows.filter(a => a.correct).length;
+  const ok = data.rows.filter(a => a.picked === correctIdx).length; // ustunlar bilan BIR manbadan (eskirgan a.correct emas)
   const bad = answered - ok;
   const allIn = total > 0 && answered >= total;
   const struggling = answered >= 2 && bad > ok;
@@ -752,7 +1725,7 @@ const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, option
             return (
               <button key={i} className={cls} disabled={solved || isMentorLive} onClick={() => pick(i)} style={{ padding: 'clamp(12px,1.8vw,16px) clamp(14px,2.2vw,20px)', fontSize: 'clamp(14px,1.7vw,16px)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span className="mono small" style={{ minWidth: 20, color: showGreenLetter ? T.success : T.ink3 }}>{String.fromCharCode(65 + i)}</span>
-                <span style={{ flex: 1 }}>{opt}</span>
+                <span style={{ flex: 1 }}>{fmtCode(opt)}</span>
               </button>
             );
           })}
@@ -760,21 +1733,21 @@ const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, option
         <FeedbackBlock show={isMentorLive ? mReveal : picked !== null} isCorrect={isMentorLive ? true : (solved && !wrongLocked)} neutral={waiting}>
           <p className="small mono" style={{ margin: '0 0 6px', fontWeight: 600, color: waiting ? T.blue : (isMentorLive || (solved && !wrongLocked)) ? T.success : T.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {isMentorLive
-              ? `✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+              ? fmtCode(`✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`)
               : waiting
                 ? '📨 Javobingiz qabul qilindi'
                 : wrongLocked
-                  ? `To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+                  ? fmtCode(`To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`)
                   : solved ? "To'g'ri" : "Qaytadan urinib ko'ring"}
           </p>
           <p className="body" style={{ margin: 0 }}>
-            {isMentorLive
+            {fmtCode(isMentorLive
               ? explainCorrect
               : waiting
-                ? "Javobingiz yozib olindi 🤫 To'g'rimi-xatomi — hozircha sir! Mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
+                ? "Javobingiz yozib olindi. To'g'ri yoki xato ekani mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
                 : wrongLocked
                   ? (explainWrong[picked] ?? explainWrong.default)
-                  : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
+                  : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default))}
           </p>
           {/* Xato qilgan o'quvchi mavzuni qisqa kartalarda qayta ko'radi (3-qadamda kontent keladi).
               Jonli darsda — javob sirini saqlash uchun faqat reveal'dan keyin chiqadi. */}
@@ -814,9 +1787,7 @@ const Mentor = ({ children }) => {
   const expand = (e) => { e.stopPropagation(); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
     <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
-      <div className="mentor-ava" aria-hidden="true">
-        <img src={mentorImg} alt="" />
-      </div>
+      <div className="mentor-ava" aria-hidden="true">🧑‍🏫</div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
         <div className="mentor-msg body">{children}</div>
@@ -883,7 +1854,7 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
   const OPTS = [
     { id: 'a', label: 'HTML — sahifa tuzilishi' },
     { id: 'b', label: 'CSS — bezak (dizayn) tili' },
-    { id: 'c', label: 'Yangi rasm qo’shilgan' }
+    { id: 'c', label: 'Yangi rasm qo\'shilgan' }
   ];
   const pick = (v) => { if (picked !== null) return; setPicked(v); onAnswer(screen, { stage: 'hook', screenIdx: screen, picked: v, correct: true }); audio.triggerEvent('option_picked'); };
   return (
@@ -899,7 +1870,7 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
               <button className={`chip ${on ? 'chip-on' : ''}`} onClick={() => setOn(true)}>✨ Bezakli</button>
             </div>
             <Preview title="profil.html" minH={170}><div key={on ? 'on' : 'off'} className="demo-swap" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 130 }}><DemoCard on={on} /></div></Preview>
-            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{on ? '✨ CSS qo’shilgan — ranglar, shrift, bo’shliq' : 'CSS yo’q — brauzerning oddiy ko’rinishi'}</p>
+            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{on ? '✨ CSS qo\'shilgan — ranglar, shrift, bo\'shliq' : 'CSS yo\'q — brauzerning oddiy ko\'rinishi'}</p>
           </Col>
           <Col>
             <p className="eyebrow fade-up delay-2" style={{ color: T.ink2, margin: 0 }}>Sizningcha, nima ularni farqlaydi?</p>
@@ -923,7 +1894,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
     { text: 'Qanday yoziladi', tag: 'selektor { ... }' },
     { text: 'Ranglar', tag: 'color, background' },
     { text: 'Shriftlar', tag: 'font-family, size' },
-    { text: 'Bo’shliqlar', tag: 'padding, margin' }
+    { text: 'Bo\'shliqlar', tag: 'padding, margin' }
   ];
   const isNarrow = useIsMobile(768);
   const [showSteps, setShowSteps] = useState(false);
@@ -968,7 +1939,7 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
           <div className="col">
             <div className="flow-label">{on ? 'HTML + CSS' : 'Faqat HTML'}</div>
             <Preview title="sahifa.html" minH={170}><div key={on ? 'on' : 'off'} className="demo-swap" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 130 }}><DemoCard on={on} /></div></Preview>
-            <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setOn(o => !o)}>{on ? '↩ CSS’ni o’chirish' : '🎨 CSS’ni yoqish'}</button>
+            <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setOn(o => !o)}>{on ? '↩ CSS\'ni o\'chirish' : '🎨 CSS\'ni yoqish'}</button>
           </div>
           <div className="col">
             <div className="ana2"><div className="ana2-row"><span className="ana2-tag">HTML</span><span className="ana2-txt">🏗️ skelet — tuzilish, kontent</span></div><div className="ana2-row"><span className="ana2-tag ana2-css">CSS</span><span className="ana2-txt">🎨 bezak — rang, shrift, bo'shliq</span></div></div>
@@ -981,6 +1952,92 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 // ===== SCREEN 3 — SINTAKSIS =====
+// 🧲 Qayta ishlatiladigan DRAG&DROP — bo'laklarni to'g'ri tartibda joylash (etalon 9.1)
+function DragDropOrder({ items, hints, onSolved, doneText = "✓ To'g'ri! Aynan shu tartibda." }) {
+  const order = items.map(x => x.id);
+  const byId = useMemo(() => Object.fromEntries(items.map(x => [x.id, x])), [items]);
+  // YAGONA holat — pool va slots birga (setState ichida setState YO'Q → StrictMode'da dublikat bo'lmaydi)
+  const [st, setSt] = useState(() => {
+    const a = order.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return { pool: a, slots: order.map(() => null) };
+  });
+  const { pool, slots } = st;
+  const slotRefs = useRef([]);
+  const full = slots.every(s => s !== null);
+  const solved = slots.every((s, i) => s === order[i]);
+  const wrong = full && !solved;
+  useEffect(() => { if (solved) onSolved && onSolved(); }, [solved]); // eslint-disable-line
+  const place = (id, from, slotIdx) => setSt(({ pool, slots }) => {
+    const ns = slots.slice(); const occ = ns[slotIdx];
+    if (typeof from === 'number') ns[from] = null;
+    ns[slotIdx] = id;
+    let np = from === 'pool' ? pool.filter(x => x !== id) : pool.slice();
+    if (occ) np = [...np, occ];
+    return { pool: np, slots: ns };
+  });
+  const toPool = (slotIdx) => setSt(({ pool, slots }) => {
+    const id = slots[slotIdx]; if (!id) return { pool, slots };
+    const ns = slots.slice(); ns[slotIdx] = null;
+    return { pool: [...pool, id], slots: ns };
+  });
+  const tap = (id) => setSt(({ pool, slots }) => {
+    const e = slots.findIndex(s => s === null); if (e < 0) return { pool, slots };
+    const ns = slots.slice(); ns[e] = id;
+    return { pool: pool.filter(x => x !== id), slots: ns };
+  });
+  // Sudrash — asl chip elementini DOM transform bilan suramiz (state yo'q → pirillamaydi;
+  // transform lokal → `position:fixed` muammosi yo'q, ekran pastida chiqmaydi).
+  const down = (ev, id, from) => {
+    if (ev.button != null && ev.button !== 0) return;
+    ev.preventDefault();
+    const el = ev.currentTarget; const sx = ev.clientX, sy = ev.clientY; let moved = false;
+    el.style.transition = 'none'; el.style.zIndex = '9999'; el.style.willChange = 'transform';
+    const mv = (e) => {
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+      if (moved) el.style.transform = `translate(${dx}px,${dy}px) scale(1.06) rotate(-2deg)`;
+    };
+    const finish = (el2) => { el2.style.zIndex = ''; el2.style.willChange = ''; el2.style.transform = ''; el2.style.transition = ''; };
+    const up = (e) => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      if (!moved) { finish(el); if (from === 'pool') tap(id); else toPool(from); return; }
+      let t = -1;
+      slotRefs.current.forEach((elm, i) => { if (!elm) return; const r = elm.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) t = i; });
+      if (t >= 0) { finish(el); place(id, from, t); }
+      else if (typeof from === 'number') { finish(el); toPool(from); }
+      else { el.style.transition = 'transform .2s cubic-bezier(.34,1.3,.4,1)'; el.style.transform = ''; setTimeout(() => finish(el), 210); } // pool'ga qaytadi
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="dd fade-up">
+      <div className="dd-slots">
+        {slots.map((sid, i) => (
+          <div key={i} ref={el => (slotRefs.current[i] = el)} className={`dd-slot ${sid ? 'filled' : ''} ${solved && sid ? 'ok' : ''} ${wrong && sid && sid !== order[i] ? 'bad' : ''}`}>
+            <span className="dd-slotn">{i + 1}</span>
+            {sid ? <button className="dd-chip in" onPointerDown={(e) => down(e, sid, i)}>{byId[sid].label}</button> : <span className="dd-hint">{hints ? hints[i] : 'bu yerga joylang'}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="dd-pool">
+        {pool.length === 0 && !solved && <span className="dd-pool-empty">Tartib xato — bo'lakni bosib qaytaring va qayta joylang</span>}
+        {pool.map(id => <button key={id} className="dd-chip" onPointerDown={(e) => down(e, id, 'pool')}>{byId[id].label}</button>)}
+      </div>
+      {solved && <div className="dd-done">{doneText}</div>}
+      {wrong && !solved && <div className="dd-wrong">⚠️ Tartib xato — qayta joylang.</div>}
+    </div>
+  );
+}
+// CSS qoidasi qismlari — to'g'ri tartibda: selektor { xususiyat: qiymat; }
+const CSS_RULE_PIECES = [
+  { id: 'sel', label: 'h1' },
+  { id: 'open', label: '{' },
+  { id: 'prop', label: 'color:' },
+  { id: 'val', label: 'red;' },
+  { id: 'close', label: '}' },
+];
+
 const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const audio = useAudio([{ id: 's3', text: `CSS qoidasi 3 qismdan iborat. Selektor — qaysi elementni bezashni aytadi. Xususiyat — nimani o'zgartirishni. Qiymat — qanday bo'lishini. Mana: h1 ochiq qavs, color ikki nuqta red nuqta-vergul, yopiq qavs. Har bir qismni bosib, vazifasini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
   const PARTS = {
@@ -989,14 +2046,16 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     val: { label: 'Qiymat', role: "Qanday bo'lishini aytadi. red — qizil rang." }
   };
   const [active, setActive] = useState(null);
-  const [clicked, setClicked] = useState(new Set());
+  const [clicked, setClicked] = useState(() => storedAnswer ? new Set(['sel', 'prop', 'val']) : new Set());
+  const [dragDone, setDragDone] = useState(!!storedAnswer);
   const isNarrow = useIsMobile(768);
-  const done = clicked.size === 3;
+  const explored = clicked.size === 3;        // 3 qismni bosib o'rgandi
+  const done = explored && dragDone;          // ...va qismlarni to'g'ri tartibladi
   const tap = (k) => { setActive(k); setClicked(prev => { const n = new Set(prev); n.add(k); return n; }); };
   const cp = (k) => `csspart ${active === k ? 'on' : ''} ${clicked.has(k) ? 'seen' : ''}`;
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="Sintaksis" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : `${clicked.size}/3 qism ko'rilgan`} onClick={onNext} /></>}>
+    <Stage eyebrow="Sintaksis" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : explored ? "Qismlarni tartiblang" : `${clicked.size}/3 qism ko'rilgan`} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">CSS qoidasi qanday <span className="italic" style={{ color: T.accent }}>yoziladi</span>?</h2></div>
         <Mentor>CSS qoidasi 3 qismdan iborat: <b style={{ color: T.ink }}>selektor</b> (qaysi element), <b style={{ color: T.ink }}>xususiyat</b> (nima), <b style={{ color: T.ink }}>qiymat</b> (qanday). Har bir qismni bosib, vazifasini ko'ring.</Mentor>
@@ -1019,10 +2078,16 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
           <div className="col">
             {done ? (
               <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Sintaksisni o'rgandingiz</p><p className="body" style={{ margin: 0, color: T.ink }}><b>selektor { '{' } xususiyat: qiymat; { '}' }</b> — barcha CSS shu shaklda yoziladi.</p></div>
+            ) : explored ? (
+              <div className="fade-step">
+                <p className="eyebrow" style={{ color: T.accent, margin: '0 0 2px' }}>🧲 Endi o'zingiz yig'ing</p>
+                <p className="body" style={{ margin: '0 0 10px', color: T.ink2, fontSize: 13.5 }}>Bo'laklarni to'g'ri tartibda joylang — CSS qoidasi shaklini o'zingiz quring.</p>
+                <DragDropOrder items={CSS_RULE_PIECES} hints={["qaysi element", "qavs ochiladi", "nima (xususiyat)", "qanday (qiymat)", "qavs yopiladi"]} onSolved={() => setDragDone(true)} doneText="✓ To'g'ri! CSS qoidasi aynan shu tartibda." />
+              </div>
             ) : active ? (
               <div className="sk-info fade-step" key={active}><span className="sk-tagbig"><span className="sk-wordbadge">{PARTS[active].label}</span></span><p className="body" style={{ color: T.ink, margin: '11px 0 0' }}>{PARTS[active].role}</p></div>
             ) : (!isNarrow ? <div className="frame-dash"><p className="small" style={{ color: T.ink3, textAlign: 'center', fontStyle: 'italic', margin: 0 }}>Koddan bir qismni bosing</p></div> : null)}
-            <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Eslatma:</b> har bir qator <span className="mono">;</span> (nuqta-vergul) bilan tugaydi — bu juda muhim!</p></div>
+            {!explored && <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Eslatma:</b> har bir qator <span className="mono">;</span> (nuqta-vergul) bilan tugaydi — bu juda muhim!</p></div>}
           </div>
         </div>
         </Zoomable>
@@ -1038,15 +2103,15 @@ const Screen4 = (props) => (
     questionText="h1 { color: red; } — bu yerda 'color' nima deb ataladi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}><span className="mono">h1 {'{'} color: red; {'}'}</span> — bu yerda <span className="italic" style={{ color: T.accent }}>color</span> nima deb ataladi?</h2></>}
     options={['Selektor', 'Qiymat', 'Teg', 'Xususiyat (property)']} correctIdx={3}
-    explainCorrect="To'g'ri! color — bu xususiyat (property): nimani o'zgartirishni aytadi. Bu yerda — matn rangini."
-    explainWrong={{ 0: 'Selektor — bu h1 (qaysi element). color esa xususiyat.', 1: 'Qiymat — bu red (qanday). color esa xususiyat.', 2: 'Teg — bu HTML tushunchasi. CSS’da color — xususiyat.', default: 'color — bu xususiyat (property).' }} />
+    explainCorrect="To'g'ri! `color` — bu xususiyat (property): nimani o'zgartirishni aytadi. Bu yerda — matn rangini."
+    explainWrong={{ 0: 'Selektor — bu h1 (qaysi element). `color` esa xususiyat.', 1: 'Qiymat — bu red (qanday). `color` esa xususiyat.', 2: 'Teg — bu HTML tushunchasi. CSS\'da `color` — xususiyat.', default: '`color` — bu xususiyat (property).' }} />
 );
 
 // ===== SCREEN 5 — RANGLAR =====
 const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const audio = useAudio([{ id: 's5', text: `Eng yoqimli qism — ranglar. Ikki xususiyat bor: color matn rangini, background-color esa fon rangini o'zgartiradi. Pastdagi ranglardan tanlab, kartani bo'yang.`, trigger: 'on_mount', waits_for: null }]);
-  const TEXTC = [{ n: 'Qora', v: '#0E0E10' }, { n: 'Oq', v: '#FFFFFF' }, { n: 'Qizil', v: '#E03131' }, { n: 'Ko’k', v: '#1971C2' }];
-  const BGC = [{ n: 'Oq', v: '#FFFFFF' }, { n: 'Sariq', v: '#FFE066' }, { n: 'Pushti', v: '#FF8787' }, { n: 'Ko’k', v: '#4DABF7' }];
+  const TEXTC = [{ n: 'Qora', v: '#0E0E10' }, { n: 'Oq', v: '#FFFFFF' }, { n: 'Qizil', v: '#E03131' }, { n: 'Ko\'k', v: '#1971C2' }];
+  const BGC = [{ n: 'Oq', v: '#FFFFFF' }, { n: 'Sariq', v: '#FFE066' }, { n: 'Pushti', v: '#FF8787' }, { n: 'Ko\'k', v: '#4DABF7' }];
   const [tc, setTc] = useState(storedAnswer?.tc || '#0E0E10');
   const [bg, setBg] = useState(storedAnswer?.bg || '#FFFFFF');
   const [touched, setTouched] = useState(!!storedAnswer);
@@ -1081,9 +2146,9 @@ const Screen5b = (props) => (
     audioText="Matnning rangini qaysi xususiyat o'zgartiradi?"
     questionText="Matnning rangini qaysi xususiyat o'zgartiradi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>Mustahkamlash</p><h2 className="title h-sub" style={{ marginTop: 8 }}><span className="italic" style={{ color: T.accent }}>Matnning</span> rangini qaysi xususiyat o'zgartiradi?</h2></>}
-    options={['background-color', 'color', 'font-size', 'margin']} correctIdx={1}
-    explainCorrect="To'g'ri! color — matnning (harflarning) rangini o'zgartiradi."
-    explainWrong={{ 0: 'background-color — bu fon rangi, matn emas. Matn uchun — color.', 2: 'font-size — shrift o’lchami. Rang uchun — color.', 3: 'margin — tashqi bo’shliq. Rang uchun — color.', default: 'Matn rangi — color xususiyati.' }} />
+    options={['`background-color`', '`color`', '`font-size`', '`margin`']} correctIdx={1}
+    explainCorrect="To'g'ri! `color` — matnning (harflarning) rangini o'zgartiradi."
+    explainWrong={{ 0: '`background-color` — bu fon rangi, matn emas. Matn uchun — `color`.', 2: '`font-size` — shrift o\'lchami. Rang uchun — `color`.', 3: '`margin` — tashqi bo\'shliq. Rang uchun — `color`.', default: 'Matn rangi — `color` xususiyati.' }} />
 );
 // ===== SCREEN 6 — RANG FORMATLARI (nom / hex) =====
 const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
@@ -1158,7 +2223,7 @@ const Screen7 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
 // ===== SCREEN 8 — QALINLIK VA TEKISLASH =====
 const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const audio = useAudio([{ id: 's8', text: `Yana ikki foydali xususiyat. font-weight matnni qalin qiladi — bold. text-align esa matnni joylashtiradi: chapga, markazga yoki o'ngga. Ikkalasini sinab ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const ALIGNS = [{ k: 'left', l: '⬅ Chap' }, { k: 'center', l: '⬌ Markaz' }, { k: 'right', l: 'O’ng ➡' }];
+  const ALIGNS = [{ k: 'left', l: '⬅ Chap' }, { k: 'center', l: '⬌ Markaz' }, { k: 'right', l: 'O\'ng ➡' }];
   const [bold, setBold] = useState(!!storedAnswer?.bold);
   const [align, setAlign] = useState(storedAnswer?.align || 'left');
   const [bt, setBt] = useState(!!storedAnswer);
@@ -1193,9 +2258,9 @@ const Screen9 = (props) => (
     audioText="Shriftning o'lchamini qaysi xususiyat belgilaydi?"
     questionText="Shriftning o'lchamini (kattaligini) qaysi xususiyat belgilaydi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Shriftning <span className="italic" style={{ color: T.accent }}>o'lchamini</span> qaysi xususiyat belgilaydi?</h2></>}
-    options={['color', 'font-family', 'font-size', 'padding']} correctIdx={2}
-    explainCorrect="To'g'ri! font-size — shriftning o'lchamini (masalan 24px) belgilaydi."
-    explainWrong={{ 0: 'color — matn rangi, o’lcham emas. O’lcham — font-size.', 1: 'font-family — shrift turi (Sans, Serif). O’lcham — font-size.', 3: 'padding — ichki bo’shliq. Shrift o’lchami — font-size.', default: 'Shrift o’lchami — font-size xususiyati.' }} />
+    options={['`color`', '`font-family`', '`font-size`', '`padding`']} correctIdx={2}
+    explainCorrect="To'g'ri! `font-size` — shriftning o'lchamini (masalan 24px) belgilaydi."
+    explainWrong={{ 0: '`color` — matn rangi, o\'lcham emas. O\'lcham — `font-size`.', 1: '`font-family` — shrift turi (Sans, Serif). O\'lcham — `font-size`.', 3: '`padding` — ichki bo\'shliq. Shrift o\'lchami — `font-size`.', default: 'Shrift o\'lchami — `font-size` xususiyati.' }} />
 );
 
 // ===== SCREEN 10 — PADDING (ichki bo'shliq) =====
@@ -1276,9 +2341,9 @@ const Screen12 = (props) => (
     audioText="Element ichidagi bo'shliq, ya'ni kontent bilan chet orasidagi joy, qaysi xususiyat?"
     questionText="Kontent bilan elementning cheti orasidagi ichki bo'shliq qaysi xususiyat?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Kontent bilan elementning cheti orasidagi <span className="italic" style={{ color: T.accent }}>ichki</span> bo'shliq qaysi xususiyat?</h2></>}
-    options={['margin', 'color', 'font-size', 'padding']} correctIdx={3}
-    explainCorrect="To'g'ri! padding — ichki bo'shliq (kontent bilan chet orasida)."
-    explainWrong={{ 0: 'margin — tashqi bo’shliq (elementlar orasida). Ichki — padding.', 1: 'color — matn rangi, bo’shliq emas.', 2: 'font-size — shrift o’lchami. Ichki bo’shliq — padding.', default: 'Ichki bo’shliq — padding.' }} />
+    options={['`margin`', '`color`', '`font-size`', '`padding`']} correctIdx={3}
+    explainCorrect="To'g'ri! `padding` — ichki bo'shliq (kontent bilan chet orasida)."
+    explainWrong={{ 0: '`margin` — tashqi bo\'shliq (elementlar orasida). Ichki — `padding`.', 1: '`color` — matn rangi, bo\'shliq emas.', 2: '`font-size` — shrift o\'lchami. Ichki bo\'shliq — `padding`.', default: 'Ichki bo\'shliq — `padding`.' }} />
 );
 
 // ===== SCREEN 13 — BUILDER (kartani bezat) =====
@@ -1289,7 +2354,7 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     { k: 'background', label: '🟨 Fon rangi', css: 'background-color', val: '#FFF3BF' },
     { k: 'font', label: '🔤 Serif shrift', css: 'font-family', val: 'Georgia, serif' },
     { k: 'size', label: '🔠 Katta shrift', css: 'font-size', val: '26px' },
-    { k: 'padding', label: '↔ Ichki bo’shliq', css: 'padding', val: '26px' },
+    { k: 'padding', label: '↔ Ichki bo\'shliq', css: 'padding', val: '26px' },
     { k: 'radius', label: '⬭ Yumaloq chet', css: 'border-radius', val: '16px' }
   ];
   const [ap, setAp] = useState(storedAnswer?.ap || {});
@@ -1424,7 +2489,7 @@ const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 ? <h1 key={colorVal} className="fade-step" style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(26px,4.5vw,36px)', color: colorVal, margin: 0, transition: 'color 0.2s' }}>Salom! 👋</h1>
                 : <p style={{ fontFamily: 'Georgia, serif', color: T.ink3, fontStyle: 'italic', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>Yoza boshlang — matn shu yerda <br />jonli bo'yaladi</p>}
             </div></Preview>
-            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{hasVal ? `color: ${colorVal}` : '↑ color qiymatini yozsangiz, darhol ko‘rinadi'}</p>
+            <p className="mono small" style={{ color: T.ink3, margin: 0, textAlign: 'center' }}>{hasVal ? `color: ${colorVal}` : '↑ color qiymatini yozsangiz, darhol ko\'rinadi'}</p>
           </div>
         </div>
       </div>
@@ -1432,8 +2497,81 @@ const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
+// 🃏 Qayta ishlatiladigan FLASHCARDS — aktiv takrorlash (3D flip + o'z-o'zini baholash).
+const CSS_FLASHCARDS = [
+  { front: 'Matn (harflar) rangi', back: 'color', note: 'color: red;' },
+  { front: 'Orqa fon rangi', back: 'background-color', note: 'fon uchun' },
+  { front: "Shrift o'lchami (kattaligi)", back: 'font-size', note: '24px' },
+  { front: 'Shrift turi (Arial, Georgia)', back: 'font-family', note: 'harf shakli' },
+  { front: 'Matnni qalin qilish', back: 'font-weight', note: 'bold' },
+  { front: 'Matnni tekislash (chap/markaz)', back: 'text-align', note: 'center · left' },
+  { front: "Ichki bo'shliq (kontent atrofida)", back: 'padding', note: 'quti ichida' },
+  { front: "Tashqi bo'shliq (elementlar orasida)", back: 'margin', note: 'qutilar orasi' },
+  { front: 'Qaysi elementni bezashni aytadi', back: 'selektor', note: 'h1, p, .card' },
+  { front: "Nimani o'zgartirishni aytadi", back: 'xususiyat', note: 'color, font-size' },
+  { front: "Qanday bo'lishini aytadi", back: 'qiymat', note: 'red, 24px' },
+  { front: 'Har CSS satri oxirida', back: ';', note: 'nuqta-vergul' },
+];
+function Flashcards({ cards }) {
+  const [queue, setQueue] = useState(() => cards.map((_, i) => i));
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown] = useState(0);
+  const [exiting, setExiting] = useState(null); // 'knew' | 'again' — karta uchib chiqish animatsiyasi (Quizlet uslubi)
+  const swapRef = useRef(0);                    // har almashishda karta remount bo'lib, kirish animatsiyasi o'ynaydi
+  const total = cards.length;
+  const cur = queue[0];
+  const card = cur != null ? cards[cur] : null;
+  const advance = (removed) => {
+    if (exiting) return;
+    setExiting(removed ? 'knew' : 'again');
+    setTimeout(() => {
+      setExiting(null); setFlipped(false); swapRef.current++;
+      if (removed) setKnown(k => k + 1);
+      setQueue(q => { const [first, ...rest] = q; return removed ? rest : [...rest, first]; });
+    }, 420);
+  };
+  const knew = () => advance(true);
+  const again = () => advance(false);
+  const restart = () => { setQueue(cards.map((_, i) => i)); setKnown(0); setFlipped(false); };
+  if (!card) return (
+    <div className="fc-done fade-up"><span className="fc-done-emoji">🎉</span><p className="fc-done-h">Hammasini bilasiz!</p><p className="fc-done-s">{total}/{total} karta yodlandi</p><button className="fc-btn ghost" onClick={restart}>↻ Qaytadan takrorlash</button></div>
+  );
+  return (
+    <div className="fc fade-up">
+      <div className="fc-top"><span className="fc-pill learn" key={`l-${queue.length}-${swapRef.current}`}>↻ O'rganilmoqda · <b>{queue.length}</b></span><span className="fc-pill knew" key={`k-${known}`}>✓ Bildim · <b>{known}</b></span></div>
+      <div className="fc-bar"><span className="fc-bar-fill" style={{ width: `${(known / total) * 100}%` }} /></div>
+      <div className="fc-cardwrap">
+        <div className={`fc-fly ${exiting === 'knew' ? 'out-knew' : ''} ${exiting === 'again' ? 'out-again' : ''}`} key={swapRef.current}>
+        <div className={`fc-card ${flipped ? 'flip' : ''}`} onClick={() => !flipped && !exiting && setFlipped(true)} role="button" tabIndex={0}>
+          <div className="fc-face fc-front"><span className="fc-q">{card.front}</span><span className="fc-cue">Qaysi xususiyat yoki atama? 🤔 <span className="fc-tap">bosing</span></span></div>
+          <div className="fc-face fc-back"><span className="fc-tag">{card.back}</span>{card.note && <span className="fc-note">{card.note}</span>}</div>
+        </div>
+        </div>
+      </div>
+      {flipped
+        ? (<div className="fc-actions"><button className="fc-btn again" disabled={!!exiting} onClick={again}>✗ Takrorlash</button><button className="fc-btn knew" disabled={!!exiting} onClick={knew}>✓ Bildim</button></div>)
+        : (<p className="fc-hint">👆 Kartani bosing — javobni ko'rasiz</p>)}
+    </div>
+  );
+}
+
+// ===== SCREEN: FLASHCARD TAKRORLASH (yakuniy summarydan oldin) =====
+const ScreenFlashcards = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 'sflash', text: `Darsni yakunlashdan oldin, bugun o'rgangan CSS xususiyatlarini tez takrorlaymiz. Har kartada bir vazifa — javobini o'ylang, keyin kartani bosib tekshiring.`, trigger: 'on_mount', waits_for: null }]);
+  useEffect(() => { if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, []); // eslint-disable-line
+  return (
+    <Stage eyebrow="Takrorlash" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={false} label="Yakunlash →" onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up">CSS xususiyatlarini <span className="italic" style={{ color: T.accent }}>tez takrorlaymiz</span>.</h2></div>
+        <Mentor>Darsni yakunlashdan oldin bugun o'rgangan CSS xususiyatlarini takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>javobi nima</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
+        <div className="fc-center"><Flashcards cards={CSS_FLASHCARDS} /></div>
+      </div>
+    </Stage>
+  );
+};
+
 // ===== SCREEN 16 — YAKUN =====
-const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
+const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) => {
   const _gate = useContext(LiveGateCtx) || {};
   const _live = _gate.live;
   const [arena, setArena] = useState(false);
@@ -1450,9 +2588,9 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
     setArenaSolo(studentSolo); setArena(true);
   };
   const audio = useAudio([{ id: 's16', text: "Birinchi CSS darsi tugadi! Endi sahifani bezay olasiz: ranglar — color va background-color, shriftlar — font-family va font-size, bo'shliqlar — padding va margin. Va hammasi bitta shaklda: selektor, xususiyat, qiymat. Keyingi darsda yana ko'proq bezak sirlarini o'rganamiz.", trigger: 'on_mount', waits_for: null }]);
-  const RECAP = ['CSS — sahifani bezaydi (HTML skelet, CSS bezak)', 'Shakl: selektor { xususiyat: qiymat; }', 'Ranglar — color va background-color', 'Shriftlar — font-family, font-size, font-weight', 'Bo’shliqlar — padding (ichki), margin (tashqi)'];
-  const HOMEWORK = [{ b: 'Ranglar', t: '— sahifangizga color va background bering' }, { b: 'Shrift', t: '— font-family va font-size tanlang' }, { b: 'Bo’shliq', t: '— padding va margin bilan tartibga soling' }];
-  const GLOSSARY = [{ b: 'CSS', t: '— bezak tili' }, { b: 'Selektor', t: '— qaysi element (h1)' }, { b: 'Xususiyat', t: '— nima (color)' }, { b: 'Qiymat', t: '— qanday (red)' }, { b: 'color/background-color', t: '— ranglar' }, { b: 'font-family/size/weight', t: '— shrift' }, { b: 'padding/margin', t: '— ichki/tashqi bo’shliq' }];
+  const RECAP = ['CSS — sahifani bezaydi (HTML skelet, CSS bezak)', 'Shakl: selektor { xususiyat: qiymat; }', 'Ranglar — color va background-color', 'Shriftlar — font-family, font-size, font-weight', 'Bo\'shliqlar — padding (ichki), margin (tashqi)'];
+  const HOMEWORK = [{ b: 'Ranglar', t: '— sahifangizga color va background bering' }, { b: 'Shrift', t: '— font-family va font-size tanlang' }, { b: 'Bo\'shliq', t: '— padding va margin bilan tartibga soling' }];
+  const GLOSSARY = [{ b: 'CSS', t: '— bezak tili' }, { b: 'Selektor', t: '— qaysi element (h1)' }, { b: 'Xususiyat', t: '— nima (color)' }, { b: 'Qiymat', t: '— qanday (red)' }, { b: 'color/background-color', t: '— ranglar' }, { b: 'font-family/size/weight', t: '— shrift' }, { b: 'padding/margin', t: '— ichki/tashqi bo\'shliq' }];
   const correct = SCORED_IDX.filter(i => answers[i]?.correct).length;
   const total = SCORED_IDX.length;
   const PASSED = (total ? correct / total : 0) >= 0.6;
@@ -1460,10 +2598,10 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
   return (
     <Stage eyebrow="Tayyor" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><button className="btn-ghost" onClick={onReset} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Qaytadan</button><button className="btn-white-accent" onClick={onFinish} style={{ marginLeft: 'auto', padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Keyingi dars →</button></>}>
       <div className="screen">
-        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> CSS 1-dars tugadi</span><h2 className="title h-title fade-up d1">Sahifani <span className="italic" style={{ color: T.accent }}>bezashni</span> o'rganding.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi ranglar, shriftlar va bo’shliqlarni o’zing boshqarasan.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko’ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
+        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> CSS 1-dars tugadi</span><h2 className="title h-title fade-up d1">Sahifani <span className="italic" style={{ color: T.accent }}>bezashni</span> o'rgandingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi ranglar, shriftlar va bo\'shliqlarni o\'zingiz boshqarasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\'ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
         <div className={`qz-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
           <div className="qz-cta-txt">
-            <span className="qz-cta-h">⚔️ Mustahkamlash testi</span>
+            <span className="qz-cta-h">⚡ CodeStrike jangi</span>
             <span className="qz-cta-s">{studentSolo
               ? `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · mashq rejimi — natija faqat sizga`
               : `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · tezkorlar podiumga 🏆`}</span>
@@ -1472,7 +2610,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
             {studentWait ? '⏳ Mentorni kuting'
               : studentSolo ? "📖 Testni o'zim ishlash"
               : studentLive ? (quizSt === 'done' ? "🏆 Natijalarni ko'rish" : '🔥 Testga kirish!')
-              : isMentorL ? (quizSt === 'off' ? '⚔️ Testni ochish' : '⚔️ Davom ettirish')
+              : isMentorL ? (quizSt === 'off' ? '⚔️ Jangni boshlash' : '⚔️ Davom ettirish')
               : '⚔️ Testni ishlash'}
           </button>
         </div>
@@ -1480,6 +2618,18 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
         <div className="split">
           <div className="card fade-up d3"><div className="card-lbl" style={{ color: T.success }}><span className="tick" style={{ width: 16, height: 16, borderRadius: '50%', background: T.success, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</span> Endi siz bilasiz</div><ul className="recap">{RECAP.map((r, i) => (<li key={i} style={{ animationDelay: `${0.3 + i * 0.07}s` }}><span className="ck">✓</span><span>{r}</span></li>))}</ul></div>
           <div className="card hw fade-up d4"><div className="card-lbl" style={{ color: T.accent }}>🎨 Uyga vazifa</div><p className="body" style={{ margin: '0 0 10px', color: T.ink }}>HTML sahifangizni CSS bilan bezang:</p><ul>{HOMEWORK.map((h, i) => (<li key={i}><b>{h.b}</b> <span className="t">{h.t}</span></li>))}</ul><p className="hw-note">Keyingi darsda chegaralar, soyalar va joylashuvni o'rganamiz!</p></div>
+        </div>
+        <div className="card ach-coll fade-up d3">
+          <div className="card-lbl" style={{ color: T.accent }}>🏅 Nishonlaringiz — {(achievements ? achievements.size : 0)}/{Object.keys(ACHIEVEMENTS).length}</div>
+          <div className="ach-grid">
+            {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(achievements && achievements.has(id)); return (
+              <div key={id} className={`ach-badge ${got ? 'got' : 'locked'}`} title={a.desc}>
+                <span className="ach-badge-ic">{got ? a.icon : '🔒'}</span>
+                <span className="ach-badge-name">{a.name}</span>
+                {got && <span className="ach-badge-desc">{a.desc}</span>}
+              </div>
+            ); })}
+          </div>
         </div>
         <div className="gloss fade-up d4"><div className="gloss-head" onClick={() => setOpen(o => !o)}><span className="lbl">💡 Kalit so'zlar (takrorlash)</span><span className="gloss-toggle">{open ? '−' : '+'}</span></div>{open && (<div className="gloss-body">{GLOSSARY.map((g, i) => (<span key={i}><b>{g.b}</b> {g.t}{i < GLOSSARY.length - 1 ? ' · ' : ''}</span>))}</div>)}</div>
       </div>
@@ -1626,34 +2776,33 @@ const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
 // ===== ⚔️ MUSTAHKAMLASH-JANG (Kahoot arena) =====
 const QUIZ_MS = 20000;
 const QUIZ_BASE_IDX = 100;
-const QUIZ_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C']; // Kahoot ranglari
+const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CodeStrike brend palitrasi: coral · ocean · sun · leaf
 const QUIZ_SHAPES = ['▲', '◆', '●', '■'];
-// Arena foni: suzuvchi neon shakllar (statik pozitsiyalar)
+// Arena foni: suzuvchi kod tokenlari (CSS mavzusi: xususiyat, qiymat, selektor)
 const QZ_BG_SHAPES = [
-  { ch: '▲', l: 5,  t: 10, s: 88,  c: 'rgba(255,80,110,0.16)',  d: 19, dl: 0 },
-  { ch: '●', l: 86, t: 7,  s: 64,  c: 'rgba(255,201,77,0.15)',  d: 23, dl: 1.5 },
-  { ch: '◆', l: 8,  t: 72, s: 104, c: 'rgba(80,150,255,0.18)',  d: 27, dl: 0.8 },
-  { ch: '■', l: 82, t: 68, s: 76,  c: 'rgba(90,220,120,0.16)',  d: 21, dl: 2.2 },
-  { ch: '▲', l: 44, t: 86, s: 54,  c: 'rgba(255,201,77,0.12)',  d: 25, dl: 1.1 },
-  { ch: '◆', l: 66, t: 26, s: 46,  c: 'rgba(255,80,110,0.12)',  d: 17, dl: 0.4 },
-  { ch: '●', l: 26, t: 34, s: 38,  c: 'rgba(90,220,120,0.12)',  d: 20, dl: 1.9 },
-  { ch: '■', l: 55, t: 5,  s: 42,  c: 'rgba(80,150,255,0.14)',  d: 22, dl: 0.6 },
-  { ch: '▲', l: 93, t: 42, s: 48,  c: 'rgba(160,120,255,0.14)', d: 24, dl: 1.3 },
-  { ch: '●', l: 2,  t: 45, s: 44,  c: 'rgba(255,80,110,0.10)',  d: 26, dl: 2.6 },
+  { ch: 'color:',   l: 6,  t: 18, s: 34, c: 'rgba(20,17,14,0.05)',   d: 19, dl: 0 },
+  { ch: '{ }',      l: 84, t: 12, s: 34, c: 'rgba(20,17,14,0.05)',   d: 23, dl: 1.5 },
+  { ch: 'padding',  l: 9,  t: 74, s: 26, c: 'rgba(255,79,40,0.08)',  d: 27, dl: 0.8 },
+  { ch: '#FF4D26',  l: 76, t: 70, s: 24, c: 'rgba(20,17,14,0.045)',  d: 21, dl: 2.2 },
+  { ch: 'font-size',l: 44, t: 86, s: 24, c: 'rgba(20,17,14,0.05)',   d: 25, dl: 1.1 },
+  { ch: '.card',    l: 66, t: 24, s: 24, c: 'rgba(15,166,214,0.09)', d: 17, dl: 0.4 },
+  { ch: ';',        l: 24, t: 36, s: 30, c: 'rgba(20,17,14,0.05)',   d: 20, dl: 1.9 },
+  { ch: 'margin',   l: 90, t: 46, s: 22, c: 'rgba(34,160,92,0.09)',  d: 24, dl: 1.3 },
+  { ch: 'bold',     l: 2,  t: 46, s: 22, c: 'rgba(20,17,14,0.045)',  d: 26, dl: 2.6 },
 ];
 const QUIZ_BANK = [
-  { q: "CSS nima uchun ishlatiladi?", opts: ["Sahifa tuzilishini yaratish", "Sahifani bezash (rang, shrift, bo'shliq)", "Ma'lumotlar bazasi", "Serverga so'rov"], correct: 1 },
-  { q: "'h1 { color: red; }' da 'h1' nima deb ataladi?", opts: ["Xususiyat", "Qiymat", "Selektor", "Teg"], correct: 2 },
-  { q: "'color: red;' da 'red' nima?", opts: ["Selektor", "Qiymat", "Xususiyat", "Property"], correct: 1 },
-  { q: "Matn rangini qaysi xususiyat o'zgartiradi?", opts: ["background-color", "color", "font-size", "margin"], correct: 1 },
-  { q: "Fon rangini qaysi xususiyat belgilaydi?", opts: ["color", "background-color", "border", "padding"], correct: 1 },
-  { q: "Shrift turini (Arial) qaysi xususiyat tanlaydi?", opts: ["font-size", "font-weight", "font-family", "text-align"], correct: 2 },
-  { q: "Shrift o'lchamini qaysi xususiyat belgilaydi?", opts: ["font-family", "font-size", "line-height", "color"], correct: 1 },
-  { q: "Matnni qalin (bold) qilish uchun qaysi xususiyat?", opts: ["font-style", "font-weight", "text-align", "font-size"], correct: 1 },
-  { q: "Kontent bilan chet orasidagi ICHKI bo'shliq qaysi?", opts: ["margin", "padding", "border", "gap"], correct: 1 },
-  { q: "Element bilan boshqalar orasidagi TASHQI bo'shliq qaysi?", opts: ["padding", "margin", "color", "font-size"], correct: 1 },
-  { q: "Har CSS satri oxiriga nima qo'yiladi?", opts: ["Nuqta", "Vergul", "Nuqta-vergul (;)", "Ikki nuqta"], correct: 2 },
-  { q: "Xususiyat va qiymat orasida qaysi belgi?", opts: ["Nuqta-vergul (;)", "Ikki nuqta (:)", "Teng (=)", "Vergul"], correct: 1 },
+  { q: "CSS nima uchun ishlatiladi?", opts: ["Sahifani bezash (rang, shrift, bo'shliq)", "Sahifa tuzilishini yaratish", "Ma'lumotlar bazasi", "Serverga so'rov"], correct: 0 },
+  { q: "`h1 { color: red; }` da `h1` nima deb ataladi?", opts: ["Xususiyat", "Selektor", "Qiymat", "Teg"], correct: 1 },
+  { q: "`color: red;` da `red` nima?", opts: ["Selektor", "Xususiyat", "Qiymat", "Property"], correct: 2 },
+  { q: "Matn rangini qaysi xususiyat o'zgartiradi?", opts: ["`background-color`", "`margin`", "`font-size`", "`color`"], correct: 3 },
+  { q: "Fon rangini qaysi xususiyat belgilaydi?", opts: ["`background-color`", "`color`", "`border`", "`padding`"], correct: 0 },
+  { q: "Shrift turini (Arial) qaysi xususiyat tanlaydi?", opts: ["`font-size`", "`font-family`", "`font-weight`", "`text-align`"], correct: 1 },
+  { q: "Shrift o'lchamini qaysi xususiyat belgilaydi?", opts: ["`font-family`", "`color`", "`font-size`", "`line-height`"], correct: 2 },
+  { q: "Matnni qalin (bold) qilish uchun qaysi xususiyat?", opts: ["`font-style`", "`text-align`", "`font-size`", "`font-weight`"], correct: 3 },
+  { q: "Kontent bilan chet orasidagi ICHKI bo'shliq qaysi?", opts: ["`padding`", "`margin`", "`border`", "`gap`"], correct: 0 },
+  { q: "Element bilan boshqalar orasidagi TASHQI bo'shliq qaysi?", opts: ["`padding`", "`margin`", "`color`", "`font-size`"], correct: 1 },
+  { q: "Har CSS satri oxiriga nima qo'yiladi?", opts: ["Nuqta", "Vergul", "Nuqta-vergul (`;`)", "Ikki nuqta"], correct: 2 },
+  { q: "Xususiyat va qiymat orasida qaysi belgi?", opts: ["Nuqta-vergul (`;`)", "Teng (`=`)", "Vergul", "Ikki nuqta (`:`)"], correct: 3 },
 ];
 const quizPts = (elapsedMs) => elapsedMs <= 500 ? 1000 : Math.max(0, Math.round(1000 * (1 - (Math.min(elapsedMs, QUIZ_MS) / QUIZ_MS) / 2)));
 // Bitta o'yinchining barcha javoblaridan yakuniy hisob (hamma klientda bir xil chiqadi)
@@ -1668,6 +2817,45 @@ const quizScore = (rows) => {
   }
   return { pts, ok, maxStreak };
 };
+
+// ⚡ CodeStrike chaqmoq mascot (brend belgisi)
+const QzBolt = ({ size = 72 }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="qz-bolt">
+    <defs><linearGradient id="qzbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF8A3D" /><stop offset="1" stopColor="#FF4F28" /></linearGradient></defs>
+    <rect x="6" y="6" width="88" height="88" rx="24" fill="url(#qzbg)" />
+    <path d="M56 12 L28 54 L45 54 L38 88 L72 40 L53 40 Z" fill="#fff" stroke="#E23A16" strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="76" cy="24" r="3.5" fill="#FFD9A8" /><circle cx="22" cy="72" r="2.6" fill="#FFD9A8" /><circle cx="80" cy="66" r="2.2" fill="#FFD9A8" />
+  </svg>
+);
+
+// Jonli fon: suzuvchi uchqunlar + «web» chiziqlari + kod tokenlari (canvas)
+function QzFX() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+    const ctx = cv.getContext('2d'); const DPR = Math.min(2, window.devicePixelRatio || 1);
+    let W = 1, H = 1, raf = 0;
+    const size = () => { W = cv.width = Math.max(1, cv.offsetWidth * DPR); H = cv.height = Math.max(1, cv.offsetHeight * DPR); };
+    size(); window.addEventListener('resize', size);
+    const TOK = ['color:', 'padding', 'margin', '{ }', 'font-size', ';', '.card', '#FF4D26'];
+    const em = [], toks = [];
+    for (let i = 0; i < 26; i++) em.push({ x: Math.random() * W, y: Math.random() * H, z: .3 + Math.random() * .7, ph: Math.random() * 6.28, sw: .3 + Math.random() * .6 });
+    for (let i = 0; i < 9; i++) toks.push({ x: Math.random() * W, y: Math.random() * H, z: .4 + Math.random() * .9, vx: (Math.random() - .5) * .16, t: TOK[i % TOK.length], r: (Math.random() - .5) * .5 });
+    const draw = (tm) => {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of em) { p.y -= (.15 + p.z * .35) * DPR; p.x += Math.sin(tm / 1400 + p.ph) * p.sw * DPR * .35; if (p.y < -12) { p.y = H + 12; p.x = Math.random() * W; } }
+      ctx.lineWidth = 1 * DPR;
+      for (let a = 0; a < em.length; a++) for (let b = a + 1; b < em.length; b++) { const dx = em[a].x - em[b].x, dy = em[a].y - em[b].y, d = Math.sqrt(dx * dx + dy * dy), mx = 95 * DPR; if (d < mx) { ctx.strokeStyle = 'rgba(255,79,40,' + (.055 * (1 - d / mx)) + ')'; ctx.beginPath(); ctx.moveTo(em[a].x, em[a].y); ctx.lineTo(em[b].x, em[b].y); ctx.stroke(); } }
+      for (const p of em) { const s = (1.3 + p.z * 2.2) * DPR, tw = .16 + p.z * .24 + Math.sin(tm / 600 + p.ph) * .08; ctx.fillStyle = 'rgba(245,166,35,' + tw + ')'; ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, 6.29); ctx.fill(); }
+      for (const t of toks) { t.x += t.vx * DPR; t.y -= (.08 + t.z * .12) * DPR; if (t.y < -34) t.y = H + 34; if (t.x < -50) t.x = W + 50; if (t.x > W + 50) t.x = -50; ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.r * .12); ctx.font = '700 ' + ((13 + t.z * 22) * DPR) + 'px "JetBrains Mono",monospace'; ctx.fillStyle = 'rgba(20,17,14,' + (.03 + t.z * .05) + ')'; ctx.textAlign = 'center'; ctx.fillText(t.t, 0, 0); ctx.restore(); }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', size); };
+  }, []);
+  return <canvas ref={ref} className="qz-fx" aria-hidden="true" />;
+}
 
 // Aylana taymer — vaqt kamaygani sari yashil → sariq → qizil
 function QzTimer({ remaining }) {
@@ -1841,6 +3029,7 @@ function QuizArena({ live, onClose, startSolo }) {
           <span key={i} className="qz-shp" style={{ left: `${s.l}%`, top: `${s.t}%`, fontSize: s.s, color: s.c, animationDuration: `${s.d}s`, animationDelay: `${s.dl}s` }}>{s.ch}</span>
         ))}
       </div>
+      <QzFX />
       <button className="qz-x" onClick={closeArena} aria-label="Yopish">✕</button>
 
       {/* QUTQARUV: jonli dars tugadi — o'quvchi osilib qolmaydi, mashq rejimida davom etadi */}
@@ -1854,9 +3043,8 @@ function QuizArena({ live, onClose, startSolo }) {
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
-          <div className="qz-logo">⚔️</div>
-          <h2 className="qz-h">Mustahkamlash Testi</h2>
-          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
+          <div className="qz-brand"><QzBolt size={74} /><span className="qz-wm">Code<span className="qz-wm-h">Strike</span></span></div>
+          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossangiz — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {solo && isStudent && <p className="qz-sub" style={{ color: '#FFC94D' }}>📖 Mashq rejimi — o'z tezligingizda ishlaysiz, natija faqat sizga ko'rinadi.</p>}
           {!solo && (
             <div className="qz-lobby-players">
@@ -1880,14 +3068,14 @@ function QuizArena({ live, onClose, startSolo }) {
               ? <span className="qz-ansn">📨 {answeredN}/{players.length}</span>
               : <span className="qz-ansn">{streakUpTo(qi - 1) >= 2 ? `🔥 x${streakUpTo(qi - 1)}` : ' '}</span>}
           </div>
-          <h2 className="qz-q">{Q.q}</h2>
+          <h2 className="qz-q">{fmtCode(Q.q)}</h2>
           <div className="qz-grid">
             {Q.opts.map((o, i) => {
               const pickedThis = my && my.picked === i;
               return (
                 <button key={i} className={`qz-tile ${my ? (pickedThis ? 'picked' : 'faded') : ''}`} style={{ background: QUIZ_COLORS[i] }} disabled={isMentor || !!my} onClick={() => answer(i)}>
                   <span className="qz-shape">{QUIZ_SHAPES[i]}</span>
-                  <span className="qz-opt">{o}</span>
+                  <span className="qz-opt">{fmtCode(o)}</span>
                   {pickedThis && <span className="qz-pbadge">✔</span>}
                 </button>
               );
@@ -1909,7 +3097,7 @@ function QuizArena({ live, onClose, startSolo }) {
           <div className="qz-top">
             <span className="qz-count">Savol <b>{qi + 1}</b>/{QUIZ_BANK.length} — natija</span>
           </div>
-          <h2 className="qz-q">{Q.q}</h2>
+          <h2 className="qz-q">{fmtCode(Q.q)}</h2>
           <div className="qz-grid">
             {Q.opts.map((o, i) => {
               const win = i === Q.correct;
@@ -1917,7 +3105,7 @@ function QuizArena({ live, onClose, startSolo }) {
               return (
                 <div key={i} className={`qz-tile rv ${win ? 'win' : 'lose'} ${pickedThis ? 'picked' : ''}`} style={{ background: QUIZ_COLORS[i] }}>
                   <span className="qz-shape">{QUIZ_SHAPES[i]}</span>
-                  <span className="qz-opt">{o}</span>
+                  <span className="qz-opt">{fmtCode(o)}</span>
                   <span className="qz-cnt">{win ? '✓ ' : ''}{counts[i]}</span>
                 </div>
               );
@@ -1952,7 +3140,8 @@ function QuizArena({ live, onClose, startSolo }) {
       {phase === 'done' && (
         <div className="qz-view fade-step">
           <Confetti />
-          <h2 className="qz-h">🏆 Test yakunlandi!</h2>
+          <div className="qz-brand sm"><QzBolt size={48} /><span className="qz-wm">Code<span className="qz-wm-h">Strike</span></span></div>
+          <h2 className="qz-h" style={{ fontSize: 'clamp(20px,3.4vw,30px)' }}>Test yakunlandi! 🎉</h2>
           {solo ? (
             <div className="qz-solo-res">
               <div className="qz-solo-pts">{soloScore.pts}</div>
@@ -1996,25 +3185,196 @@ function QuizArena({ live, onClose, startSolo }) {
   );
 }
 
-export default function HtmlLesson({ lang: langProp, onFinished }) {
+// ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
+const ACHIEVEMENTS = {
+  rang:      { icon: '🎨', name: 'Rang ustasi',    desc: "Matn va fon ranglarini o'zgartirdingiz" },
+  bezak:     { icon: '🖌️', name: 'Kartani bezadingiz', desc: "Elementni CSS bilan chiroyli qildingiz" },
+  debugger:  { icon: '🐞', name: 'Xato ovchisi',   desc: 'Buzuq CSS kodini topib tuzatdingiz' },
+  graduate:  { icon: '🏆', name: 'CSS qahramoni',  desc: "CSS 1-darsini to'liq yakunladingiz" },
+};
+// Ekran id → nishon (recordAnswer'da avtomatik beriladi)
+const ACH_TRIGGERS = { s5: 'rang', s13: 'bezak', s14: 'debugger' };
+function AchToastItem({ ach, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 3600); return () => clearTimeout(t); }, []); // eslint-disable-line
+  return (
+    <div className="ach-toast" onClick={onDone} role="status">
+      <span className="ach-toast-shine" />
+      <span className="ach-toast-ic">{ach.icon}</span>
+      <div className="ach-toast-txt"><span className="ach-toast-lbl">🏅 Yangi nishon!</span><span className="ach-toast-name">{ach.name}</span></div>
+    </div>
+  );
+}
+function AchToasts({ toasts, onDone }) {
+  return <div className="ach-toasts" aria-live="polite">{toasts.map(t => { const a = ACHIEVEMENTS[t.id]; return a ? <AchToastItem key={t.k} ach={a} onDone={() => onDone(t.k)} /> : null; })}</div>;
+}
+
+function MentorPracticeOverlay({ entry, live, onClose }) {
+  const [view, setView] = useState('watch'); // 'watch' | 'demo'
+  const [data, setData] = useState({ players: null, rows: [] });
+  const doneIdx = PRACTICE_DONE_BASE + entry.fromScreen;
+  useEffect(() => {
+    let on = true, t = null;
+    const tick = async () => {
+      try {
+        const [players, rows] = await Promise.all([livePlayers(live.pin), liveAnswers(live.pin, doneIdx)]);
+        if (on) setData({ players, rows });
+      } catch {}
+      if (on) t = setTimeout(tick, 3000);
+    };
+    tick();
+    return () => { on = false; clearTimeout(t); };
+  }, [live.pin, doneIdx]);
+
+  if (view === 'demo') {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: T.bg }}>
+        <HtmlCompiler task={entry.task} starterCode={entry.starter} onContinue={() => setView('watch')} onBack={() => setView('watch')} />
+      </div>
+    );
+  }
+
+  const total = data.players ? data.players.length : 0;
+  const doneN = data.rows.length;
+  const allIn = total > 0 && doneN >= total;
+  const doneIds = new Set(data.rows.map(r => r.player_id));
+  return (
+    <div className="mp-overlay">
+      <div className="mp-card">
+        <div className="mp-eyebrow">✍️ Amaliyot · jonli</div>
+        <h2 className="mp-title">{entry.task.title}</h2>
+        <p className="mp-brief">{entry.task.brief}</p>
+        <div className="mp-flow">
+          <span className="mp-step cur">1 · O'quvchilar o'z qurilmasida yozmoqda</span>
+          <span className="mp-arr">→</span>
+          <span className="mp-step">2 · Mentor doskada yozib ko'rsatadi</span>
+        </div>
+        {data.players === null ? (
+          <p className="mstats-wait">Ulanish…</p>
+        ) : (
+          <div className="mstats" style={{ marginTop: 2 }}>
+            <div className="mstats-head">
+              <span className="mstats-lbl">👨‍🎓 Praktikani tugatdi</span>
+              <span className="mstats-n">{allIn ? '✓ Hamma tugatdi!' : <>Tugatdi: <b>{doneN}</b> / {total}</>}</span>
+            </div>
+            <div className="mstats-prog"><span className={`mstats-prog-fill ${allIn ? 'full' : ''}`} style={{ width: `${total ? Math.round((doneN / total) * 100) : 0}%` }} /></div>
+            {total > 0 && (
+              <div className="mstats-waitrow" style={{ marginTop: 10 }}>
+                {data.players.map(p => <span key={p.id} className="mstats-wait-chip" style={doneIds.has(p.id) ? { background: T.successSoft, color: T.success, fontWeight: 700 } : undefined}>{doneIds.has(p.id) ? '✓ ' : '✏️ '}{p.nickname}</span>)}
+              </div>
+            )}
+            {total === 0 && <p className="mstats-wait">Hali o'quvchi qo'shilmagan — ular praktikani boshlashi bilan bu yerda ✓ chiqadi…</p>}
+          </div>
+        )}
+        <div className="mp-actions">
+          <button className="mp-demo" onClick={() => setView('demo')}>🖊 Doskada yozib ko'rsatish</button>
+          <button className="mp-next" onClick={onClose}>Keyingi mavzuga →</button>
+        </div>
+        <p className="mp-tip">💡 Ko'pchilik tugatgach, aynan shu mashqni doskada birga yozing — shunda o'quvchilar o'zini tekshiradi va mavzu mustahkamlanadi.</p>
+      </div>
+    </div>
+  );
+}
+
+// ===== CSS PRAKTIKALARI — kod yozish (HtmlCompiler + jonli preview, C.cssProp/cssValue tekshiruvi) =====
+// index.html — bezaladigan material (o'zgarmas), style.css — o'quvchi CSS yozadigan joy (starter faqat marker).
+const TASK_COLOR = {
+  eyebrow: 'Praktika · ranglar',
+  title: "Sarlavhaga rang bering",
+  brief: "style.css faylida h1 ga color (matn rangi) va background-color (fon rangi) bering. To'g'ri bo'lsa o'ngda natija ko'rinadi.",
+  files: [
+    { name: 'index.html', lang: 'html', starter: '<h1>Mening sahifam</h1>' },
+    { name: 'style.css', lang: 'css', starter: '/* Bu yerga yozing */\n' },
+  ],
+  requirements: [
+    { id: 'color', label: 'h1 — color (matn rangi)', check: C.cssProp('h1', 'color', "`style.css`da `h1 { color: ...; }` yozing — matn rangi") },
+    { id: 'bg', label: 'h1 — background-color (fon)', check: C.cssProp('h1', 'background-color', "`h1 { background-color: ...; }` qo'shing — fon rangi") },
+  ],
+};
+const TASK_TEXT = {
+  eyebrow: 'Praktika · shrift',
+  title: "Matnni kattalashtiring va tekislang",
+  brief: "h1 ga font-size (o'lcham) bering va text-align bilan markazga tekislang.",
+  files: [
+    { name: 'index.html', lang: 'html', starter: '<h1>Katta sarlavha</h1>\n<p>Oddiy matn.</p>' },
+    { name: 'style.css', lang: 'css', starter: '/* Bu yerga yozing */\n' },
+  ],
+  requirements: [
+    { id: 'size', label: 'h1 — font-size', check: C.cssProp('h1', 'font-size', "`h1 { font-size: 40px; }` kabi o'lcham bering") },
+    { id: 'align', label: 'h1 — text-align: center', check: C.cssValue('h1', 'text-align', 'center', "`h1 { text-align: center; }` yozing — markazga") },
+  ],
+};
+const TASK_BOX = {
+  eyebrow: "Praktika · bo'shliqlar",
+  title: "Qutiga bo'shliq bering",
+  brief: ".box ga padding (ichki bo'shliq) va margin (tashqi bo'shliq) bering — quti ichi va atrofi havodor bo'lsin.",
+  files: [
+    { name: 'index.html', lang: 'html', starter: '<div class="box" style="background:#FFE066">Salom!</div>' },
+    { name: 'style.css', lang: 'css', starter: '/* Bu yerga yozing */\n' },
+  ],
+  requirements: [
+    { id: 'padding', label: '.box — padding (ichki)', check: C.cssProp('.box', 'padding', "`.box { padding: 20px; }` — ichki bo'shliq") },
+    { id: 'margin', label: '.box — margin (tashqi)', check: C.cssProp('.box', 'margin', "`.box { margin: 20px; }` — tashqi bo'shliq") },
+  ],
+};
+// Praktika handoff: shu ekran indeksidan KEYIN ochiladi (7=Rang formatlari · 9=Qalinlik · 12=margin)
+const PRACTICE_AFTER = {
+  7:  { task: TASK_COLOR, starter: '' },
+  9:  { task: TASK_TEXT,  starter: '' },
+  12: { task: TASK_BOX,   starter: '' },
+};
+
+export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   const lang = langProp || 'uz';
   const [screen, setScreen] = useState(0);
   const [answers, setAnswers] = useState({});
+  const [practice, setPractice] = useState(null);            // lokal overlay compilatori: { task, starter, done } yoki null
+  const [mentorPractice, setMentorPractice] = useState(null); // jonli darsda mentor praktika paneli: { task, starter, fromScreen }
   const startTimeRef = useRef(Date.now());
+  // 🏅 Nishonlar
+  const earnedRef = useRef(new Set());
+  const [earned, setEarned] = useState(() => new Set());
+  const [achToasts, setAchToasts] = useState([]);
+  const achKeyRef = useRef(0);
+  const earn = useCallback((id) => {
+    if (!ACHIEVEMENTS[id] || earnedRef.current.has(id)) return;
+    earnedRef.current.add(id);
+    setEarned(new Set(earnedRef.current));
+    setAchToasts(t => [...t, { id, k: ++achKeyRef.current }]);
+  }, []);
 
   // ETALON — 1920px (InternetLesson): keng oynada proportsional kattalashadi, <=1920 da z=1
   useEffect(() => {
     const upd = () => { const z = Math.min(1.5, Math.max(1, window.innerWidth / 1920)); document.documentElement.style.setProperty('--lz', String(Math.round(z * 1000) / 1000)); };
     upd(); window.addEventListener('resize', upd); return () => window.removeEventListener('resize', upd);
   }, []);
-  const next = () => setScreen(s => Math.min(s + 1, TOTAL_SCREENS - 1));
-  const prev = () => setScreen(s => Math.max(s - 1, 0));
+  // 🃏 Flashcard jonli darsda FAQAT MENTORGA ko'rinadi (proyektorda jamoaviy takrorlash);
+  // jonli o'quvchidan yashirin — sakrab o'tiladi. Mentor «Erkin qilish» qilgach ko'rinadi.
+  const FLASH_IDX = SCREEN_META.findIndex(m => m.id === 'sflash');
+  const flashHidden = () => live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
+  const advance = () => setScreen(s => { let n = Math.min(s + 1, TOTAL_SCREENS - 1); if (n === FLASH_IDX && flashHidden()) n = Math.min(n + 1, TOTAL_SCREENS - 1); return n; });
+  // Praktikani ishga tushiradi: productionda onPractice (LMS), lokalda overlay compilatori.
+  const runPractice = (entry, fromScreen) => {
+    const done = () => {
+      if (live && live.mode === 'student') live.submitAnswer(PRACTICE_DONE_BASE + fromScreen, `practice-${fromScreen}`, 0, true, 0);
+      setPractice(null); advance();
+    };
+    if (typeof onPractice === 'function') Promise.resolve(onPractice(entry.task)).then(done);
+    else setPractice({ ...entry, done });
+  };
+  const next = () => {
+    const entry = PRACTICE_AFTER[screen];
+    if (!entry) { advance(); return; }
+    if (live && live.mode === 'mentor') { setMentorPractice({ ...entry, fromScreen: screen }); advance(); } // mentor: o'quvchilar yozadi, mentor kuzatadi
+    else runPractice(entry, screen); // o'quvchi / self: mashqni o'zi bajaradi
+  };
+  const prev = () => setScreen(s => { let n = Math.max(s - 1, 0); if (n === FLASH_IDX && flashHidden()) n = Math.max(n - 1, 0); return n; });
   const recordAnswer = (idx, data) => {
     setAnswers(a => ({ ...a, [idx]: data }));
     const _m = SCREEN_META[idx];
     if (_m && _m.scored && _m.scope === 'final' && data && data.correct && live.mode === 'student') live.submitAnswer(idx, _m.id, 0, true, 0);
+    if (_m && ACH_TRIGGERS[_m.id] && data && data.correct) earn(ACH_TRIGGERS[_m.id]); // 🏅 nishon
   };
-  const reset = () => { setAnswers({}); setScreen(0); startTimeRef.current = Date.now(); };
+  const reset = () => { setAnswers({}); setScreen(0); setPractice(null); setMentorPractice(null); startTimeRef.current = Date.now(); };
 
   // Javob kaliti: inline testlar + jang savollari (QUIZ_BANK'dan) — mentor ochganda serverga yuklanadi
   const answerKey = { ...INLINE_KEYS, ...Object.fromEntries(QUIZ_BANK.map((q, i) => [`quiz-${i}`, q.correct])) };
@@ -2022,6 +3382,8 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
   const isStudentLive = live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
   const locked = isStudentLive && (screen + 1 > live.mentorScreen);
   useEffect(() => { live.reportScreen(screen); }, [screen, live.mode, live.pin]); // eslint-disable-line
+  // 🏅 Yakuniy ekranga yetganda: bitiruvchi nishoni
+  useEffect(() => { if (screen === TOTAL_SCREENS - 1) earn('graduate'); }, [screen]); // eslint-disable-line
 
   const finishLesson = () => {
     live.endSession();
@@ -2044,7 +3406,7 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
     if (typeof onFinished === 'function') onFinished(payload);
   };
 
-  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, Screen15, ScreenPodium, Screen16];
+  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, Screen15, ScreenPodium, ScreenFlashcards, Screen16];
   const Current = screens[screen];
   return (
     <LangContext.Provider value={lang}>
@@ -2101,8 +3463,7 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
 
         /* === MENTOR === */
         .mentor { display: flex; gap: 12px; align-items: flex-start; }
-        .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); }
-        .mentor-ava img { display: block; width: 100%; height: 100%; object-fit: contain; transform: scale(1.12); }
+        .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); display: flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
         .mentor-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
         .mentor-name { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13px; color: ${T.accent}; letter-spacing: 0.01em; }
         .mentor-msg { background: ${T.paper}; border-radius: 4px 14px 14px 14px; padding: 13px 16px; color: ${T.ink}; box-shadow: 0 6px 18px -6px rgba(${T.shadowBase},0.16); }
@@ -2559,105 +3920,109 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
           .rc-btn { font-size: 13px; padding: 11px 16px; }
         }
 
-        /* === ⚔️ CTA (yakun sahifasida) === */
-        .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #1D1145, #35206B); border-radius: 18px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 14px 36px -14px rgba(29,17,69,0.55); }
+        /* ===== ⚡ CODESTRIKE — CTA (dars ichida) ===== */
+        .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #FFF3EA, #FFE7DC); border: 1px solid #F3D9CC; border-radius: 20px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 16px 40px -18px rgba(255,79,40,0.28); }
         .qz-cta-txt { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
-        .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #fff; }
-        .qz-cta-s { font-family: 'Manrope'; font-weight: 500; font-size: 13px; color: rgba(255,255,255,0.72); }
-        .qz-cta-btn { background: ${T.accent}; color: #fff; border: none; border-radius: 14px; padding: 13px 24px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); transition: transform 0.2s; }
+        .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #121826; }
+        .qz-cta-s { font-family: 'Manrope'; font-weight: 500; font-size: 13px; color: #525A6B; }
+        .qz-cta-btn { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border: none; border-radius: 14px; padding: 13px 24px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); transition: transform 0.2s; }
         .qz-cta-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); }
-        .qz-cta-btn:disabled { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.55); cursor: default; box-shadow: none; }
+        .qz-cta-btn:disabled { background: #E9E6DF; color: #98A0B4; cursor: default; box-shadow: none; }
         .qz-cta.ready .qz-cta-btn { animation: qz-pulse 1.1s ease-in-out infinite; }
-        @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); } 50% { transform: scale(1.06); box-shadow: 0 10px 30px -6px rgba(255,79,40,0.95); } }
-
-        /* === ⚔️ ARENA — to'liq ekran, tiniq qorong'u muhit === */
-        .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px);
-          background:
-            radial-gradient(120% 85% at 50% -18%, rgba(88,58,200,0.55) 0%, rgba(88,58,200,0) 55%),
-            radial-gradient(70% 60% at 108% 112%, rgba(196,37,126,0.30) 0%, rgba(196,37,126,0) 60%),
-            radial-gradient(55% 45% at -8% 108%, rgba(19,104,206,0.28) 0%, rgba(19,104,206,0) 60%),
-            linear-gradient(168deg, #241560 0%, #170F3D 52%, #0D0826 100%);
-        }
-        .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-        .qz-shp { position: absolute; line-height: 1; user-select: none; animation: qz-drift ease-in-out infinite; text-shadow: 0 0 34px currentColor; will-change: transform; }
-        @keyframes qz-drift { 0%,100% { transform: translate(0,0) rotate(-7deg) scale(1); } 50% { transform: translate(22px,-28px) rotate(9deg) scale(1.07); } }
+        @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); } 50% { transform: scale(1.06); box-shadow: 0 16px 34px -6px rgba(255,79,40,0.9); } }
+        /* ===== ⚡ ARENA — issiq CoddyCamp muhiti ===== */
+        .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px); background: radial-gradient(60% 45% at 12% 8%, rgba(255,79,40,0.10) 0%, rgba(255,79,40,0) 55%), radial-gradient(58% 48% at 90% 14%, rgba(15,166,214,0.16) 0%, rgba(15,166,214,0) 55%), radial-gradient(60% 50% at 78% 100%, rgba(245,166,35,0.12) 0%, rgba(245,166,35,0) 60%), radial-gradient(80% 48% at 50% -6%, #E9F0FD 0%, rgba(233,240,253,0) 52%), #F0F4FC; }
+        .qz-arena::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: radial-gradient(rgba(30,44,80,0.05) 1.1px, transparent 1.2px); background-size: 24px 24px; -webkit-mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); }
+        .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .qz-shp { position: absolute; line-height: 1; user-select: none; font-family: 'JetBrains Mono', monospace; font-weight: 700; animation: qz-drift ease-in-out infinite; will-change: transform; }
+        @keyframes qz-drift { 0%,100% { transform: translate(0,0) rotate(-6deg) scale(1); } 50% { transform: translate(18px,-24px) rotate(6deg) scale(1.05); } }
+        .qz-fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
         @media (prefers-reduced-motion: reduce) { .qz-shp { animation: none; } }
-        .qz-x { position: fixed; top: 14px; right: 16px; z-index: 10600; width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #fff; font-size: 16px; cursor: pointer; transition: background 0.2s; }
-        .qz-x:hover { background: rgba(255,255,255,0.25); }
-        .qz-view { position: relative; z-index: 1; width: 100%; max-width: 780px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
-        .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; filter: drop-shadow(0 8px 24px rgba(255,79,40,0.5)); }
-        .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(24px,4.4vw,40px); color: #fff; margin: 0; text-align: center; letter-spacing: -0.02em; }
-        .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: rgba(255,255,255,0.75); margin: 0; text-align: center; max-width: 560px; line-height: 1.55; }
-        .qz-dimtxt { color: rgba(255,255,255,0.5); font-family: 'Manrope'; font-size: 14px; font-style: italic; }
+        .qz-x { position: fixed; top: 14px; right: 16px; z-index: 10600; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #DDE4F1; background: #fff; color: #525A6B; font-size: 16px; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(30,44,80,0.4); transition: transform 0.25s, color 0.2s; }
+        .qz-x:hover { color: #121826; transform: rotate(90deg); }
+        .qz-view { position: relative; z-index: 1; width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
+        .qz-brand { display: flex; align-items: center; gap: 12px; }
+        .qz-brand.sm { gap: 9px; }
+        .qz-bolt { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
+        .qz-wm { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,5vw,46px); letter-spacing: -0.03em; color: #121826; line-height: 1; }
+        .qz-wm-h { color: #FF4F28; }
+        .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; }
+        .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(22px,4vw,36px); color: #121826; margin: 0; text-align: center; letter-spacing: -0.02em; }
+        .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: #525A6B; margin: 0; text-align: center; max-width: 540px; line-height: 1.55; font-weight: 500; }
+        .qz-sub b { color: #121826; }
+        .qz-dimtxt { color: #98A0B4; font-family: 'Manrope'; font-size: 14px; font-style: italic; }
         .qz-lobby-players { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 640px; }
-        .qz-pchip { background: rgba(255,255,255,0.12); color: #fff; font-family: 'Manrope'; font-weight: 700; font-size: 14px; border-radius: 99px; padding: 7px 16px; animation: qz-pop 0.4s cubic-bezier(.34,1.5,.4,1); }
-        .qz-pchip.me { background: ${T.accent}; }
+        .qz-pchip { background: #fff; border: 1.5px solid #DDE4F1; color: #121826; font-family: 'Manrope'; font-weight: 700; font-size: 14px; border-radius: 99px; padding: 7px 16px; box-shadow: 0 5px 12px -8px rgba(30,44,80,0.3); animation: qz-pop 0.4s cubic-bezier(.34,1.5,.4,1); }
+        .qz-pchip.me { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border-color: transparent; }
         @keyframes qz-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .qz-btn { background: ${T.accent}; color: #fff; border: none; border-radius: 14px; padding: 13px 26px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 10px 26px -8px rgba(255,79,40,0.65); transition: transform 0.18s; }
+        .qz-btn { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border: none; border-radius: 14px; padding: 13px 26px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 14px 26px -10px rgba(255,79,40,0.6), inset 0 2px 0 rgba(255,255,255,0.3); transition: transform 0.18s; }
         .qz-btn:hover:not(:disabled) { transform: translateY(-2px); }
-        .qz-btn:disabled { opacity: 0.45; cursor: default; }
-        .qz-btn.big { font-size: clamp(16px,2.2vw,19px); padding: clamp(14px,2vw,17px) clamp(30px,4vw,44px); }
-        .qz-btn.ghost { background: rgba(255,255,255,0.12); box-shadow: none; }
-        .qz-waitmsg { margin: 0; font-family: 'Manrope'; font-weight: 600; font-size: 14.5px; color: #2BD97C; text-align: center; }
-        .qz-qview { max-width: 860px; }
+        .qz-btn:disabled { opacity: 0.5; cursor: default; }
+        .qz-btn.big { font-size: clamp(16px,2.2vw,19px); padding: clamp(15px,2vw,18px) clamp(32px,4vw,46px); }
+        .qz-btn.ghost { background: #fff; color: #121826; border: 1.5px solid #DDE4F1; box-shadow: 0 6px 16px -10px rgba(30,44,80,0.4); }
+        .qz-waitmsg { margin: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #12A968; text-align: center; }
+        .qz-qview { max-width: 880px; }
         .qz-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .qz-count { font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: rgba(255,255,255,0.75); }
-        .qz-count b { color: #fff; font-size: 1.25em; }
-        .qz-ansn { font-family: 'Manrope'; font-weight: 700; font-size: clamp(13px,1.8vw,16px); color: #FFC94D; min-width: 64px; text-align: right; }
+        .qz-count { font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: #525A6B; }
+        .qz-count b { color: #121826; font-size: 1.25em; }
+        .qz-ansn { font-family: 'Manrope'; font-weight: 800; font-size: clamp(13px,1.8vw,16px); color: #FF4F28; min-width: 64px; text-align: right; }
         .qz-timer { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
         .qz-timer-n { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Manrope'; font-weight: 800; font-size: 20px; }
         .qz-timer.urgent { animation: qz-shake 0.5s ease-in-out infinite; }
         @keyframes qz-shake { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        .qz-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(19px,3.2vw,28px); color: #fff; margin: 0; text-align: center; line-height: 1.35; background: rgba(255,255,255,0.07); border-radius: 18px; padding: clamp(16px,2.6vw,24px) clamp(18px,3vw,30px); width: 100%; }
-        .qz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px,1.6vw,14px); width: 100%; }
-        @media (max-width: 560px) { .qz-grid { grid-template-columns: 1fr; } }
-        .qz-tile { position: relative; display: flex; align-items: center; gap: 12px; border: none; border-radius: 16px; padding: clamp(15px,2.4vw,22px) clamp(14px,2.2vw,20px); cursor: pointer; text-align: left; min-height: 64px; box-shadow: 0 10px 26px -10px rgba(0,0,0,0.55); transition: transform 0.16s, opacity 0.3s, box-shadow 0.16s; }
-        .qz-tile:hover:not(:disabled):not(.rv) { transform: translateY(-3px) scale(1.015); box-shadow: 0 16px 34px -10px rgba(0,0,0,0.6); }
+        .qz-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(19px,3.2vw,28px); color: #121826; margin: 0; text-align: center; line-height: 1.35; background: #fff; border: 1px solid #DDE4F1; border-radius: 20px; padding: clamp(18px,2.8vw,28px) clamp(18px,3vw,30px); width: 100%; box-shadow: 0 14px 34px -20px rgba(30,44,80,0.4); text-wrap: balance; }
+        .qz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(11px,1.6vw,15px); width: 100%; }
+        @media (max-width: 560px) { .qz-grid { grid-template-columns: 1fr; } .qz-wm { font-size: clamp(24px,7vw,34px); } }
+        .qz-tile { position: relative; display: flex; align-items: center; gap: 14px; border: none; border-radius: 18px; padding: clamp(15px,2.4vw,22px) clamp(14px,2.2vw,20px); cursor: pointer; text-align: left; min-height: 66px; color: #fff; overflow: hidden; box-shadow: 0 14px 26px -14px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.32), inset 0 -4px 0 rgba(0,0,0,0.16); transition: transform 0.14s, opacity 0.3s, box-shadow 0.14s, filter 0.2s; }
+        .qz-tile:hover:not(:disabled):not(.rv) { transform: translateY(-3px); box-shadow: 0 20px 34px -14px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -4px 0 rgba(0,0,0,0.18); }
+        .qz-tile:active:not(:disabled):not(.rv) { transform: translateY(2px) scale(0.985); }
         .qz-tile:disabled { cursor: default; }
-        .qz-shape { font-size: clamp(17px,2.4vw,22px); color: rgba(255,255,255,0.9); flex-shrink: 0; }
-        .qz-opt { flex: 1; font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #fff; line-height: 1.3; }
-        .qz-tile.faded { opacity: 0.28; }
-        .qz-tile.picked { outline: 3px solid #fff; animation: qz-pop 0.3s; }
-        .qz-pbadge { position: absolute; top: -9px; right: -7px; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: #17103B; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-        .qz-tile.rv.win { outline: 4px solid #2BD97C; box-shadow: 0 0 34px rgba(43,217,124,0.55); animation: qz-pop 0.4s; }
-        .qz-tile.rv.lose { opacity: 0.3; }
-        .qz-cnt { font-family: 'Manrope'; font-weight: 800; font-size: clamp(15px,2.2vw,19px); color: #fff; background: rgba(0,0,0,0.28); border-radius: 99px; padding: 4px 13px; flex-shrink: 0; }
+        .qz-shape { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,0.22); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; font-size: clamp(16px,2.2vw,20px); color: #fff; flex-shrink: 0; }
+        .qz-opt { flex: 1; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(14px,2vw,17px); color: #fff; line-height: 1.3; letter-spacing: -0.01em; }
+        .qz-tile.faded { filter: saturate(0.5); opacity: 0.4; }
+        .qz-tile.picked { outline: 3px solid #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.4), 0 14px 26px -12px rgba(0,0,0,0.4); animation: qz-pop 0.3s; }
+        .qz-pbadge { position: absolute; top: -9px; right: -7px; width: 27px; height: 27px; border-radius: 50%; background: #fff; color: #12A968; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 12px rgba(0,0,0,0.28); }
+        .qz-tile.rv.win { outline: 4px solid #fff; box-shadow: 0 0 0 5px rgba(18,169,104,0.35), 0 0 44px rgba(18,169,104,0.45), 0 14px 30px -12px rgba(0,0,0,0.4); animation: qz-pop 0.4s; }
+        .qz-tile.rv.lose { filter: saturate(0.45); opacity: 0.4; }
+        .qz-cnt { font-family: 'Manrope'; font-weight: 800; font-size: clamp(15px,2.2vw,19px); color: #fff; background: rgba(0,0,0,0.22); border-radius: 99px; padding: 4px 13px; flex-shrink: 0; margin-left: auto; font-variant-numeric: tabular-nums; }
         .qz-mrow { display: flex; align-items: center; gap: 14px; }
-        .qz-allin { font-family: 'Manrope'; font-weight: 700; font-size: 15px; color: #2BD97C; animation: qz-pop 0.4s; }
+        .qz-allin { font-family: 'Manrope'; font-weight: 700; font-size: 15px; color: #12A968; animation: qz-pop 0.4s; }
         .qz-res { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: center; border-radius: 16px; padding: 14px 26px; animation: qz-pop 0.45s cubic-bezier(.34,1.5,.4,1); }
-        .qz-res.good { background: rgba(43,217,124,0.16); outline: 1.5px solid rgba(43,217,124,0.5); }
-        .qz-res.bad { background: rgba(255,90,90,0.14); outline: 1.5px solid rgba(255,90,90,0.4); }
-        .qz-res-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,4.4vw,40px); color: #2BD97C; line-height: 1; }
-        .qz-res-t { font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #fff; }
-        .qz-res-rank { font-family: 'Manrope'; font-weight: 600; font-size: 13.5px; color: rgba(255,255,255,0.7); width: 100%; text-align: center; }
-        .qz-board { width: 100%; max-width: 480px; background: rgba(255,255,255,0.07); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }
+        .qz-res.good { background: rgba(18,169,104,0.12); outline: 1.5px solid rgba(18,169,104,0.4); }
+        .qz-res.bad { background: rgba(226,72,72,0.1); outline: 1.5px solid rgba(226,72,72,0.35); }
+        .qz-res-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,4.4vw,40px); color: #12A968; line-height: 1; font-variant-numeric: tabular-nums; }
+        .qz-res-t { font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #121826; }
+        .qz-res-rank { font-family: 'Manrope'; font-weight: 600; font-size: 13.5px; color: #525A6B; width: 100%; text-align: center; }
+        .qz-board { width: 100%; max-width: 480px; background: #fff; border: 1px solid #DDE4F1; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 16px 36px -22px rgba(30,44,80,0.45); }
         .qz-board.wide { max-width: 640px; max-height: 260px; overflow: auto; }
-        .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FFC94D; margin-bottom: 3px; }
-        .qz-brow { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); }
-        .qz-brow.me { background: rgba(255,79,40,0.3); outline: 1.5px solid rgba(255,79,40,0.6); }
-        .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.55); min-width: 20px; }
-        .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FFC94D; }
-        .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: rgba(255,255,255,0.6); }
-        .qz-bpts { font-family: 'Manrope'; font-weight: 800; font-size: 15px; color: #FFC94D; min-width: 52px; text-align: right; }
+        .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FF4F28; margin-bottom: 3px; text-transform: uppercase; }
+        .qz-brow { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 11px; background: #E6ECF8; }
+        .qz-brow.me { background: linear-gradient(90deg,#FFEBE1,rgba(255,235,225,0.4)); outline: 1.5px solid rgba(255,79,40,0.4); }
+        .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; color: #fff; background: #98A0B4; border-radius: 8px; min-width: 23px; height: 23px; display: flex; align-items: center; justify-content: center; }
+        .qz-brow:first-of-type .qz-brank { background: #FFCE3D; color: #121826; }
+        .qz-brow.me .qz-brank { background: #FF4F28; }
+        .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #121826; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FF8A3D; }
+        .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: #525A6B; }
+        .qz-bpts { font-family: 'Manrope'; font-weight: 800; font-size: 15px; color: #FF4F28; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
         .qz-pod { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px,2.4vw,24px); padding-top: 18px; }
         .qz-pod-col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: clamp(92px,24vw,170px); }
         .qz-crown { position: absolute; top: -30px; font-size: 28px; animation: qz-float-sm 2s ease-in-out infinite; }
-        @keyframes qz-float-sm { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        .qz-pod-medal { font-size: clamp(30px,5vw,46px); line-height: 1; }
-        .qz-pod-name { font-family: 'Manrope'; font-weight: 800; font-size: clamp(14px,2vw,18px); color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .qz-pod-pts { font-family: 'Manrope'; font-weight: 600; font-size: clamp(11px,1.5vw,13px); color: rgba(255,255,255,0.72); }
-        .qz-pod-bar { width: 100%; border-radius: 12px 12px 0 0; animation: qz-rise 0.9s cubic-bezier(.3,1.2,.4,1); transform-origin: bottom; }
+        @keyframes qz-float-sm { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-6px) rotate(4deg); } }
+        .qz-pod-medal { font-size: clamp(30px,5vw,46px); line-height: 1; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.16)); }
+        .qz-pod-name { font-family: 'Manrope'; font-weight: 800; font-size: clamp(14px,2vw,18px); color: #121826; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-pod-pts { font-family: 'Manrope'; font-weight: 600; font-size: clamp(11px,1.5vw,13px); color: #525A6B; font-variant-numeric: tabular-nums; }
+        .qz-pod-bar { width: 100%; border-radius: 14px 14px 0 0; box-shadow: inset 0 2px 0 rgba(255,255,255,0.45); animation: qz-rise 0.9s cubic-bezier(.3,1.2,.4,1); transform-origin: bottom; }
         @keyframes qz-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-        .qz-pod-col.p1 .qz-pod-bar { height: clamp(90px,14vw,150px); background: linear-gradient(180deg, #FFD34D, #E8A13A); box-shadow: 0 0 44px rgba(255,211,77,0.4); }
-        .qz-pod-col.p2 .qz-pod-bar { height: clamp(62px,10vw,104px); background: linear-gradient(180deg, #D8DCE8, #9AA2B8); }
-        .qz-pod-col.p3 .qz-pod-bar { height: clamp(44px,7vw,74px); background: linear-gradient(180deg, #D89A5C, #A9682F); }
-        .qz-pod-col.me .qz-pod-name { color: #FFC94D; }
-        .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: rgba(255,255,255,0.85); }
-        .qz-mypl b { color: #FFC94D; }
+        .qz-pod-col.p1 .qz-pod-bar { height: clamp(96px,14vw,156px); background: linear-gradient(180deg, #FFCE3D, #F5A623); box-shadow: inset 0 2px 0 rgba(255,255,255,0.5), 0 0 40px rgba(245,166,35,0.35); }
+        .qz-pod-col.p2 .qz-pod-bar { height: clamp(66px,10vw,110px); background: linear-gradient(180deg, #D6D9E0, #A2A8B4); }
+        .qz-pod-col.p3 .qz-pod-bar { height: clamp(48px,7vw,82px); background: linear-gradient(180deg, #EDB183, #CB8149); }
+        .qz-pod-col.me .qz-pod-name { color: #FF4F28; }
+        .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: #525A6B; }
+        .qz-mypl b { color: #FF4F28; }
         .qz-solo-res { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-        .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FFC94D; text-shadow: 0 8px 34px rgba(255,201,77,0.4); }
-        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 16px; padding: 10px 16px; color: #fff; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; backdrop-filter: blur(6px); }
+        .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FF4F28; text-shadow: 0 8px 30px rgba(255,79,40,0.3); font-variant-numeric: tabular-nums; }
+        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.92); border: 1px solid #DDE4F1; border-radius: 16px; padding: 10px 16px; color: #121826; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; box-shadow: 0 12px 30px -14px rgba(30,44,80,0.4); backdrop-filter: blur(6px); }
 
         /* === 🏆 PODIUM / STATISTIKA SAHIFASI === */
         .pod-stage { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px,2vw,20px); padding-top: 8px; }
@@ -2706,19 +4071,165 @@ export default function HtmlLesson({ lang: langProp, onFinished }) {
         .option-wait { background: ${T.blueSoft} !important; color: ${T.blue} !important; box-shadow: inset 0 0 0 2px ${T.blue}, 0 8px 22px -8px rgba(1,154,203,0.3) !important; }
         /* frame-wait (feedback kutish) */
         .frame-wait { background: ${T.blueSoft}; border-left: 4px solid ${T.blue}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -8px rgba(1,154,203,0.22); }
+        /* kod atamasi chipi — savol/variant/izohlarda oddiy matndan ajralib turadi */
+        .qcode { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.92em; background: rgba(20,17,14,0.08); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+        .qz-tile .qcode { background: rgba(255,255,255,0.25); color: #fff; }
+        /* === 🧲 DRAG&DROP (reusable) === */
+        .sk-buildbox { display: flex; flex-direction: column; animation: sk-swapin 0.5s cubic-bezier(.34,1.3,.4,1); }
+        @keyframes sk-swapin { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
+        .dd { display: flex; flex-direction: column; gap: 13px; }
+        .dd-slots { display: flex; flex-direction: column; gap: 9px; }
+        .dd-slot { display: flex; align-items: center; gap: 12px; min-height: 56px; border-radius: 14px; border: 2px dashed ${T.ink3}66; background: ${T.paper}; padding: 8px 12px; transition: border-color .18s, background .18s; }
+        .dd-slot.filled { border-style: solid; border-color: ${T.line}; }
+        .dd-slot.ok { border-color: ${T.success}; background: ${T.successSoft}; }
+        .dd-slot.bad { border-color: #E24848; background: #FBE9E9; animation: dd-shake .4s; }
+        @keyframes dd-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        .dd-slotn { width: 26px; height: 26px; border-radius: 8px; background: ${T.bg}; color: ${T.ink3}; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .dd-slot.ok .dd-slotn { background: ${T.success}; color: #fff; }
+        .dd-hint { color: ${T.ink3}; font-style: italic; font-size: 13px; }
+        .dd-pool { display: flex; flex-wrap: wrap; gap: 9px; min-height: 48px; padding: 10px; border-radius: 14px; background: ${T.bg}; }
+        .dd-pool-empty { color: ${T.ink3}; font-size: 12.5px; font-style: italic; align-self: center; }
+        .dd-chip { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(13px,1.7vw,15px); color: #fff; background: linear-gradient(170deg, #FF8A3D, ${T.accent}); border: none; border-radius: 11px; padding: 11px 15px; cursor: grab; touch-action: none; box-shadow: 0 8px 16px -8px rgba(255,79,40,.6), inset 0 2px 0 rgba(255,255,255,.3); transition: transform .12s; user-select: none; }
+        .dd-chip:hover { transform: translateY(-2px); }
+        .dd-chip:active { cursor: grabbing; }
+        .dd-slots, .dd-pool { position: relative; }
+        .dd-pool { z-index: 1; } /* sudralgan pool chip slotlar ustida ko'rinsin */
+        .dd-done { font-weight: 700; color: ${T.success}; font-size: 14.5px; }
+        .dd-wrong { font-weight: 700; color: #E24848; font-size: 13.5px; }
+        /* === ✍️ MENTOR PRAKTIKA PANELI (jonli) === */
+        .mp-overlay { position: fixed; inset: 0; z-index: 2000; background: ${T.bg}; display: flex; align-items: center; justify-content: center; padding: clamp(16px,3vw,34px); overflow: auto; }
+        .mp-card { width: 100%; max-width: 640px; background: ${T.paper}; border-radius: 22px; padding: clamp(22px,3.4vw,36px); box-shadow: 0 24px 60px -24px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 14px; animation: zoom-pop 0.3s cubic-bezier(.34,1.3,.4,1); }
+        .mp-eyebrow { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: ${T.accent}; }
+        .mp-title { font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: clamp(22px,3.2vw,30px); color: ${T.ink}; margin: 0; line-height: 1.15; }
+        .mp-brief { margin: 0; font-size: clamp(13.5px,1.8vw,15px); line-height: 1.55; color: ${T.ink2}; }
+        .mp-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 4px; }
+        .mp-step { font-family: 'Manrope'; font-weight: 700; font-size: 12.5px; color: ${T.ink2}; background: rgba(${T.shadowBase},0.06); border-radius: 99px; padding: 6px 13px; }
+        .mp-step.cur { color: ${T.success}; background: ${T.successSoft}; }
+        .mp-arr { color: ${T.ink3}; font-weight: 700; }
+        .mp-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+        .mp-demo { flex: 1; min-width: 200px; padding: 14px 20px; border: none; border-radius: 14px; background: ${T.ink}; color: ${T.paper}; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 10px 26px -10px rgba(${T.shadowBase},0.4); transition: transform 0.15s; }
+        .mp-demo:hover { transform: translateY(-2px); }
+        .mp-next { flex: 1; min-width: 160px; padding: 14px 20px; border: 1.5px solid rgba(${T.shadowBase},0.16); border-radius: 14px; background: ${T.paper}; color: ${T.ink}; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.15s; }
+        .mp-next:hover { border-color: ${T.accent}; color: ${T.accent}; }
+        .mp-tip { margin: 2px 0 0; font-size: 12.5px; line-height: 1.5; color: ${T.ink3}; }
+        /* === 🃏 FLASHCARDS (reusable, 3D flip) === */
+        .fc-center { display: flex; justify-content: center; padding-top: 4px; }
+        .fc { display: flex; flex-direction: column; gap: 11px; max-width: 480px; width: 100%; }
+        .fc-top { display: flex; justify-content: space-between; align-items: center; }
+        .fc-pill { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; border-radius: 99px; padding: 5px 13px; animation: fc-pill-pop 0.35s cubic-bezier(.34,1.5,.4,1); }
+        .fc-pill b { font-size: 1.15em; font-variant-numeric: tabular-nums; }
+        .fc-pill.learn { background: ${T.accentSoft}; color: ${T.accent}; border: 1.5px solid ${T.accent}44; }
+        .fc-pill.knew { background: ${T.successSoft}; color: ${T.success}; border: 1.5px solid ${T.success}44; }
+        @keyframes fc-pill-pop { 40% { transform: scale(1.16); } }
+        .fc-bar { height: 7px; background: ${T.line}; border-radius: 99px; overflow: hidden; }
+        .fc-bar-fill { display: block; height: 100%; background: linear-gradient(90deg, #FF8A3D, ${T.accent}); border-radius: 99px; transition: width .4s cubic-bezier(.34,1.2,.4,1); }
+        .fc-cardwrap { perspective: 1200px; position: relative; }
+        .fc-cardwrap::before, .fc-cardwrap::after { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-radius: 20px; background: ${T.paper}; border: 2px solid ${T.line}; z-index: -1; }
+        .fc-cardwrap::before { transform: translateY(7px) scale(0.965); opacity: 0.7; }
+        .fc-cardwrap::after { transform: translateY(15px) scale(0.93); opacity: 0.4; }
+        /* Quizlet uslubi: karta rangli muhr bilan chapga (✗ qizil) / o'ngga (✓ yashil) uchib ketadi */
+        .fc-fly { position: relative; animation: fc-in 0.3s ease; }
+        @keyframes fc-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+        .fc-fly.out-knew { animation: fc-out-knew 0.42s ease forwards; }
+        .fc-fly.out-again { animation: fc-out-again 0.42s ease forwards; }
+        @keyframes fc-out-knew { 30% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(70%) rotate(5deg); opacity: 0; } }
+        @keyframes fc-out-again { 30% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(-70%) rotate(-5deg); opacity: 0; } }
+        .fc-fly.out-knew::after, .fc-fly.out-again::after { position: absolute; top: 50%; left: 50%; z-index: 6; width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #fff; pointer-events: none; animation: fc-stamp 0.3s cubic-bezier(.34,1.6,.4,1); transform: translate(-50%, -50%); }
+        .fc-fly.out-knew::after { content: '✓'; background: ${T.success}; box-shadow: 0 10px 26px -8px ${T.success}; }
+        .fc-fly.out-again::after { content: '✗'; background: ${T.accent}; box-shadow: 0 10px 26px -8px ${T.accent}; }
+        @keyframes fc-stamp { from { transform: translate(-50%, -50%) scale(0); } }
+        .fc-card { position: relative; height: clamp(160px,26vw,188px); cursor: pointer; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.4,0,.2,1); }
+        .fc-card.flip { transform: rotateY(180deg); }
+        .fc-card:not(.flip):hover { transform: translateY(-3px); }
+        .fc-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 22px; text-align: center; }
+        .fc-front { background: ${T.paper}; border: 2px solid ${T.line}; box-shadow: 0 14px 34px -18px rgba(${T.shadowBase},0.4); }
+        .fc-back { background: linear-gradient(160deg, #FF8A3D, ${T.accent}); color: #fff; transform: rotateY(180deg); box-shadow: 0 16px 36px -16px rgba(255,79,40,0.6); }
+        .fc-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(18px,2.8vw,23px); color: ${T.ink}; line-height: 1.3; text-wrap: balance; }
+        .fc-cue { font-family: 'Manrope'; font-size: 13px; color: ${T.ink3}; }
+        .fc-tap { color: ${T.accent}; font-weight: 700; }
+        .fc-tag { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(30px,6vw,46px); letter-spacing: -0.02em; }
+        .fc-note { font-family: 'Manrope'; font-size: 14px; opacity: 0.92; }
+        .fc-actions { display: flex; gap: 10px; }
+        .fc-btn { flex: 1; padding: 13px; border-radius: 13px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: transform .15s; }
+        .fc-btn:hover { transform: translateY(-2px); }
+        .fc-btn.knew { background: ${T.success}; color: #fff; box-shadow: 0 10px 22px -10px ${T.success}; }
+        .fc-btn.again { background: ${T.paper}; border: 2px solid ${T.accent}66; color: ${T.accent}; }
+        .fc-btn.again:hover { border-color: ${T.accent}; background: ${T.accentSoft}; }
+        .fc-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+        .fc-btn.ghost { background: ${T.paper}; border: 1.5px solid ${T.line}; color: ${T.ink}; flex: none; align-self: center; padding: 11px 22px; }
+        .fc-hint { margin: 0; text-align: center; color: ${T.ink3}; font-style: italic; font-size: 13px; }
+        .fc-done { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; background: ${T.successSoft}; border-radius: 18px; padding: 22px; max-width: 480px; }
+        .fc-done-emoji { font-size: 40px; }
+        .fc-done-h { font-family: 'Manrope'; font-weight: 800; font-size: 20px; color: ${T.success}; margin: 0; }
+        .fc-done-s { font-family: 'Manrope'; color: ${T.ink2}; margin: 0 0 8px; font-size: 14px; }
+        /* === 🏅 ACHIEVEMENTS === */
+        .ach-toasts { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+        .ach-toast { position: relative; overflow: hidden; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 12px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-left: 4px solid ${T.accent}; border-radius: 15px; padding: 11px 18px 11px 13px; box-shadow: 0 16px 40px -12px rgba(${T.shadowBase},0.4); animation: ach-in 0.5s cubic-bezier(.34,1.4,.4,1), ach-out 0.4s ease 3.2s forwards; min-width: 236px; }
+        @keyframes ach-in { from { opacity: 0; transform: translateY(-26px) scale(0.9); } to { opacity: 1; transform: none; } }
+        @keyframes ach-out { to { opacity: 0; transform: translateY(-16px) scale(0.96); } }
+        .ach-toast-ic { font-size: 30px; line-height: 1; flex-shrink: 0; animation: ach-pop 0.6s cubic-bezier(.34,1.6,.4,1) 0.1s both; }
+        @keyframes ach-pop { 0% { transform: scale(0) rotate(-25deg); } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+        .ach-toast-txt { display: flex; flex-direction: column; gap: 1px; }
+        .ach-toast-lbl { font-family: 'Manrope'; font-weight: 800; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.accent}; }
+        .ach-toast-name { font-family: 'Manrope'; font-weight: 800; font-size: 15.5px; color: ${T.ink}; }
+        .ach-toast-shine { position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-18deg); animation: ach-shine 1.1s ease 0.35s; }
+        @keyframes ach-shine { to { left: 130%; } }
+        .ach-coll { display: flex; flex-direction: column; gap: 10px; }
+        .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
+        .ach-badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-radius: 14px; padding: 14px 10px; transition: transform 0.15s; }
+        .ach-badge.got { background: linear-gradient(160deg, ${T.accentSoft}, #FFF3EC); border: 1.5px solid ${T.accent}55; }
+        .ach-badge.got:hover { transform: translateY(-3px); }
+        .ach-badge.locked { background: ${T.bg}; border: 1.5px dashed ${T.line}; opacity: 0.75; }
+        .ach-badge-ic { font-size: 30px; line-height: 1; }
+        .ach-badge.locked .ach-badge-ic { filter: grayscale(1) opacity(0.55); font-size: 22px; }
+        .ach-badge-name { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: ${T.ink}; }
+        .ach-badge.locked .ach-badge-name { color: ${T.ink3}; }
+        .ach-badge-desc { font-family: 'Manrope'; font-size: 10.5px; color: ${T.ink2}; line-height: 1.3; }
+        /* Yuqori paneldagi nishon hisoblagichi */
+        .ach-cnt-wrap { position: relative; }
+        .ach-counter { display: inline-flex; align-items: center; gap: 4px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-radius: 99px; padding: 5px 11px 5px 9px; font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink2}; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .ach-counter.has { border-color: ${T.accent}66; }
+        .ach-counter:hover { border-color: ${T.accent}; box-shadow: 0 6px 16px -8px rgba(255,79,40,0.4); }
+        .ach-counter b { color: ${T.accent}; font-size: 14px; font-variant-numeric: tabular-nums; }
+        .ach-cnt-tot { color: ${T.ink3}; font-size: 11.5px; }
+        .ach-cnt-ic { font-size: 14px; }
+        .ach-counter.bump { animation: ach-bump 0.8s cubic-bezier(.34,1.6,.4,1); }
+        @keyframes ach-bump { 0% { transform: scale(1); } 30% { transform: scale(1.35) rotate(-6deg); box-shadow: 0 0 0 6px rgba(255,79,40,0.18); } 60% { transform: scale(0.96) rotate(3deg); } 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 0 rgba(255,79,40,0); } }
+        .ach-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 200; width: 222px; background: ${T.paper}; border: 1px solid ${T.line}; border-radius: 14px; padding: 10px; box-shadow: 0 18px 44px -14px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 3px; animation: fade-step 0.22s ease; }
+        .ach-pop-h { font-family: 'Manrope'; font-weight: 800; font-size: 12px; color: ${T.accent}; padding: 2px 6px 6px; }
+        .ach-pop-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; }
+        .ach-pop-row.got { background: ${T.accentSoft}66; }
+        .ach-pop-ic { font-size: 17px; width: 20px; text-align: center; }
+        .ach-pop-row:not(.got) .ach-pop-ic { filter: grayscale(1) opacity(0.5); font-size: 13px; }
+        .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
+        .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
       `}</style>
       <LiveGateCtx.Provider value={{ locked, live }}>
+        <AchCtx.Provider value={earned}>
         <div className="lesson-root">
           {live.mode === 'choosing' ? (
             <LiveGate live={live} title="1-Modul" />
           ) : (
             <>
-              <Current screen={screen} storedAnswer={answers[screen]} answers={answers} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
+              <Current screen={screen} storedAnswer={answers[screen]} answers={answers} achievements={earned} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
+              <AchToasts toasts={achToasts} onDone={(k) => setAchToasts(t => t.filter(x => x.k !== k))} />
               <LiveBadge live={live} total={TOTAL_SCREENS} />
             </>
           )}
         </div>
+        </AchCtx.Provider>
       </LiveGateCtx.Provider>
+      {/* Lokal praktika overlay (LMS compilatorining o'rnini bosadi). Production'da onPractice berilsa ochilmaydi. */}
+      {practice && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: T.bg }}>
+          <HtmlCompiler task={practice.task} starterCode={practice.starter} onContinue={practice.done} onBack={() => setPractice(null)} />
+        </div>
+      )}
+      {/* Jonli darsda mentor praktika paneli — o'quvchilar yozadi, keyin mentor doskada ko'rsatadi */}
+      {mentorPractice && (
+        <MentorPracticeOverlay entry={mentorPractice} live={live} onClose={() => setMentorPractice(null)} />
+      )}
     </LangContext.Provider>
   );
 }

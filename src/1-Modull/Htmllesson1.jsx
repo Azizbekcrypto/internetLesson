@@ -212,10 +212,7 @@ function normalizeReq(req, i = 0) {
 //  STANDART SHART (komponent yakka ishga tushganda)
 // ============================================================
 const DEFAULT_FILES = [
-  { name: 'index.html', lang: 'html', starter: `<!-- Kodingizni shu yerga yozing -->
-<h1>Mening sahifam</h1>
-<p>Bu yerga o'zingiz haqingizda yozing.</p>
-<img src="https://placehold.co/300x180" alt="rasm tavsifi">
+  { name: 'index.html', lang: 'html', starter: `<!-- Bu yerga yozing -->
 ` },
 ];
 
@@ -1048,7 +1045,7 @@ function useLiveSession(lessonId, answerKey) {
       // Javob kalitini serverga avto-yuklash (mentor-kod bilan) — server-baholash uchun SHART.
       // Busiz server javoblarni kalitsiz baholaydi va hammasini «xato» deb hisoblaydi (podium 0/5).
       if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
-    } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
+    } catch { setJoinError("Mentor kodi noto'g'ri yoki ulanishda xato."); }
     finally { setBusy(false); }
   }, [lessonId]);
 
@@ -1162,8 +1159,8 @@ function LiveGate({ live, title = 'Jonli dars' }) {
 function LiveBadge({ live, total }) {
   const [bigOpen, setBigOpen] = useState(false);
   const [nPlayers, setNPlayers] = useState(null);
-  const shownRef = useRef(false);
-  useEffect(() => { if (live.mode === 'mentor' && live.pin && !live.ended && !shownRef.current) { shownRef.current = true; setBigOpen(true); } }, [live.mode, live.pin, live.ended]);
+  // Katta PIN ekrani AVTOMATIK ochilmaydi — dars oq holda, onboarding bilan ochiladi.
+  // Mentor kodni ko'rsatmoqchi bo'lganda «📺 Ko'rsatish» tugmasini bosadi (pastda).
   // Mentor: qo'shilgan o'quvchilar soni (har 6s yangilanadi)
   useEffect(() => {
     if (live.mode !== 'mentor' || !live.pin || live.ended) return;
@@ -1176,10 +1173,10 @@ function LiveBadge({ live, total }) {
     return () => { on = false; clearTimeout(t); };
   }, [live.mode, live.pin, live.ended]);
   if (live.mode === 'mentor') {
-    if (live.ended) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
+    if (live.ended) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
     return (<>
       {bigOpen && <LiveBigCode pin={live.pin} onClose={() => setBigOpen(false)} />}
-      <div style={_liveBadgeS}>
+      <div data-tour="live" className="live-badge" style={_liveBadgeS}>
         <span style={_liveDot(LT.success)} /> Kod: <b style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{fmtPin(live.pin)}</b>
         {nPlayers !== null && <span style={{ color: LT.ink2 }}>👥 {nPlayers}</span>}
         <button onClick={() => setBigOpen(true)} title="Kodni katta ko'rsatish" style={{ marginLeft: 6, background: LT.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>📺 Ko'rsatish</button>
@@ -1188,10 +1185,10 @@ function LiveBadge({ live, total }) {
     </>);
   }
   if (live.mode === 'student') {
-    if (live.status === 'ended') return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
-    if (!live.mentorAlive) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
-    if (!live.connected) return <div style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
-    return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
+    if (live.status === 'ended') return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
+    if (!live.mentorAlive) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
+    if (!live.connected) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
+    return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
   }
   return null;
 }
@@ -1345,12 +1342,12 @@ function AchCounter() {
   }, [count]);
   return (
     <div className="ach-cnt-wrap">
-      <button className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Nishonlar" title="Nishonlaringiz">
+      <button data-tour="ach" className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Achievements" title="Achievements">
         <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
       </button>
       {open && (
         <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
-          <div className="ach-pop-h">🏅 Nishonlar — {count}/{total}</div>
+          <div className="ach-pop-h">🏅 Achievements — {count}/{total}</div>
           {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
             <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
           ); })}
@@ -1387,7 +1384,7 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
     <MentorCtx.Provider value={{ enabled: collapseOn, collapsed: mCollapsed, setCollapsed, forced: mForced, setForced: setMForced }}>
       <div className="stage">
         <div className="stage-header" style={{ paddingLeft: padH, paddingRight: padH }}>
-          <div className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
+          <div data-tour="progress" className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
           <div className="chrome">
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1408,7 +1405,7 @@ const NavNext = ({ disabled, label = 'Davom etish', onClick, optionalLive }) => 
   const locked = !!(gate && gate.locked);
   const live = gate && gate.live;
   const freeRide = !!(optionalLive && live && live.mode === 'student' && live.status !== 'ended' && live.mentorAlive);
-  return <button className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
+  return <button data-tour="next" className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
 };
 
 const FeedbackBlock = ({ show, isCorrect, neutral, children }) => {
@@ -1439,8 +1436,69 @@ const RECAP_MIN_ANSWERS = 3; // foizga ishonch uchun kamida shuncha javob kerak
 const RcFlow = ({ items, sep = '→' }) => (
   <div className="rc-flow">{items.map((t, i) => <React.Fragment key={i}><span className="rc-chip">{t}</span>{sep && i < items.length - 1 && <span className="rc-arr">{sep}</span>}</React.Fragment>)}</div>
 );
-// RECAPS kontenti — Stage 4'da JS-intro testlariga to'ldiriladi (hozircha bo'sh)
-const RECAPS = {};
+// RECAPS — har scored test uchun «Qayta tushuntirish» kartalari (kalit = ekran indeksi)
+const RECAPS = {
+  // idx 4 — s4: «HTML kodini o'qib, sahifani ko'rsatadigan dastur qaysi?» (nazariya: HTML + brauzer)
+  4: {
+    title: 'HTML va Brauzer', cards: [
+      { ic: '📄', h: 'HTML — sahifaning tili',
+        body: <>Har bir sayt aslida <b>HTML kodidan</b> iborat. Bu kod <b>teglar</b> bilan yoziladi: <b className="mono">&lt;h1&gt;</b> — sarlavha, <b className="mono">&lt;p&gt;</b> — matn. Brauzer shu teglarni o'qib, nimani qanday ko'rsatishni biladi.</>,
+        vis: <RcFlow items={['🏷️ Teglar', '📄 HTML kod', '🌐 Sahifa']} />,
+        ask: "Bugun qaysi teglarni o'rgandingiz?" },
+      { ic: '🎨', h: "Brauzer — kodni o'qib, chizib beradi",
+        body: <>Chrome, Safari, Firefox — bular <b>brauzer</b>. Brauzer HTML kodini tepadan pastga o'qiydi va ekranga <b>chiroyli sahifa</b> qilib chizib beradi. Kod — retsept, brauzer — oshpaz!</>,
+        vis: <RcFlow items={['📄 HTML kod', "🌐 Brauzer o'qiydi", '🖥️ Ekranda sahifa']} /> },
+      { ic: '☝️', h: 'Adashtirmang!',
+        body: <>HTML — bu <b>til</b> (kod shu tilda yoziladi), brauzer — bu <b>dastur</b> (kodni o'qib ko'rsatadi). Word yoki Photoshop HTML kodini sahifaga aylantira olmaydi — bu faqat brauzerning ishi.</>,
+        vis: <RcFlow items={['HTML — til', 'Brauzer — dastur']} sep="·" />,
+        ask: "O'zingiz qaysi brauzerni ishlatasiz?" },
+    ]
+  },
+  // idx 6 — s5b: «Ko'rinadigan matn qaysi qismga yoziladi?» (nazariya: skelet — head/body)
+  6: {
+    title: 'Skelet: head va body', cards: [
+      { ic: '🦴', h: 'Har sahifaning skeleti bor',
+        body: <>Har qanday HTML sahifa bir xil skeletdan boshlanadi: <b className="mono">&lt;html&gt;</b> — butun sahifa qobig'i, uning ichida <b className="mono">&lt;head&gt;</b> va <b className="mono">&lt;body&gt;</b> turadi.</>,
+        vis: <RcFlow items={['<html>', '<head>', '<body>']} /> },
+      { ic: '🙈', h: "head — ko'rinmas qism",
+        body: <><b className="mono">&lt;head&gt;</b> ichida sahifa <b>sozlamalari</b> turadi: sarlavha (brauzer tab'idagi yozuv), til, shriftlar. Foydalanuvchi bu qismni sahifada <b>ko'rmaydi</b>.</>,
+        vis: <RcFlow items={['⚙️ Sozlamalar', "🏷️ Tab yozuvi"]} sep="·" /> },
+      { ic: '👁️', h: "body — ko'rinadigan qism",
+        body: <>Ekranda ko'rinadigan <b>hamma narsa</b> — matn, sarlavha, rasm, tugma — <b className="mono">&lt;body&gt;</b> ichiga yoziladi. Sahifada nimadir ko'rinishi kerakmi? Demak, joyi — body!</>,
+        vis: <RcFlow items={["head — ko'rinmas", "body — ko'rinadi"]} sep="·" />,
+        ask: "Sarlavha matni qayerga yoziladi — head'gami yoki body'gami?" },
+    ]
+  },
+  // idx 8 — s7 (yozma): «h1 ni yopuvchi tegini yozing» (nazariya: teg ochiladi-yopiladi)
+  8: {
+    title: 'Teg ochiladi va yopiladi', cards: [
+      { ic: '🤲', h: 'Teglar juft ishlaydi',
+        body: <>Ko'p teglar <b>juft</b> bo'ladi: <b className="mono">&lt;h1&gt;</b> — ochuvchi, <b className="mono">&lt;/h1&gt;</b> — yopuvchi. Kontent ikkalasining <b>orasiga</b> yoziladi.</>,
+        vis: <RcFlow items={['<h1>', 'Salom!', '</h1>']} /> },
+      { ic: '➗', h: '/ belgisi — yopish belgisi',
+        body: <>Yopuvchi tegda nom oldida <b>/ (slash)</b> turadi: <b className="mono">&lt;/h1&gt;</b>, <b className="mono">&lt;/p&gt;</b>. Aynan shu belgi brauzerga «shu yerda tugadi» deb aytadi.</>,
+        vis: <RcFlow items={['<h1> — ochish', '</h1> — yopish']} sep="·" /> },
+      { ic: '⚠️', h: "Yopilmasa nima bo'ladi?",
+        body: <>Teg yopilmasa, brauzer sarlavha <b>qayerda tugashini bilmaydi</b> — butun sahifa katta sarlavha bo'lib ketishi mumkin. Shuning uchun qoida oddiy: ochdingizmi — <b>yoping</b>!</>,
+        ask: "p tegining yopuvchisi qanday yoziladi?" },
+    ]
+  },
+  // idx 12 — s11: «Retsept qadamlari uchun qaysi teg?» (nazariya: ro'yxatlar ul/ol/li)
+  12: {
+    title: "Ro'yxatlar: ul, ol, li", cards: [
+      { ic: '🔢', h: "ol — raqamli (tartibli) ro'yxat",
+        body: <>Tartib <b>muhim</b> bo'lsa — retsept qadamlari, yo'riqnoma — <b className="mono">&lt;ol&gt;</b> ishlatiladi (ordered = tartibli). Raqamlarni brauzer <b>o'zi</b> qo'yib beradi.</>,
+        vis: <RcFlow items={['1. Yuvish', "2. To'g'rash", '3. Qovurish']} /> },
+      { ic: '🔵', h: "ul — nuqtali (tartibsiz) ro'yxat",
+        body: <>Tartib <b>muhim bo'lmasa</b> — sevimli taomlar, mashg'ulotlar — <b className="mono">&lt;ul&gt;</b> ishlatiladi (unordered = tartibsiz). Har band oldida nuqta chiqadi.</>,
+        vis: <RcFlow items={['• Futbol', '• Kitob', '• Rasm']} sep="·" />,
+        ask: "Sevimli taomlaringiz ro'yxati — ol bilanmi yoki ul bilanmi?" },
+      { ic: '🧩', h: 'li — har bir band',
+        body: <>Ikkala ro'yxatda ham har bir band <b className="mono">&lt;li&gt;</b> (list item) bilan yoziladi. <b className="mono">ul/ol</b> — ro'yxat qobig'i, <b className="mono">li</b> — ichidagi bandlar.</>,
+        vis: <RcFlow items={['<ol>', '<li>Qadam</li>', '</ol>']} /> },
+    ]
+  },
+};
 
 // Overlay — ekran ustida (indekslarga tegmaydi)
 // Overlay — ekran USTIDA ochiladi (indekslarga tegmaydi), slayd-slayd o'tiladi.
@@ -1486,6 +1544,12 @@ function RecapOverlay({ screenIdx, onClose }) {
 
 // ===== MENTOR STATISTIKASI (jonli test paneli — InternetLesson bilan bir xil) =====
 const MSTATS_COLORS = ['#019ACB', '#8B5CF6', '#E8A13A', '#E0559A']; // A B C D — brend-neytral
+// `...` bilan belgilangan kod atamalarini (teg, atribut) matndan ajratib chip qilib ko'rsatadi.
+// Savol, variant va izoh satrlarida ishlatiladi: "Matnni `strong` qalin qiladi" → strong chipda.
+const fmtCode = (s) => (typeof s === 'string' && s.includes('`'))
+  ? s.split('`').map((p, i) => i % 2 ? <code className="qcode" key={i}>{p}</code> : p)
+  : s;
+
 function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onReveal, onOpenRecap }) {
   const [data, setData] = useState({ players: null, rows: [] });
   useEffect(() => {
@@ -1759,7 +1823,7 @@ const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, option
             return (
               <button key={i} className={cls} disabled={solved || isMentorLive} onClick={() => pick(i)} style={{ padding: 'clamp(12px,1.8vw,16px) clamp(14px,2.2vw,20px)', fontSize: 'clamp(14px,1.7vw,16px)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span className="mono small" style={{ minWidth: 20, color: showGreenLetter ? T.success : T.ink3 }}>{String.fromCharCode(65 + i)}</span>
-                <span style={{ flex: 1 }}>{opt}</span>
+                <span style={{ flex: 1 }}>{fmtCode(opt)}</span>
               </button>
             );
           })}
@@ -1767,21 +1831,21 @@ const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, option
         <FeedbackBlock show={isMentorLive ? mReveal : picked !== null} isCorrect={isMentorLive ? true : (solved && !wrongLocked)} neutral={waiting}>
           <p className="small mono" style={{ margin: '0 0 6px', fontWeight: 600, color: waiting ? T.blue : (isMentorLive || (solved && !wrongLocked)) ? T.success : T.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {isMentorLive
-              ? `✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+              ? fmtCode(`✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`)
               : waiting
                 ? '📨 Javobingiz qabul qilindi'
                 : wrongLocked
-                  ? `To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+                  ? fmtCode(`To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`)
                   : solved ? "To'g'ri" : "Qaytadan urinib ko'ring"}
           </p>
           <p className="body" style={{ margin: 0 }}>
-            {isMentorLive
+            {fmtCode(isMentorLive
               ? explainCorrect
               : waiting
-                ? "Javobingiz yozib olindi 🤫 To'g'rimi-xatomi — hozircha sir! Mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
+                ? "Hozir to'g'ri javobni bilib olasiz."
                 : wrongLocked
                   ? (explainWrong[picked] ?? explainWrong.default)
-                  : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
+                  : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default))}
           </p>
           {/* Xato qilgan o'quvchi mavzuni qisqa kartalarda qayta ko'radi (3-qadamda kontent keladi).
               Jonli darsda — javob sirini saqlash uchun faqat reveal'dan keyin chiqadi. */}
@@ -1830,7 +1894,7 @@ const Mentor = ({ children }) => {
   const collapsed = (!!ctx.enabled && ctx.collapsed) || !!ctx.forced;
   const expand = (e) => { e.stopPropagation(); if (ctx.forced && ctx.setForced) ctx.setForced(false); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
-    <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
+    <div data-tour="mentor" className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
       <div className="mentor-ava" aria-hidden="true">🧑‍🏫</div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
@@ -1863,7 +1927,7 @@ const Zoomable = ({ children }) => {
 
 // ===== SCREEN 0 — HOOK =====
 const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
-  const audio = useAudio([{ id: 's0', text: `Har kuni eMaktab, YouTube, Telegram'ni ochasiz, to'g'rimi? Ularning hammasi bitta narsadan yasalgan. "Sayt" tugmasini bosib, ichida nima borligini ko'ring.`, trigger: 'on_mount', waits_for: { type: 'option_picked' } }]);
+  const audio = useAudio([{ id: 's0', text: `Har kuni eMaktab, YouTube, Telegram'ni ochasiz, to'g'rimi? Ularning hammasi bitta narsadan yasalgan. "Kod" tugmasini bosib, ichida nima borligini ko'ring.`, trigger: 'on_mount', waits_for: { type: 'option_picked' } }]);
   const [picked, setPicked] = useState(storedAnswer?.picked ?? null);
   const [view, setView] = useState('site');
   const OPTS = [
@@ -1873,10 +1937,10 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
   ];
   const pick = (v) => { if (picked !== null) return; setPicked(v); onAnswer(screen, { stage: 'hook', screenIdx: screen, picked: v, correct: true }); audio.triggerEvent('option_picked'); };
   return (
-    <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext disabled={picked === null} label="Davom etish" onClick={onNext} />}>
+    <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext optionalLive disabled={picked === null} label="Davom etish" onClick={onNext} />}>
       <div className="screen">
         <h1 className="title h-title fade-up" style={{ maxWidth: 760 }}>Bu sayt nimadan <span className="italic" style={{ color: T.accent }}>yasalgan</span>?</h1>
-        <Mentor>Har kuni eMaktab, YouTube, Telegram'ni ochasiz, to'g'rimi? Ularning hammasi bitta narsadan yasalgan. <b style={{ color: T.ink }}>"Sayt"</b> tugmasini bosib, ichida nima borligini ko'ring.</Mentor>
+        <Mentor>Har kuni eMaktab, YouTube, Telegram'ni ochasiz, to'g'rimi? Ularning hammasi bitta narsadan yasalgan. <b style={{ color: T.ink }}>"&lt;/&gt; Kod"</b> tugmasini bosib, ichida nima borligini ko'ring.</Mentor>
         <Split>
           <Col>
             <div className="fade-up delay-1" style={{ display: 'flex', gap: 8 }}>
@@ -2019,7 +2083,7 @@ const RG_CONFETTI = [
 ];
 
 const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's2', text: `Kompyuter juda tez ishlaydi, lekin sirni bilasizmi? U o'zicha hech narsa qila olmaydi — unga har bir ishni o'zimiz buyurishimiz kerak. Qanday qilib? Avval o'zingiz o'ylab ko'ring, keyin "Yechimni ko'rsat" tugmasini bosing.`, trigger: 'on_mount', waits_for: { type: 'solution_revealed' } }]);
+  const audio = useAudio([{ id: 's2', text: `Kompyuter juda tez ishlaydi, lekin o'zicha hech narsa qila olmaydi — unga har bir ishni o'zimiz buyurishimiz kerak. Qanday qilib? Avval o'zingiz o'ylab ko'ring, keyin "Yechimni ko'rsat" tugmasini bosing.`, trigger: 'on_mount', waits_for: { type: 'solution_revealed' } }]);
   const [revealed, setRevealed] = useState(!!storedAnswer);
   const answerRef = useRef(null);
   const xulosaRef = useRef(null);
@@ -2093,22 +2157,22 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
 
   const RG_MSG = {
     running:      { cls: 'idle', text: '🦖 Dinozavr buyruqlaringizni bajaryapti…' },
-    win:          { cls: 'ok',   text: '🎉 Yetib keldi! Buyruqlaringiz to‘g‘ri ketma-ketlikda edi.' },
-    'fail-cactus':{ cls: 'bad',  text: '💥 Dinozavr kaktusga urildi! Undan «Sakra» bilan oshish kerak edi. U o‘zi o‘ylab sakramaydi — aniq buyurasiz.' },
-    'fail-short': { cls: 'bad',  text: '🤏 Dinozavr 🍖 gacha yetmadi. Yana buyruq qo‘shing va qaytadan urinib ko‘ring.' },
+    win:          { cls: 'ok',   text: "🎉 Yetib keldi! Buyruqlaringiz to'g'ri ketma-ketlikda edi." },
+    'fail-cactus':{ cls: 'bad',  text: "💥 Dinozavr kaktusga urildi! Undan «Sakra» bilan oshish kerak edi. U o'zi o'ylab sakramaydi — aniq buyurasiz." },
+    'fail-short': { cls: 'bad',  text: "🤏 Dinozavr 🍖 gacha yetmadi. Yana buyruq qo'shing va qaytadan urinib ko'ring." },
   };
   const msg = RG_MSG[phase];
 
   return (
-    <Stage eyebrow="Hayotdan misol" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!solved} label={solved ? "Davom etish" : (revealed ? "Dinozavrni 🍖 ga yetkazing" : "Avval o'ylab ko'ring")} onClick={onNext} /></>}>
+    <Stage eyebrow="Hayotdan misol" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!solved} label={solved ? "Davom etish" : (revealed ? "Dinozavrni 🍖 ga yetkazing" : "Avval o'ylab ko'ring")} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(12px,2vw,18px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Kompyuter <span className="italic" style={{ color: T.accent }}>o'zicha</span> o'ylay oladimi?</h2></div>
-        <Mentor>Kompyuter juda tez ishlaydi, lekin sirni bilasizmi? U <b style={{ color: T.ink }}>o'zicha hech narsa qila olmaydi</b> — unga har bir ishni o'zimiz buyurishimiz kerak. Qanday qilib? Avval o'zingiz o'ylab ko'ring.</Mentor>
+        <Mentor>Kompyuter juda tez ishlaydi, lekin <b style={{ color: T.ink }}>o'zicha hech narsa qila olmaydi</b> — unga har bir ishni o'zimiz buyurishimiz kerak. Qanday qilib? Avval o'zingiz o'ylab ko'ring.</Mentor>
         <MentorAutoClose when={phase === 'win'} />
         {!revealed && (
           <div className="frame frame-col savo fade-up delay-2">
             <p className="eyebrow" style={{ color: T.accent, margin: 0 }}>Savol</p>
-            <p className="body" style={{ margin: 0, color: T.ink, fontSize: 'clamp(15px,1.9vw,18px)', lineHeight: 1.5 }}>Kompyuter o'zi hech narsa o'ylab topmaydi. Unga biror ishni <b>qanday bajartiramiz</b> — qanday qilib «mana shuni qil» deb tushuntiramiz?</p>
+            <p className="body" style={{ margin: 0, color: T.ink, fontSize: 'clamp(15px,1.9vw,18px)', lineHeight: 1.5 }}>Kompyuter o'zi hech narsa o'ylab topmaydi. Unga biror ishni <b>qanday buyuramiz</b> — qanday qilib «mana shuni qil» deb tushuntiramiz?</p>
             <button className="btn" onClick={reveal} style={{ alignSelf: 'flex-start', marginTop: 4 }}>Dinozavrda sinab ko'ramiz →</button>
           </div>
         )}
@@ -2120,7 +2184,7 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 <span className="pz-emoji">🦖</span>
                 <div>
                   <p className="pz-title">Dinozavrni o'zingiz boshqaring</p>
-                  <p className="pz-sub">Dinozavrga buyruq bering — u <b style={{ color: T.ink }}>aynan</b> shuni, <b style={{ color: T.ink }}>shu tartibda</b> bajaradi. Tuzgan buyruqlaringiz ro'yxati — bu <b style={{ color: T.ink }}>dastur (kod)</b>.</p>
+                  <p className="pz-sub">Dinozavrga buyruq bering — u buyruqlarni <b style={{ color: T.ink }}>bergan tartibingizda, aynan</b> bajaradi. Bergan buyruqlaringiz ro'yxati <b style={{ color: T.ink }}>dastur</b> deyiladi (uni <b style={{ color: T.ink }}>kod</b> ham deymiz).</p>
                 </div>
               </div>
 
@@ -2168,8 +2232,8 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
 
               {/* Boshqaruv — tozalash + ishga tushirish */}
               <div className="rg-run-row">
-                <button className="rg-mini" onClick={clearProgram} disabled={running || !program.length}>↺ Tozala</button>
-                <button className="btn" onClick={runProgram} disabled={running || !program.length} style={{ marginLeft: 'auto' }}>{running ? 'Bajaryapti…' : '▶ Ishga tushir'}</button>
+                <button className="rg-mini" onClick={clearProgram} disabled={running || !program.length}>↺ Tozalash</button>
+                <button className="btn" onClick={runProgram} disabled={running || !program.length} style={{ marginLeft: 'auto' }}>{running ? 'Bajaryapti…' : '▶ Ishga tushirish'}</button>
               </div>
 
               {msg && <p className={`rg-msg ${msg.cls}`} key={phase}>{msg.text}</p>}
@@ -2182,7 +2246,7 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 <span className="rg-xulosa-ic">💡</span>
                 <div>
                   <p className="xh">Xulosa</p>
-                  <p className="xb">Kompyuter — xuddi shu dinozavr: juda tez va itoatkor, lekin <b>o'zi o'ylamaydi</b>. Biz unga aniq, ketma-ket <b>buyruqlar — ya'ni kod</b> beramiz; u esa ularni <b>darhol va aynan</b> bajaradi, to'g'ri yoki xato ekanini o'zi bilmaydi. Demak, kompyuterni aqlli qiladigan — bu <b style={{ color: T.success }}>biz, dasturchilar!</b> To'g'ri natija buyruqlarimiz qanchalik aniq bo'lishiga bog'liq.</p>
+                  <p className="xb">Kompyuter — xuddi shu dinozavr: juda tez va aytganini bajaradigan, lekin <b>o'zi o'ylamaydi</b>. Biz unga aniq, ketma-ket <b>buyruqlar — ya'ni kod</b> beramiz; u esa ularni <b>darhol va aynan</b> bajaradi, to'g'ri yoki xato ekanini o'zi bilmaydi. Demak, kompyuterni aqlli qiladigan — bu <b style={{ color: T.success }}>biz, dasturchilar!</b> To'g'ri natija buyruqlarimiz qanchalik aniq bo'lishiga bog'liq.</p>
                 </div>
               </div>
             )}
@@ -2197,7 +2261,7 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
 
 // ===== SCREEN 3 — HTML: "Brauzer mashinasi" (kodni o'qib sahifa quradi) =====
 const Screen3 = ({ screen, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's3', text: `Chrome yoki Safari'ni ochganingizda sayt chiroyli ko'rinadi. Lekin brauzer aslida HTML degan tilni o'qiydi, keyin uni sahifaga aylantiradi. Ismingizni yozing va "Brauzerni ishga tushir"ni bosing — brauzer kodni o'qib, sahifangizni qadam-baqadam quradi.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's3', text: `Chrome yoki Safari'ni ochganingizda sayt chiroyli ko'rinadi. Lekin brauzer aslida HTML degan tilni o'qiydi, keyin uni sahifaga aylantiradi. Ismingizni yozing va "Brauzerni ishga tushirish" tugmasini bosing — brauzer kodni o'qib, sahifangizni qadam-baqadam quradi.`, trigger: 'on_mount', waits_for: null }]);
   const [name, setName] = useState('Aziz');
   const [step, setStep] = useState(0);      // nechta bo'lak qurilgan (0..3)
   const [active, setActive] = useState(-1);  // brauzer hozir o'qiyotgan qator
@@ -2237,7 +2301,7 @@ const Screen3 = ({ screen, onNext, onPrev }) => {
     <Stage eyebrow="HTML" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext label="Davom etish" onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.5vw,14px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Yozgan so'zingiz qanday <span className="italic" style={{ color: T.accent }}>saytga</span> aylanadi?</h2></div>
-        <Mentor>Chrome yoki Safari'ni ochganingizda sayt chiroyli ko'rinadi. Lekin brauzer aslida <b style={{ color: T.ink }}>HTML</b> degan tilni o'qiydi, keyin uni sahifaga aylantiradi. Ismingizni yozing, so'ng <b style={{ color: T.ink }}>«Brauzerni ishga tushir»</b>ni bosing.</Mentor>
+        <Mentor>Chrome yoki Safari'ni ochganingizda sayt chiroyli ko'rinadi. Lekin brauzer aslida <b style={{ color: T.ink }}>HTML</b> degan tilni o'qiydi, keyin uni sahifaga aylantiradi. Ismingizni yozing, so'ng <b style={{ color: T.ink }}>«Brauzerni ishga tushirish»</b> tugmasini bosing.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col" style={{ gap: 8 }}>
@@ -2276,7 +2340,7 @@ const Screen3 = ({ screen, onNext, onPrev }) => {
             <div className="br-controls">
               {built && !running && <button className="rg-mini" onClick={reset}>↺ Tozalash</button>}
               <button className="btn" onClick={runBrowser} disabled={running} style={{ marginLeft: built && !running ? 'auto' : 0 }}>
-                {running ? 'Brauzer o’qiyapti…' : built ? '↻ Qaytadan qurish' : '▶ Brauzerni ishga tushir'}
+                {running ? "Brauzer o'qiyapti…" : built ? '↻ Qaytadan qurish' : '▶ Brauzerni ishga tushirish'}
               </button>
             </div>
             {built && <p className="br-status">✓ Brauzer kodni <b>yuqoridan pastga</b> o'qib, har bir qatorni sahifaga aylantirdi.</p>}
@@ -2435,14 +2499,21 @@ function Flashcards({ cards }) {
   const [queue, setQueue] = useState(() => cards.map((_, i) => i));
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState(0);
+  const [exiting, setExiting] = useState(null); // 'knew' | 'again' — karta uchib chiqish animatsiyasi (Quizlet uslubi)
+  const swapRef = useRef(0);                    // har almashishda karta remount bo'lib, kirish animatsiyasi o'ynaydi
   const total = cards.length;
   const cur = queue[0];
   const card = cur != null ? cards[cur] : null;
   const advance = (removed) => {
-    setFlipped(false);
-    setTimeout(() => setQueue(q => { const [first, ...rest] = q; return removed ? rest : [...rest, first]; }), flipped ? 160 : 0);
+    if (exiting) return;
+    setExiting(removed ? 'knew' : 'again');
+    setTimeout(() => {
+      setExiting(null); setFlipped(false); swapRef.current++;
+      if (removed) setKnown(k => k + 1);
+      setQueue(q => { const [first, ...rest] = q; return removed ? rest : [...rest, first]; });
+    }, 420);
   };
-  const knew = () => { setKnown(k => k + 1); advance(true); };
+  const knew = () => advance(true);
   const again = () => advance(false);
   const restart = () => { setQueue(cards.map((_, i) => i)); setKnown(0); setFlipped(false); };
   if (!card) return (
@@ -2450,16 +2521,18 @@ function Flashcards({ cards }) {
   );
   return (
     <div className="fc fade-up">
-      <div className="fc-top"><span className="fc-count">Bilaman: <b>{known}</b> / {total}</span><span className="fc-remain">{queue.length} ta qoldi</span></div>
+      <div className="fc-top"><span className="fc-pill learn" key={`l-${queue.length}-${swapRef.current}`}>↻ O'rganilmoqda · <b>{queue.length}</b></span><span className="fc-pill knew" key={`k-${known}`}>✓ Bildim · <b>{known}</b></span></div>
       <div className="fc-bar"><span className="fc-bar-fill" style={{ width: `${(known / total) * 100}%` }} /></div>
       <div className="fc-cardwrap">
-        <div className={`fc-card ${flipped ? 'flip' : ''}`} onClick={() => !flipped && setFlipped(true)} role="button" tabIndex={0}>
+        <div className={`fc-fly ${exiting === 'knew' ? 'out-knew' : ''} ${exiting === 'again' ? 'out-again' : ''}`} key={swapRef.current}>
+        <div className={`fc-card ${flipped ? 'flip' : ''}`} onClick={() => !flipped && !exiting && setFlipped(true)} role="button" tabIndex={0}>
           <div className="fc-face fc-front"><span className="fc-q">{card.front}</span><span className="fc-cue">Qaysi teg? 🤔 <span className="fc-tap">bosing</span></span></div>
           <div className="fc-face fc-back"><span className="fc-tag">{card.back}</span>{card.note && <span className="fc-note">{card.note}</span>}</div>
         </div>
+        </div>
       </div>
       {flipped
-        ? (<div className="fc-actions"><button className="fc-btn again" onClick={again}>↻ Takrorlash</button><button className="fc-btn knew" onClick={knew}>✓ Bildim</button></div>)
+        ? (<div className="fc-actions"><button className="fc-btn again" disabled={!!exiting} onClick={again}>✗ Takrorlash</button><button className="fc-btn knew" disabled={!!exiting} onClick={knew}>✓ Bildim</button></div>)
         : (<p className="fc-hint">👆 Kartani bosing — javobni ko'rasiz</p>)}
     </div>
   );
@@ -2467,12 +2540,12 @@ function Flashcards({ cards }) {
 
 // ===== SCREEN 5 — SKELET (savol + Mentor) =====
 const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's5', text: `Odamda ham ko'rinadigan va ko'rinmaydigan tomon bor: yuzingizni hamma ko'radi, lekin miyangiz ichkarida, ko'rinmasdan ishlaydi. Sahifa ham xuddi shunaqa — head ko'rinmaydigan qism, body ko'rinadigan qism. Har bir qismni bosib, nima ekanini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's5', text: `Restoranni tasavvur qiling: zalni mehmonlar ko'radi — u yerda stol va taomlar bor; oshxonaga esa mehmon kirmaydi, lekin ovqat o'sha yerda tayyorlanadi. Sahifa ham xuddi shunaqa — body ko'rinadigan qism, head esa ko'rinmaydigan sozlamalar. Har bir qismni bosib, nima ekanini ko'ring.`, trigger: 'on_mount', waits_for: null }]);
   const PARTS = {
     doctype: { tag: '<!DOCTYPE html>', word: "E'lon", role: 'Eng boshida turadi va "bu HTML5 sahifa" deb bildiradi.' },
     html: { tag: '<html>', word: 'Butun hujjat', role: 'Butun sahifani o\u2019rab turadi — head ham, body ham shuning ichida.' },
-    head: { tag: '<head>', word: 'Bosh — ko\u2019rinmaydi', role: 'Sahifaning "boshi": title (nom) va sozlamalar. title brauzer tabchasida ko\u2019rinadi, lekin sahifa ichida ko\u2019rinmaydi.' },
-    body: { tag: '<body>', word: 'Tana — ko\u2019rinadi', role: 'Sahifaning "tanasi": ko\u2019rinadigan hamma narsa — sarlavha, matn, rasm, havola shu yerda.' }
+    head: { tag: '<head>', word: 'Ko\u2019rinmaydigan qism', role: 'Sahifa sozlamalari: title (nom), til, shriftlar. Xuddi restoran oshxonasi kabi — mehmon ko\u2019rmaydi. title faqat brauzer tabchasida chiqadi, sahifa ichida ko\u2019rinmaydi.' },
+    body: { tag: '<body>', word: 'Ko\u2019rinadigan qism', role: 'Ekranda ko\u2019rinadigan hamma narsa shu yerda: sarlavha, matn, rasm, havola. Xuddi restoran zali kabi — mehmon shuni ko\u2019radi.' }
   };
   const [active, setActive] = useState(null);
   const [clicked, setClicked] = useState(new Set());
@@ -2485,10 +2558,10 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const ck = (k) => `ck ${active === k ? 'active' : ''} ${clicked.has(k) ? 'seen' : ''}`;
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="Struktura" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (explored ? "Skeletni yig'ing" : `${clicked.size}/4 qismi ko'rilgan`)} onClick={onNext} /></>}>
+    <Stage eyebrow="Struktura" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : (explored ? "Skeletni yig'ing" : `${clicked.size}/4 qismi ko'rilgan`)} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Saytning <span className="italic" style={{ color: T.accent }}>ko'rinmaydigan</span> tomoni bormi?</h2></div>
-        <Mentor>Odamda ham ko'rinadigan va ko'rinmaydigan tomon bor: yuzingizni hamma ko'radi, lekin miyangiz ichkarida ishlaydi. Sahifa ham xuddi shunaqa — <b style={{ color: T.ink }}>head</b> ko'rinmaydigan qism, <b style={{ color: T.ink }}>body</b> ko'rinadigan qism. Har qismni bosib biling.</Mentor>
+        <Mentor>Restoranni tasavvur qiling: <b style={{ color: T.ink }}>zal</b> — mehmonlar o'tiradigan joy, taom va bezaklar ko'rinadi; <b style={{ color: T.ink }}>oshxona</b> — mehmon kirmaydi, lekin taom o'sha yerda tayyorlanadi. Sahifa ham shunaqa: <b style={{ color: T.ink }}>body</b> — ko'rinadigan qism (matn, rasm, tugma), <b style={{ color: T.ink }}>head</b> — ko'rinmaydigan sozlamalar. Chizmadagi 4 ta qismni birma-bir bosib biling.</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
@@ -2499,6 +2572,8 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 <DragDropOrder items={SKELET_PIECES} hints={["eng boshida", "butun sahifa qobig'i", "ko'rinmas qism", "ko'rinadigan qism"]} onSolved={() => setDragDone(true)} />
               </div>
             ) : (
+            <>
+            <p className="sk-tapguide fade-up delay-1">👆 Chizmadagi <b>4 ta qismni birma-bir bosing</b> — bosilmaganlari yonib turadi <span className="sk-tapcount">{clicked.size}/4</span></p>
             <div className="bskel fade-up delay-2">
               <div className={fc('doctype', 'bskel-doctype')} onClick={() => tap('doctype')}>&lt;!DOCTYPE html&gt;</div>
               <div className={fc('html', 'bskel-html')} onClick={() => tap('html')}>
@@ -2509,6 +2584,7 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 </div>
               </div>
             </div>
+            </>
             )}
           </div>
           <div className="col" style={{ gap: 8 }}>
@@ -2549,13 +2625,13 @@ const ScreenSkeletTest = (props) => (
     audioText={`Sahifada ko'rinadigan matn qaysi qismga yoziladi?`}
     questionText="Sahifada ko'rinadigan matn qaysi qismga yoziladi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>Mustahkamlash</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Sahifada <span className="italic" style={{ color: T.accent }}>ko'rinadigan</span> matn qaysi qismga yoziladi?</h2></>}
-    options={['<head>', '<title>', '<!DOCTYPE>', '<body>']} correctIdx={3}
-    explainCorrect="To'g'ri! body — sahifada ko'rinadigan hamma narsa (sarlavha, matn, rasm) shu yerda yoziladi."
+    options={['`<head>`', '`<title>`', '`<!DOCTYPE>`', '`<body>`']} correctIdx={3}
+    explainCorrect="To'g'ri! `body` — sahifada ko'rinadigan hamma narsa (sarlavha, matn, rasm) shu yerda yoziladi."
     explainWrong={{
-      0: '<head> — bu ko\u2019rinmaydigan qism: title va sozlamalar. Ko\u2019rinadigan matn body ichida.',
-      1: '<title> — faqat brauzer tabchasidagi nom. To\u2019g\u2019risi — body.',
-      2: '<!DOCTYPE> — bu "men HTML5 man" degan e\u2019lon, matn joyi emas. To\u2019g\u2019risi — body.',
-      default: 'Ko\u2019rinadigan matn body ichiga yoziladi.'
+      0: '`<head>` — bu ko\u2019rinmaydigan qism: `title` va sozlamalar. Ko\u2019rinadigan matn `body` ichida.',
+      1: '`<title>` — faqat brauzer tabchasidagi nom. To\u2019g\u2019risi — `body`.',
+      2: '`<!DOCTYPE>` — bu "men HTML5 man" degan e\u2019lon, matn joyi emas. To\u2019g\u2019risi — `body`.',
+      default: 'Ko\u2019rinadigan matn `body` ichiga yoziladi.'
     }} />
 );
 
@@ -2577,7 +2653,7 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
 
   return (
-    <Stage eyebrow="Teg" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (wrapped ? "🐞 Xatoni toping" : "Avval tegga o'rang")} onClick={onNext} /></>}>
+    <Stage eyebrow="Teg" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : (wrapped ? "🐞 Xatoni toping" : "Avval tegga o'rang")} onClick={onNext} /></>}>
       <div className="screen">
         <div className="head"><h2 className="title h-title fade-up">Brauzer matn qayerda <span className="italic" style={{ color: T.accent }}>tugashini</span> qanday biladi?</h2></div>
         <Mentor>Brauzer aqlli emas — matn qayerda <b style={{ color: T.ink }}>boshlanib</b>, qayerda <b style={{ color: T.ink }}>tugashini</b> o'zi bilmaydi. Buni unga teglar aytadi: ochuvchi teg — boshlanishi, yopuvchi teg — tugashi. Xuddi yozuvdagi <b style={{ color: T.ink }}>qo'shtirnoq</b> kabi — ochasiz va albatta yopasiz. Tugmani bosib, <b style={{ color: T.ink }}>"Salom!"</b> so'ziga teg qo'shing.</Mentor>
@@ -2703,7 +2779,7 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     prevCollapsedRef.current = mctx.collapsed;
   }, [mctx.collapsed]);
   return (
-    <Stage eyebrow="Sarlavhalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? '✍️ Praktika →' : 'Avval tanlang'} onClick={onNext} /></>}>
+    <Stage eyebrow="Sarlavhalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? '✍️ Praktika →' : 'Avval tanlang'} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Gazetada <span className="italic" style={{ color: T.accent }}>nima</span> darrov ko'zga tashlanadi?</h2></div>
         <Mentor>Mana oddiy gazeta sahifasi. Hatto o'qib chiqmasangiz ham, qaysi yozuv eng muhim ekanini <b style={{ color: T.ink }}>darrov</b> bilib olasiz. Sizningcha, qaysi biri eng muhim?</Mentor>
@@ -2736,14 +2812,14 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
               </>
             ) : (
               <div ref={revealRef} className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: 12, scrollMarginTop: 16 }}>
-                {!isNarrow && <div className="frame-success"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{picked === 'a' ? "✓ To'g'ri" : 'Mana gap'}</p><p className="body" style={{ margin: 0, color: T.ink }}>Eng <b>katta</b> yozuv darrov ko'zga tashlanadi — demak u eng muhim. HTML sarlavhalari ham aynan shunday darajalangan: <b>h1</b> eng katta, <b>h6</b> eng kichik.</p></div>}
+                {!isNarrow && <div className="frame-success"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{picked === 'a' ? "✓ To'g'ri" : 'Mana gap'}</p><p className="body" style={{ margin: 0, color: T.ink }}>Eng <b>katta</b> yozuv darrov ko'zga tashlanadi — demak u eng muhim. HTML sarlavhalari ham aynan shunday darajalangan: <span className="mono">h1</span> eng katta, <span className="mono">h6</span> eng kichik.</p></div>}
                 <p className="flow-label">{isNarrow ? 'h1 → h6 — sarlavha darajalari' : 'h1 dan h6 gacha — darajalar narvoni'}</p>
                 <div className="ladder ladder-stair">{(isNarrow ? LADDER_COMPACT : LADDER).map((h, i) => h.ellipsis ? (<div key="el" className="hl-row hl-stair" style={{ animationDelay: `${i * 0.1}s`, justifyContent: 'center', padding: '2px 0', background: 'transparent', boxShadow: 'none' }}><span style={{ color: T.ink3, fontSize: 18, letterSpacing: 3 }}>⋮</span></div>) : (<div key={h.n} className="hl-row hl-stair" style={{ animationDelay: `${i * 0.1}s`, marginLeft: isNarrow ? 0 : `${i * 15}px` }}><span className="hl-bar" style={{ opacity: Math.max(0.18, 1 - i * 0.15) }} /><span className="hl-chip">{`<h${h.n}>`}</span><span className="hl-text" style={{ fontSize: h.size }}>Sarlavha</span>{h.tag && <span className="hl-tag">{h.tag}</span>}</div>))}</div>
               </div>
             )}
           </div>
         </div>
-        {showAnswer && (<div className="frame-soft fade-step"><p className="body" style={{ margin: 0, color: T.ink }}><b>Sizning loyihangiz:</b> saytingizdagi eng katta sarlavha — bu ismingiz. Demak u <span className="mono">&lt;h1&gt;</span>.</p></div>)}
+        {showAnswer && (<div className="frame-success fade-step"><p className="body" style={{ margin: 0, color: T.ink }}><b>Sizning loyihangiz:</b> saytingizdagi eng katta sarlavha — bu ismingiz. Demak u <span className="mono">&lt;h1&gt;</span>.</p></div>)}
       </div>
     </Stage>
   );
@@ -2785,7 +2861,7 @@ const Screen9 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   };
 
   return (
-    <Stage eyebrow="Matn" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "✍️ Praktika →" : "B va I ni sinang"} onClick={onNext} /></>}>
+    <Stage eyebrow="Matn" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "✍️ Praktika →" : "B va I ni sinang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }} onClick={() => setSel(null)}>
         <div className="head"><h2 className="title h-title fade-up">Muhim so'zni qanday <span className="italic" style={{ color: T.accent }}>ajratasiz</span>?</h2></div>
         <Mentor>Telegram'da so'zni <b style={{ color: T.ink }}>belgilab</b>, <b style={{ color: T.ink }}>B</b>/<b style={{ color: T.ink }}>I</b> bilan formatlab yuborasiz. Veb-saytda esa o'sha ishni <b style={{ color: T.ink }}>HTML tegi</b> qiladi: <span className="mono">strong</span> — qalin, <span className="mono">em</span> — yotiq.</Mentor>
@@ -2806,7 +2882,7 @@ const Screen9 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 <button className="tgc-send" onClick={() => setSent(true)} title="Yuborish" aria-label="Yuborish"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z" /></svg></button>
               </div>
             </div>
-            <p className="tgc-hint">{sel ? '☝️ Ustidagi menyudan B (qalin) yoki I (yotiq) tanlang' : '👆 xabardagi so‘zni bosib belgilang'}</p>
+            <p className="tgc-hint">{sel ? '☝️ Ustidagi menyudan B (qalin) yoki I (yotiq) tanlang' : "👆 xabardagi so'zni bosib belgilang"}</p>
           </div>
 
           <div className="cmp-vs">=</div>
@@ -2829,7 +2905,7 @@ const Screen9 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
         </div>
 
         <div className={`cmp-merge fade-up delay-3 ${done ? 'done' : ''}`}>
-          {done ? '✓ ' : ''}Telegramda so‘zni belgilab <b>tugma</b> bosasiz; veb-saytda esa o‘sha so‘z <b>teg</b> ichiga olinadi.
+          {done ? '✓ ' : ''}Telegramda so'zni belgilab <b>tugma</b> bosasiz; veb-saytda esa o'sha so'z <b>teg</b> ichiga olinadi.
         </div>
       </div>
     </Stage>
@@ -2927,14 +3003,14 @@ const Screen11 = (props) => (
     audioText="Retsept qadamlarini raqamli tartibda ko'rsatish uchun qaysi tegdan boshlash kerak?"
     questionText="Retsept qadamlarini raqamli tartibda ko'rsatish uchun qaysi tegdan boshlash kerak?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri tegni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Retsept qadamlarini raqamli tartibda ko'rsatish uchun qaysi tegdan boshlash kerak?</h2></>}
-    options={['<li>', '<ol>', '<ul>', '<a>']} correctIdx={1}
-    explainCorrect="To'g'ri. <ol> — ordered list, ya'ni raqamli ro'yxat. Tartib muhim bo'lgan joylarda ishlatiladi."
-    explainWrong={{ 2: '<ul> — bu belgili (bullet) ro\u2019yxat. Raqam emas, nuqta chiqaradi.', 0: '<li> — bu alohida element. Avval uni o\u2019rab oluvchi <ol> yoki <ul> kerak.', 3: '<a> — bu havola tegi, ro\u2019yxatga aloqasi yo\u2019q.', default: 'Raqamli ro\u2019yxat uchun <ol> ishlatiladi.' }} />
+    options={['`<li>`', '`<ol>`', '`<ul>`', '`<a>`']} correctIdx={1}
+    explainCorrect="To'g'ri. `<ol>` — ordered list, ya'ni raqamli ro'yxat. Tartib muhim bo'lgan joylarda ishlatiladi."
+    explainWrong={{ 2: '`<ul>` — bu belgili (bullet) ro\u2019yxat. Raqam emas, nuqta chiqaradi.', 0: '`<li>` — bu alohida element. Avval uni o\u2019rab oluvchi `<ol>` yoki `<ul>` kerak.', 3: '`<a>` — bu havola tegi, ro\u2019yxatga aloqasi yo\u2019q.', default: 'Raqamli ro\u2019yxat uchun `<ol>` ishlatiladi.' }} />
 );
 
 // ===== SCREEN 12 — HAVOLALAR (YouTube analogiyasi + Mentor) =====
 const Screen12 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's12', text: `YouTube'da bitta videoni ko'rib bo'lgach, yonidagisiga bosib o'tasiz-ku. O'sha bosish — havola. HTML'da havola a href bilan yasaladi. Quyidagi menyuni bosib, sahifalar o'rtasida yuring.`, trigger: 'on_mount', waits_for: { type: 'link_jumped' } }]);
+  const audio = useAudio([{ id: 's12', text: `YouTube'da bitta videoni ko'rib bo'lgach, yonidagi videoga bosib o'tasiz. O'sha bosish — havola. HTML'da havola a tegi bilan yasaladi: href ichiga manzil yoziladi, teglar orasiga esa ko'rinadigan matn. Quyidagi menyuni bosib, sahifalar orasida yuring.`, trigger: 'on_mount', waits_for: { type: 'link_jumped' } }]);
   const PAGES = {
     bosh: { title: 'Bosh sahifa', file: 'index.html', url: 'sayt.uz', body: "Salom! Bu mening birinchi saytim. O'zim haqimda yozaman.", links: [{ to: 'oyinlar', label: "O'yinlar" }, { to: 'men', label: 'Men haqimda' }] },
     oyinlar: { title: "O'yinlar", file: 'oyinlar.html', url: 'sayt.uz/oyinlar.html', body: "Bo'sh vaqtimda Minecraft va futbol o'ynayman.", links: [{ to: 'minecraft', label: 'Minecraft haqida' }, { to: 'bosh', label: 'Bosh sahifa' }] },
@@ -2972,18 +3048,18 @@ const Screen12 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   useEffect(() => { if (isNarrow && mctx.collapsed === false) setRevealed(false); }, [mctx.collapsed]);
   return (
-    <Stage eyebrow="Havolalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "✍️ Praktika →" : "Havolani bosing"} onClick={onNext} /></>}>
+    <Stage eyebrow="Havolalar" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "✍️ Praktika →" : "Havolani bosing"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(8px,1.2vw,12px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Bir bosishda boshqa sahifaga qanday <span className="italic" style={{ color: T.accent }}>o'tamiz</span>?</h2></div>
-        <Mentor>YouTube'da bitta videoni ko'rib bo'lgach, yonidagisiga bosib o'tasiz-ku. O'sha bosish — <b style={{ color: T.ink }}>havola</b>. HTML'da havola <span className="mono">{'<a href="…">'}</span> bilan yasaladi. Menyuni bosib, sahifalar o'rtasida yuring.</Mentor>
+        <Mentor>YouTube'da bitta videoni ko'rib bo'lgach, yonidagi videoga bosib o'tasiz. O'sha bosish — <b style={{ color: T.ink }}>havola</b>. HTML'da havola <span className="mono">{'<a>'}</span> tegi bilan yasaladi: <span className="mono">href</span> ichiga <b style={{ color: T.ink }}>manzil</b> yoziladi, teglar orasiga esa <b style={{ color: T.ink }}>ko'rinadigan matn</b>. Menyuni bosib, sahifalar orasida yuring.</Mentor>
         <div className="split">
           <div className="col"><div className="flow-label">Veb — bu "to'r"</div><div className="web fade-up delay-2"><svg className="web-svg" viewBox="0 0 260 150" preserveAspectRatio="none">{EDGES.map(([a, b], i) => { const active = page === a || page === b; return <line key={i} x1={POS[a][0]} y1={POS[a][1]} x2={POS[b][0]} y2={POS[b][1]} stroke={active ? T.accent : T.ink3} strokeWidth={active ? 2 : 1.2} strokeDasharray={active ? '0' : '4 3'} opacity={active ? 1 : 0.6} />; })}</svg>{Object.keys(PAGES).map(k => { const isCur = page === k; const linked = cur.links.some(l => l.to === k); const off = !isCur && !linked; return (<div key={k} className={`web-node ${isCur ? 'on' : ''} ${off ? 'web-node-off' : ''}`} onClick={linked && !isCur ? () => go(k) : undefined} style={{ left: `${POS[k][0] / 260 * 100}%`, top: `${POS[k][1] / 150 * 100}%` }}>{PAGES[k].title}</div>); })}{travel && <div className="web-travel" key={travel.key} style={{ '--fx': travel.fx, '--fy': travel.fy, '--tx': travel.tx, '--ty': travel.ty }} />}</div><p className="web-cap">Har sahifa boshqasiga <b>havola</b> bilan bog'langan. Shu bog'lanishlar <b>"to'r"</b> hosil qiladi — <b>Veb</b> (World Wide Web) shundan nom olgan.</p></div>
           {showResult && (<div className="col">
             {!isNarrow && (<div className="bp-window fade-up delay-2"><div className="bp-bar"><span className="bb-dots"><i /><i /><i /></span><span className="bp-url" key={`u-${page}`}><span className="lock">●</span>{cur.url}</span></div><div className="bp-body pg-in" key={`p-${page}`}><div className="site-top"><span className="site-wordmark">Mening saytim</span><span className="site-tag">o'quvchi · CoddyCamp</span></div><h1 className="pg-h1">{cur.title}</h1><p className="pg-body">{cur.body}</p><div className="pg-divider" /><p className="pg-linklabel">Boshqa sahifalar</p><div className="pg-links">{cur.links.map((l, i) => (<a key={i} className="pg-a" onClick={() => go(l.to)}>{l.label} <span className="arr">→</span></a>))}</div></div></div>)}
-            <div className="codecard" key={`c-${page}`}><p className="codecard-top"><span className="dotf" />{cur.file} — havolalar kodi</p><pre className="codeblock">{cur.links.map((l, i) => (<span className="ln" key={i}><span className="tg">&lt;a </span><span className="at">href</span><span className="tx">=</span><span className="st">"{PAGES[l.to].file}"</span><span className="tg">&gt;</span><span className="tx">{l.label}</span><span className="tg">&lt;/a&gt;</span></span>))}</pre><p className="codecap">Har bir havola = bitta <span className="mn">&lt;a&gt;</span> teg.</p></div>
+            <div className="codecard" key={`c-${page}`}><p className="codecard-top"><span className="dotf" />{cur.file} — havolalar kodi</p><pre className="codeblock">{cur.links.map((l, i) => (<span className="ln" key={i}><span className="tg">&lt;a </span><span className="at">href</span><span className="tx">=</span><span className="st">"{PAGES[l.to].file}"</span><span className="tg">&gt;</span><span className="tx">{l.label}</span><span className="tg">&lt;/a&gt;</span></span>))}</pre><p className="codecap">Har bir havola = bitta <span className="mn">&lt;a&gt;</span> teg. U ikki qismdan iborat: <span className="mn">href="…"</span> ichida — <b>manzil</b> (bosilganda qayerga borish), teglar <b>orasida</b> — sahifada <b>ko'rinadigan, bosiladigan yozuv</b>.</p></div>
           </div>)}
         </div>
-        {showResult && <div className="frame-soft fade-up delay-3" style={{ padding: '9px 15px' }}><p className="body" style={{ margin: 0, color: T.ink }}><b>Sizning loyihangiz:</b> saytingizga sevimli sayt yoki Telegram kanalingizga havola qo'shasiz.</p></div>}
+        {showResult && <div className="frame-success fade-up delay-3" style={{ padding: '9px 15px' }}><p className="body" style={{ margin: 0, color: T.ink }}><b>Sizning loyihangiz:</b> saytingizga sevimli sayt yoki Telegram kanalingizga havola qo'shasiz.</p></div>}
       </div>
     </Stage>
   );
@@ -3008,7 +3084,7 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   };
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (found ? "Endi tuzating" : "Xatoni toping")} onClick={onNext} /></>}>
+    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : (found ? "Endi tuzating" : "Xatoni toping")} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">AI yordam beradi — siz esa <span className="italic" style={{ color: T.accent }}>tekshirasiz</span>.</h2></div>
         <Mentor>AI kod yozishda zo'r yordamchi — hozir buyruq berib sahifa yasadingiz-ku. Lekin <b style={{ color: T.ink }}>odamlar ham, AI ham</b> ba'zan kichik xato qiladi. Shuni topib tuzatish — <b style={{ color: T.ink }}>debugging</b> deyiladi, va bu eng zo'r mahorat. Endi siz teglarni bilasiz: AI yozgan kodda bitta xato bor — toping-chi.</Mentor>
@@ -3043,7 +3119,7 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Preview'ga qarang — nega <b style={{ color: T.ink }}>ikkala matn ham katta</b>? Koddan qaysi teg <b style={{ color: T.ink }}>ochilib, yopilmaganini</b> toping.</p></div>)
             )}
             {found && !fixed && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>✓ Topdingiz!</p><p className="body" style={{ margin: 0, color: T.ink }}><span className="mono">&lt;h1&gt;</span> ochildi, lekin <span className="mono">&lt;/h1&gt;</span> bilan yopilmagan — shu tufayli pastdagi matn ham sarlavhaga qo'shilib ketdi. Chap tomondagi tugmani bosib tuzating →</p></div>)}
-            {fixed && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Topding va tuzatding — bu debugging!</p><p className="ta-sub">AI tez yozadi, siz tekshirib tuzatasiz — zo'r jamoa</p></div>)}
+            {fixed && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Topdingiz va tuzatdingiz — bu debugging!</p><p className="ta-sub">AI tez yozadi, siz tekshirib tuzatasiz — zo'r jamoa</p></div>)}
           </div>
         </div>
       </div>
@@ -3054,7 +3130,7 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
 
 // ===== SCREEN 14 — BUILDER (Mentor + amaliyot) =====
 const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's14', text: `Mana, vaqti keldi. Bugun o'rgangan teglaringizdan o'z sahifangizni yig'asiz. Buyruq yozing yoki tayyor teglardan tanlang, Yarat tugmasini bosing — kod o'zi paydo bo'ladi. Kamida 3 ta bo'lak qo'shing.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's14', text: `Mana, vaqti keldi. Bugun o'rgangan teglaringizdan o'z sahifangizni yig'asiz. Buyruq yozing yoki tayyor teglardan tanlang, Yaratish tugmasini bosing — kod o'zi paydo bo'ladi. Kamida 3 ta bo'lak qo'shing.`, trigger: 'on_mount', waits_for: null }]);
   const MAX = 6;
   const CHIPS = [{ key: 'h1', label: 'Sarlavha', tag: 'h1' }, { key: 'p', label: 'Matn', tag: 'p' }, { key: 'ul', label: "Ro'yxat", tag: 'ul' }, { key: 'a', label: 'Havola', tag: 'a' }, { key: 'img', label: 'Rasm', tag: 'img' }];
   const detect = (txt) => { const t = (txt || '').toLowerCase(); if (/sarlavha|ism|title|bosh/.test(t)) return 'h1'; if (/rasm|surat|img|foto/.test(t)) return 'img'; if (/ro.?yxat|ruyxat|mashg|list/.test(t)) return 'ul'; if (/havola|sayt|link|url/.test(t)) return 'a'; if (/matn|paragraf|haqim|tavsif|yoz/.test(t)) return 'p'; return null; };
@@ -3072,13 +3148,13 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const reset = () => { setItems([]); setPending(null); setHint(''); clearTimeout(timer.current); };
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="Amaliyot · sahifa quramiz" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : `Kamida 3 ta bo\u2019lak (${items.length}/3)`} onClick={onNext} /></>}>
+    <Stage eyebrow="Amaliyot · sahifa quramiz" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : `Kamida 3 ta bo\u2019lak (${items.length}/3)`} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(8px,1.2vw,12px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Buyruq bering — <span className="italic" style={{ color: T.accent }}>kod o'zi yaraladi</span>.</h2></div>
-        <Mentor>Mana, vaqti keldi. Bugun o'rgangan teglaringizdan o'z sahifangizni yig'asiz. Buyruq yozing yoki tayyor teglardan tanlang — <b style={{ color: T.ink }}>"Yarat"</b> bosing, kod o'zi paydo bo'ladi. Kamida 3 ta bo'lak qo'shing.</Mentor>
+        <Mentor>Mana, vaqti keldi. Bugun o'rgangan teglaringizdan o'z sahifangizni yig'asiz. Buyruq yozing yoki tayyor teglardan tanlang — <b style={{ color: T.ink }}>"Yaratish"</b> tugmasini bosing, kod o'zi paydo bo'ladi. Kamida 3 ta bo'lak qo'shing.</Mentor>
         <div className="split">
           <div className="col">
-            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 7 }}>Buyruq yozing</p><div className="prompt-row"><input className="prompt-input" value={text} placeholder="masalan: rasm qo'sh" onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="prompt-btn" onClick={submit} disabled={!!pending || items.length >= MAX}>Yarat</button></div></div>
+            <div className="fade-up delay-2"><p className="flow-label" style={{ marginBottom: 7 }}>Buyruq yozing</p><div className="prompt-row"><input className="prompt-input" value={text} placeholder="masalan: rasm qo'sh" onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') submit(); }} /><button className="prompt-btn" onClick={submit} disabled={!!pending || items.length >= MAX}>Yaratish</button></div></div>
             <div className="fade-up delay-2"><p className="flow-label" style={{ margin: '2px 0 7px' }}>yoki tayyor buyruqlardan tanlang</p><div className="chips">{CHIPS.map(c => (<button key={c.key} className="gchip" disabled={items.length >= MAX} onClick={() => { setText(c.label.toLowerCase() + " qo'sh"); setHint(''); }}>{c.label} <span className="gt">&lt;{c.tag}&gt;</span></button>))}{items.length > 0 && <button className="gchip" onClick={reset}>↺ Tozalash</button>}</div></div>
             <p className="body fade-up delay-3" style={{ margin: '2px 0 0', color: T.ink3, fontSize: 13 }}><b style={{ color: T.ink2 }}>Tez tugatdingizmi?</b> 5 xil teg ishlating yoki yangi teg topib sinab ko'ring.</p>
             {hint && <p className="hint fade-step">{hint}</p>}
@@ -3131,29 +3207,21 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
   const audio = useAudio([{ id: 's16', text: "Dars yakunlandi. Birinchi saytingizni yasadingiz! Asosiyni eslab qoling: HTML — veb-sahifalar tili, brauzer HTMLni o'qib sahifani ko'rsatadi, teg ochiladi va yopiladi.", trigger: 'on_mount', waits_for: null }]);
   const RECAP = ['HTML bilan veb-sahifa yasash', 'Sahifa skeletini qurish (head, body)', 'Teglarni ochish va yopish', 'Sarlavha (h1–h6) va matn (strong, em)', "Ro'yxat (ul/ol) va havola (a) qo'shish"];
   const HOMEWORK = [{ b: 'Sarlavha (h1)', t: '— ismingiz' }, { b: '2–3 paragraf', t: "— o'zingiz haqingizda" }, { b: "Ro'yxat", t: "— sevimli mashg'ulotlaringiz" }, { b: 'Havola', t: '— sevimli saytingizga' }];
-  const GLOSSARY = [{ b: 'HTML', t: '— veb tili' }, { b: 'Skelet', t: '— DOCTYPE, html, head, body' }, { b: 'Teg', t: '— ochiluvchi/yopiluvchi' }, { b: 'Atribut', t: "— href kabi qo'shimcha" }, { b: 'Teglar', t: '— h1–h6, p, strong, em, ul, ol, li, a' }];
   const correct = SCORED_IDX.filter(i => answers[i]?.correct).length;
   const total = SCORED_IDX.length;
   const PASSED = (total ? correct / total : 0) >= 0.6;
-  const [open, setOpen] = useState(false);
   return (
     <Stage eyebrow="Tayyor" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><button className="btn-ghost" onClick={onReset} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Qaytadan</button><button className="btn-white-accent" onClick={onFinish} style={{ marginLeft: 'auto', padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Keyingi dars →</button></>}>
       <div className="screen">
         <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Dars tugadi</span><h2 className="title h-title fade-up d1">Birinchi <span className="italic" style={{ color: T.accent }}>saytingizni</span> yasadingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? 'Tabriklaymiz! Endi o\u2019zingiz veb-sahifa yasay olasiz.' : 'Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko\u2019ring.'}</p></div><ScoreRing correct={correct} total={total} /></div>
-        <div className={`qz-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
-          <div className="qz-cta-txt">
-            <span className="qz-cta-h">🦉 CoddyHoot jangi</span>
-            <span className="qz-cta-s">{studentSolo
-              ? `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · mashq rejimi — natija faqat sizga`
-              : `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · tezkorlar podiumga 🏆`}</span>
-          </div>
-          <button className="qz-cta-btn" disabled={studentWait} onClick={openArena}>
-            {studentWait ? '⏳ Mentorni kuting'
-              : studentSolo ? "📖 Testni o'zim ishlash"
-              : studentLive ? (quizSt === 'done' ? "🏆 Natijalarni ko'rish" : '🔥 Testga kirish!')
-              : isMentorL ? (quizSt === 'off' ? '⚔️ Testni ochish' : '⚔️ Davom ettirish')
-              : '⚔️ Testni ishlash'}
-          </button>
+        <div className={`qz-cta cs-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
+          <CsWordmark
+            stats={false}
+            bolt={false}
+            disabled={studentWait}
+            onClick={studentWait ? undefined : openArena}
+            hint={studentWait ? '⏳ Mentorni kuting' : undefined}
+          />
         </div>
         {arena && <QuizArena live={_live || { mode: 'self' }} startSolo={arenaSolo} onClose={() => setArena(false)} />}
         <div className="split">
@@ -3172,7 +3240,6 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
             ); })}
           </div>
         </div>
-        <div className="gloss fade-up d4"><div className="gloss-head" onClick={() => setOpen(o => !o)}><span className="lbl">💡 Kalit so'zlar (takrorlash)</span><span className="gloss-toggle">{open ? '−' : '+'}</span></div>{open && (<div className="gloss-body">{GLOSSARY.map((g, i) => (<span key={i}><b>{g.b}</b> {g.t}{i < GLOSSARY.length - 1 ? ' · ' : ''}</span>))}</div>)}</div>
       </div>
     </Stage>
   );
@@ -3314,10 +3381,10 @@ const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   );
 };
 
-// ===== 🦉 CODDYHOOT (CoddyCamp jonli test arenasi) =====
-const QUIZ_MS = 20000;
+// ===== ⚡ CODESTRIKE (CoddyCamp jonli test arenasi) =====
+const QUIZ_MS = 15000;
 const QUIZ_BASE_IDX = 100;
-const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CoddyHoot brend palitrasi: coral · ocean · sun · leaf
+const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CodeStrike brend palitrasi: coral · ocean · sun · leaf
 const QUIZ_SHAPES = ['▲', '◆', '●', '■'];
 // Arena foni: suzuvchi kod tokenlari (kodlash maktabi hissi)
 const QZ_BG_SHAPES = [
@@ -3332,18 +3399,18 @@ const QZ_BG_SHAPES = [
   { ch: '<p>',  l: 2,  t: 46, s: 24, c: 'rgba(20,17,14,0.045)',  d: 26, dl: 2.6 },
 ];
 const QUIZ_BANK = [
-  { q: "Yopuvchi teg qaysi belgi bilan boshlanadi?", opts: ["/", "\\", "!", "#"], correct: 0 },
-  { q: "Sarlavha teglaridan eng KICHIGI qaysi?", opts: ["h1", "h3", "h6", "p"], correct: 2 },
-  { q: "Tartibsiz (nuqtali) ro'yxatni qaysi teg boshlaydi?", opts: ["ul", "ol", "li", "a"], correct: 0 },
-  { q: "Ro'yxatning har bir bandi qaysi tegga o'raladi?", opts: ["ul", "li", "ol", "dd"], correct: 1 },
-  { q: "Havolada (link) manzil qaysi atributga yoziladi?", opts: ["src", "href", "link", "url"], correct: 1 },
-  { q: "title tegidagi matn qayerda ko'rinadi?", opts: ["Sahifa o'rtasida", "Brauzer yorlig'ida (tab)", "Tugma ustida", "Hech qayerda"], correct: 1 },
-  { q: "Ko'rinmaydigan sozlamalar (title, meta) qaysi qismga yoziladi?", opts: ["body", "head", "p", "h1"], correct: 1 },
-  { q: "Matnni QALIN (bold) qilish uchun qaysi teg?", opts: ["strong", "em", "p", "i"], correct: 0 },
-  { q: "<!DOCTYPE html> nimani bildiradi?", opts: ["Sahifa rangini", "Bu HTML5 hujjat ekanini", "Rasm qo'shishni", "Sahifani yopishni"], correct: 1 },
-  { q: "Sahifa skeletining to'g'ri tartibi qaysi?", opts: ["html ichida head va body", "body ichida html", "head ichida html", "title ichida body"], correct: 0 },
+  { q: "Yopuvchi teg qaysi belgi bilan boshlanadi?", opts: ["`\\`", "`!`", "`#`", "`/`"], correct: 3 },
+  { q: "Sarlavha teglaridan eng KICHIGI qaysi?", opts: ["`h1`", "`h3`", "`h6`", "`p`"], correct: 2 },
+  { q: "Tartibsiz (nuqtali) ro'yxatni qaysi teg boshlaydi?", opts: ["`ul`", "`ol`", "`li`", "`a`"], correct: 0 },
+  { q: "Ro'yxatning har bir bandi qaysi tegga o'raladi?", opts: ["`ul`", "`li`", "`ol`", "`dd`"], correct: 1 },
+  { q: "Havolada (link) manzil qaysi atributga yoziladi?", opts: ["`src`", "`link`", "`href`", "`url`"], correct: 2 },
+  { q: "`title` tegidagi matn qayerda ko'rinadi?", opts: ["Sahifa o'rtasida", "Brauzer yorlig'ida (tab)", "Tugma ustida", "Hech qayerda"], correct: 1 },
+  { q: "Ko'rinmaydigan sozlamalar (`title`, `meta`) qaysi qismga yoziladi?", opts: ["`body`", "`p`", "`head`", "`h1`"], correct: 2 },
+  { q: "Matnni QALIN (bold) qilish uchun qaysi teg?", opts: ["`strong`", "`em`", "`p`", "`i`"], correct: 0 },
+  { q: "`<!DOCTYPE html>` nimani bildiradi?", opts: ["Sahifa rangini", "Rasm qo'shishni", "Sahifani yopishni", "Bu HTML5 hujjat ekanini"], correct: 3 },
+  { q: "Sahifa skeletining to'g'ri tartibi qaysi?", opts: ["`body` ichida `html`", "`head` ichida `html`", "`title` ichida `body`", "`html` ichida `head` va `body`"], correct: 3 },
   { q: "HTML kodni o'qib, sahifaga aylantiradigan dastur qaysi?", opts: ["Server", "Brauzer", "Word", "Fayl menejeri"], correct: 1 },
-  { q: "Matnni QIYA (kursiv) qilish uchun qaysi teg?", opts: ["em", "ul", "a", "h1"], correct: 0 },
+  { q: "Matnni QIYA (kursiv) qilish uchun qaysi teg?", opts: ["`em`", "`ul`", "`a`", "`h1`"], correct: 0 },
 ];
 const quizPts = (elapsedMs) => elapsedMs <= 500 ? 1000 : Math.max(0, Math.round(1000 * (1 - (Math.min(elapsedMs, QUIZ_MS) / QUIZ_MS) / 2)));
 // Bitta o'yinchining barcha javoblaridan yakuniy hisob (hamma klientda bir xil chiqadi)
@@ -3376,21 +3443,37 @@ function QzTimer({ remaining }) {
   );
 }
 
-// 🦉 CoddyHoot boyqush mascot (brend belgisi)
-const QzOwl = ({ size = 72 }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="qz-owl">
-    <defs><linearGradient id="qzog" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF8A3D" /><stop offset="1" stopColor="#FF4F28" /></linearGradient></defs>
-    <rect x="6" y="6" width="88" height="88" rx="24" fill="url(#qzog)" />
-    <ellipse cx="50" cy="58" rx="30" ry="30" fill="#fff" />
-    <path d="M28 32 L40 44 L24 46 Z" fill="#E23A16" /><path d="M72 32 L60 44 L76 46 Z" fill="#E23A16" />
-    <circle cx="38" cy="52" r="13" fill="#fff" stroke="#14110E" strokeWidth="2.5" />
-    <circle cx="62" cy="52" r="13" fill="#fff" stroke="#14110E" strokeWidth="2.5" />
-    <circle cx="38" cy="53" r="6.5" fill="#14110E" /><circle cx="62" cy="53" r="6.5" fill="#14110E" />
-    <circle cx="40" cy="50.5" r="2" fill="#fff" /><circle cx="64" cy="50.5" r="2" fill="#fff" />
-    <path d="M44 66 L50 74 L56 66 Z" fill="#FF8A3D" />
-    <path d="M30 78 Q50 88 70 78" stroke="#FF8A3D" strokeWidth="4" fill="none" strokeLinecap="round" />
+// ⚡ CodeStrike chaqmoq mascot (brend belgisi)
+const QzBolt = ({ size = 72 }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="qz-bolt">
+    <defs><linearGradient id="qzbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF8A3D" /><stop offset="1" stopColor="#FF4F28" /></linearGradient></defs>
+    <rect x="6" y="6" width="88" height="88" rx="24" fill="url(#qzbg)" />
+    <path d="M56 12 L28 54 L45 54 L38 88 L72 40 L53 40 Z" fill="#fff" stroke="#E23A16" strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="76" cy="24" r="3.5" fill="#FFD9A8" /><circle cx="22" cy="72" r="2.6" fill="#FFD9A8" /><circle cx="80" cy="66" r="2.2" fill="#FFD9A8" />
   </svg>
 );
+
+// ⚡ Katta yonib turuvchi CODESTRIKE wordmark (CTA'da bosiladi, lobbyda ko'rsatiladi)
+const CsWordmark = ({ onClick, disabled, hint, stats = true, bolt = true }) => {
+  const clickable = !!onClick && !disabled;
+  return (
+    <div
+      className={`cs-hero ${clickable ? 'cs-clickable' : ''} ${disabled ? 'cs-off' : ''}`}
+      {...(clickable ? { role: 'button', tabIndex: 0, onClick, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } } : {})}
+    >
+      {bolt && <div className="cs-boltrow"><QzBolt size={48} /></div>}
+      <div className="cs-word" data-text="CODESTRIKE" aria-label="CodeStrike">CODESTRIKE</div>
+      {stats && (
+        <div className="cs-chips">
+          <span className="cs-chip"><b>{QUIZ_BANK.length}</b> savol</span>
+          <span className="cs-chip"><b>{QUIZ_MS / 1000}</b> soniya</span>
+          <span className="cs-chip">🏆 podium</span>
+        </div>
+      )}
+      {hint && <span className={`cs-enter ${disabled ? 'wait' : ''}`}>{hint}</span>}
+    </div>
+  );
+};
 
 // Jonli fon: suzuvchi uchqunlar + «web» chiziqlari + kod tokenlari (canvas)
 function QzFX() {
@@ -3590,8 +3673,8 @@ function QuizArena({ live, onClose, startSolo }) {
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
-          <div className="qz-brand"><QzOwl size={74} /><span className="qz-wm">Coddy<span className="qz-wm-h">Hoot</span></span></div>
-          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
+          <CsWordmark />
+          <p className="qz-sub" style={{ marginTop: -4 }}>Tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {solo && isStudent && <p className="qz-sub" style={{ color: '#FFC94D' }}>📖 Mashq rejimi — o'z tezligingizda ishlaysiz, natija faqat sizga ko'rinadi.</p>}
           {!solo && (
             <div className="qz-lobby-players">
@@ -3615,14 +3698,14 @@ function QuizArena({ live, onClose, startSolo }) {
               ? <span className="qz-ansn">📨 {answeredN}/{players.length}</span>
               : <span className="qz-ansn">{streakUpTo(qi - 1) >= 2 ? `🔥 x${streakUpTo(qi - 1)}` : ' '}</span>}
           </div>
-          <h2 className="qz-q">{Q.q}</h2>
+          <h2 className="qz-q">{fmtCode(Q.q)}</h2>
           <div className="qz-grid">
             {Q.opts.map((o, i) => {
               const pickedThis = my && my.picked === i;
               return (
                 <button key={i} className={`qz-tile ${my ? (pickedThis ? 'picked' : 'faded') : ''}`} style={{ background: QUIZ_COLORS[i] }} disabled={isMentor || !!my} onClick={() => answer(i)}>
                   <span className="qz-shape">{QUIZ_SHAPES[i]}</span>
-                  <span className="qz-opt">{o}</span>
+                  <span className="qz-opt">{fmtCode(o)}</span>
                   {pickedThis && <span className="qz-pbadge">✔</span>}
                 </button>
               );
@@ -3644,7 +3727,7 @@ function QuizArena({ live, onClose, startSolo }) {
           <div className="qz-top">
             <span className="qz-count">Savol <b>{qi + 1}</b>/{QUIZ_BANK.length} — natija</span>
           </div>
-          <h2 className="qz-q">{Q.q}</h2>
+          <h2 className="qz-q">{fmtCode(Q.q)}</h2>
           <div className="qz-grid">
             {Q.opts.map((o, i) => {
               const win = i === Q.correct;
@@ -3652,7 +3735,7 @@ function QuizArena({ live, onClose, startSolo }) {
               return (
                 <div key={i} className={`qz-tile rv ${win ? 'win' : 'lose'} ${pickedThis ? 'picked' : ''}`} style={{ background: QUIZ_COLORS[i] }}>
                   <span className="qz-shape">{QUIZ_SHAPES[i]}</span>
-                  <span className="qz-opt">{o}</span>
+                  <span className="qz-opt">{fmtCode(o)}</span>
                   <span className="qz-cnt">{win ? '✓ ' : ''}{counts[i]}</span>
                 </div>
               );
@@ -3687,7 +3770,7 @@ function QuizArena({ live, onClose, startSolo }) {
       {phase === 'done' && (
         <div className="qz-view fade-step">
           <Confetti />
-          <div className="qz-brand sm"><QzOwl size={48} /><span className="qz-wm">Coddy<span className="qz-wm-h">Hoot</span></span></div>
+          <div className="qz-brand sm"><QzBolt size={48} /><span className="qz-wm">Code<span className="qz-wm-h">Strike</span></span></div>
           <h2 className="qz-h" style={{ fontSize: 'clamp(20px,3.4vw,30px)' }}>Test yakunlandi! 🎉</h2>
           {solo ? (
             <div className="qz-solo-res">
@@ -3744,20 +3827,15 @@ function QuizArena({ live, onClose, startSolo }) {
 // — P1: sarlavhalar (Screen8 — Sarlavhalar — dan keyin) —
 const TASK_HEADINGS = {
   eyebrow: 'Praktika · sarlavha',
-  title: "Sarlavha va matn (paragraf) yozing",
-  brief: "Sahifaga bosh sarlavha, kichik sarlavha va bir matn (paragraf) qo'shing. To'g'ri bo'lsa o'ngda ko'rinadi va “Davom etish” yonadi.",
+  title: "Katta va kichik sarlavhalar yozing",
+  brief: "Sarlavha narvonini o'zingiz sinang: h1 — eng katta, h2 — kichikroq, h6 — eng kichik. Uchalasini yozing, farqini o'ngda ko'rasiz — to'g'ri bo'lsa “Davom etish” yonadi.",
   requirements: [
     { id: 'h1', label: '<h1> — bosh sarlavha', check: C.text('h1', "`<h1>` ichiga bosh sarlavha matnini yozing") },
     { id: 'h2', label: '<h2> — kichik sarlavha', check: C.text('h2', "`<h2>` ichiga kichik sarlavha yozing") },
-    { id: 'p', label: '<p> — matn (paragraf)', check: C.text('p', "`<p>` ichiga bir-ikki gap yozing") },
+    { id: 'h6', label: '<h6> — eng kichik sarlavha', check: C.text('h6', "`<h6>` ichiga eng kichik sarlavha yozing — farqni solishtiring") },
   ],
 };
-const STARTER_HEADINGS = `<!-- Quyidagilarni yozing: -->
-<!-- 1) <h1> bosh sarlavha -->
-
-<!-- 2) <h2> kichik sarlavha -->
-
-<!-- 3) <p> matn / paragraf (bir-ikki gap) -->
+const STARTER_HEADINGS = `<!-- Bu yerga yozing -->
 
 `;
 
@@ -3771,8 +3849,7 @@ const TASK_TEXT = {
     { id: 'em', label: '<em> — qiya so\'z', check: C.nested('p', 'em', "`<p>` ichida bitta so'zni `<em>...</em>` bilan qiya qiling") },
   ],
 };
-const STARTER_TEXT = `<!-- Bir so'zni <strong>qalin</strong>, boshqasini <em>qiya</em> qiling -->
-<p>Men dasturlashni yaxshi ko'raman.</p>
+const STARTER_TEXT = `<!-- Bu yerga yozing -->
 `;
 
 // — P3: ro'yxat (Screen10 — Ro'yxatlar — dan keyin) —
@@ -3785,7 +3862,7 @@ const TASK_LIST = {
     { id: 'items', label: 'kamida 3 ta <li> band', check: C.count('li', 3, "Ro'yxat ichiga kamida 3 ta `<li>...</li>` band yozing") },
   ],
 };
-const STARTER_LIST = `<!-- <ul> yoki <ol> yasang, ichiga kamida 3 ta <li> band -->
+const STARTER_LIST = `<!-- Bu yerga yozing -->
 
 `;
 
@@ -3799,15 +3876,14 @@ const TASK_LINK = {
     { id: 'text', label: '<a> — ko\'rinadigan matn', check: C.text('a', "`<a>` ichiga bosiladigan matn yozing (masalan sayt nomi)") },
   ],
 };
-const STARTER_LINK = `<!-- href ichiga manzil, teg ichiga matn yozing -->
-<a href="">Bu yerni bosing</a>
+const STARTER_LINK = `<!-- Bu yerga yozing -->
 `;
 
 // — P5: yakuniy (Screen13 Debugging dan keyin — Screen15 "ismingizni sarlavha qiling" olib tashlandi) —
 const TASK_FINAL = {
   eyebrow: 'Praktika · yakuniy',
   title: "Hammasi birga — o'z sahifangiz",
-  brief: "Bugun o'rgangan hamma narsa: sarlavha + matn (paragraf) + ro'yxat + havola. Yetishmayotgan qismlarni o'zingiz to'ldiring.",
+  brief: "Bugun o'rgangan hamma narsa: sarlavha + matn (paragraf) + ro'yxat + havola. Sahifani noldan o'zingiz yig'asiz.",
   requirements: [
     { id: 'h1', label: '<h1> sarlavha (matn bilan)', check: C.text('h1', "`<h1>` ichiga sarlavha yozing") },
     { id: 'p', label: '<p> — matn (paragraf)', check: C.text('p', "`<p>` ichiga bir-ikki gap yozing") },
@@ -3815,13 +3891,7 @@ const TASK_FINAL = {
     { id: 'a', label: '<a> havola — href bilan', check: C.attr('a', 'href', "`<a href=\"...\">matn</a>` havola qo'shing") },
   ],
 };
-const STARTER_FINAL = `<h1>Men haqimda</h1>
-
-<!-- 1) Bir matn / paragraf <p> yozing -->
-
-<!-- 2) Ro'yxat: <ul> yoki <ol>, ichida <li> bandlar -->
-
-<!-- 3) Havola: <a href="...">matn</a> -->
+const STARTER_FINAL = `<!-- Bu yerga yozing -->
 `;
 
 // Praktika handoff xaritasi: shu ekran INDEKSIDAN keyin qaysi praktika chaqiriladi.
@@ -3835,27 +3905,109 @@ const PRACTICE_AFTER = {
 
 // ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
 const ACHIEVEMENTS = {
-  skelet:    { icon: '🧲', name: 'Skelet ustasi',     desc: "Sahifa skeletini o'zing yig'ding" },
-  firsttag:  { icon: '🏷️', name: 'Birinchi teg',      desc: 'Yopuvchi tegni yozding' },
-  debugger:  { icon: '🐞', name: 'Xato ovchisi',      desc: 'Buzuq kodni topib tuzatding' },
-  flashcard: { icon: '🃏', name: 'Flashcard usta',    desc: 'Teglarni takrorlading' },
-  ace:       { icon: '⭐', name: "A'lochi",           desc: "Barcha testlar to'g'ri" },
-  graduate:  { icon: '🏆', name: 'HTML bitiruvchisi', desc: 'Darsni yakunlading' },
+  skelet:    { icon: '🧲', name: 'Built It!',   desc: "Sahifa skeletini o'zingiz yig'dingiz" },
+  firsttag:  { icon: '🏷️', name: 'Tag It!',     desc: 'Yopuvchi tegni yozdingiz' },
+  debugger:  { icon: '🐞', name: 'Nice Catch!', desc: 'Buzuq kodni topib tuzatdingiz' },
+  graduate:  { icon: '🏆', name: 'Level Up!',   desc: "Birinchi HTML darsini to'liq yakunladingiz" },
 };
 // Ekran id → nishon (recordAnswer'da avtomatik beriladi)
-const ACH_TRIGGERS = { s5: 'skelet', s7: 'firsttag', s13: 'debugger', sflash: 'flashcard' };
-function AchToastItem({ ach, onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 3600); return () => clearTimeout(t); }, []); // eslint-disable-line
+const ACH_TRIGGERS = { s5: 'skelet', s7: 'firsttag', s13: 'debugger' };
+// 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI — yorqin nurlar, medal portlashi, uchqunlar, zarba to'lqini
+function AchCelebrate({ ach, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 4000); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
-    <div className="ach-toast" onClick={onDone} role="status">
-      <span className="ach-toast-shine" />
-      <span className="ach-toast-ic">{ach.icon}</span>
-      <div className="ach-toast-txt"><span className="ach-toast-lbl">🏅 Yangi nishon!</span><span className="ach-toast-name">{ach.name}</span></div>
+    <div className="acu-overlay" onClick={onDone} role="status" aria-label={`Yangi nishon: ${ach.name}`}>
+      <div className="acu-rays" aria-hidden="true" />
+      <div className="acu-glow" aria-hidden="true" />
+      <div className="acu-ring" aria-hidden="true" />
+      <div className="acu-ring d2" aria-hidden="true" />
+      <div className="acu-stage">
+        <div className="acu-medal-wrap">
+          <div className="acu-medal">{ach.icon}<span className="acu-shine" /></div>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span key={i} className="acu-spark" style={{ '--a': `${i * (360 / 14)}deg`, animationDelay: `${0.18 + (i % 5) * 0.05}s` }}>✦</span>
+          ))}
+        </div>
+        <div className="acu-txt">
+          <span className="acu-eyebrow">🏅 Nishon ochildi!</span>
+          <span className="acu-name">{ach.name}</span>
+          {ach.desc && <span className="acu-desc">{ach.desc}</span>}
+        </div>
+        <span className="acu-tap">bosib davom eting</span>
+      </div>
     </div>
   );
 }
+// Navbatda bittasi ko'rsatiladi (to'liq-ekran bayram) — tugagach keyingisi chiqadi
 function AchToasts({ toasts, onDone }) {
-  return <div className="ach-toasts" aria-live="polite">{toasts.map(t => { const a = ACHIEVEMENTS[t.id]; return a ? <AchToastItem key={t.k} ach={a} onDone={() => onDone(t.k)} /> : null; })}</div>;
+  const t = toasts[0];
+  const a = t && ACHIEVEMENTS[t.id];
+  if (!a) return null;
+  return <AchCelebrate key={t.k} ach={a} onDone={() => onDone(t.k)} />;
+}
+
+// ===== 👋 ONBOARDING — real "coach-mark" turi: har qadamda haqiqiy tugmaga spotlight + so'z (rolga qarab, bir marta) =====
+const TOUR = {
+  learner: [
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Oldinga o\'tish', body: <>Tayyor bo'lsangiz, <b>«Davom etish»</b> bilan keyingi qadamga o'tasiz. Yonidagi <b>«Orqaga»</b> bilan qaytasiz.</> },
+    { sel: '[data-tour="mentor"]', ic: '🧑‍🏫', h: 'Mentor yordami', body: <>Har ekranda mentor nima qilishni tushuntiradi — avval uni <b>o'qing</b>, keyin bajaring.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: 'Progress chizig\'i', body: <>Bu chiziq dars <b>qancha qolganini</b> ko'rsatadi — to'lgani sari yakunlaysiz.</> },
+    { sel: '[data-tour="ach"]', ic: '🏅', h: 'Nishonlaringiz', body: <>Vazifalarni bajarib, shu yerda <b>nishon</b> yig'asiz. Bosib ro'yxatini ko'rasiz.</> },
+  ],
+  mentor: [
+    { sel: '[data-tour="live"]', ic: '🔢', h: 'Qo\'shilish kodi', body: <>O'quvchilar shu <b>PIN kod</b> bilan qo'shiladi. Kim qo'shilganini shu yerda ko'rasiz.</> },
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Siz boshqarasiz', body: <><b>«Davom etish»</b> bosganingizda, barcha o'quvchilar birga oldinga o'tadi.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: 'Progress chizig\'i', body: <>Dars qaysi bosqichda ekanini shu chiziq ko'rsatadi.</> },
+  ],
+};
+function TourGuide({ role, onClose }) {
+  const steps = TOUR[role] || TOUR.learner;
+  const [i, setI] = useState(0);
+  const [rect, setRect] = useState(null);
+  const step = steps[i];
+  const last = i === steps.length - 1;
+  useEffect(() => {
+    const el = typeof document !== 'undefined' && document.querySelector(step.sel);
+    if (!el) { setRect(null); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    const measure = () => { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height, bottom: r.bottom }); };
+    const raf = requestAnimationFrame(() => { measure(); });
+    const t = setTimeout(measure, 90);
+    window.addEventListener('resize', measure);
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); else if (e.key === 'ArrowRight') setI(p => Math.min(p + 1, steps.length - 1)); else if (e.key === 'ArrowLeft') setI(p => Math.max(p - 1, 0)); };
+    window.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); window.removeEventListener('resize', measure); window.removeEventListener('keydown', onKey); };
+  }, [i, step.sel, steps.length, onClose]);
+  const next = () => last ? onClose() : setI(i + 1);
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1000;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const CW = Math.min(300, vw - 24);
+  let callStyle = { top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: CW };
+  if (rect) {
+    const below = rect.bottom + 168 < vh;
+    const cx = Math.min(Math.max(rect.left + rect.width / 2, CW / 2 + 12), vw - CW / 2 - 12);
+    callStyle = below
+      ? { top: rect.bottom + 16, left: cx, transform: 'translateX(-50%)', width: CW }
+      : { top: Math.max(12, rect.top - 16), left: cx, transform: 'translate(-50%,-100%)', width: CW };
+  }
+  return (
+    <div className="tg-root">
+      {rect
+        ? <div className="tg-hole" style={{ top: rect.top - 7, left: rect.left - 7, width: rect.width + 14, height: rect.height + 14 }} />
+        : <div className="tg-dim" />}
+      <div className="tg-call" style={callStyle}>
+        <div className="tg-head"><span className="tg-ic">{step.ic}</span><span className="tg-h">{step.h}</span><span className="tg-count">{i + 1}/{steps.length}</span></div>
+        <p className="tg-body">{step.body}</p>
+        <div className="tg-nav">
+          <button className="tg-skip" onClick={onClose}>O'tkazib yuborish</button>
+          <div className="tg-navr">
+            {i > 0 && <button className="tg-btn ghost" onClick={() => setI(i - 1)} aria-label="Oldingi">←</button>}
+            <button className="tg-btn go" onClick={next}>{last ? 'Boshladik!' : 'Keyingisi →'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
@@ -3882,7 +4034,17 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
     const upd = () => { const z = Math.min(1.5, Math.max(1, window.innerWidth / 1920)); document.documentElement.style.setProperty('--lz', String(Math.round(z * 1000) / 1000)); };
     upd(); window.addEventListener('resize', upd); return () => window.removeEventListener('resize', upd);
   }, []);
-  const advance = () => setScreen(s => Math.min(s + 1, TOTAL_SCREENS - 1));
+  // 🃏 Flashcard jonli darsda FAQAT MENTORGA ko'rinadi (proyektorda jamoaviy
+  // takrorlash uchun); jonli o'quvchidan yashirin — sakrab o'tiladi. Mentor darsni
+  // «Erkin qilish» qilgach (yoki uzilsa / yakka o'qishda) o'quvchilarga ham ochiladi.
+  const FLASH_IDX = SCREEN_META.findIndex(m => m.id === 'sflash');
+  const flashHidden = () =>
+    live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
+  const advance = () => setScreen(s => {
+    let n = Math.min(s + 1, TOTAL_SCREENS - 1);
+    if (n === FLASH_IDX && flashHidden()) n = Math.min(n + 1, TOTAL_SCREENS - 1);
+    return n;
+  });
   // Praktikani ishga tushiradi: production'da onPractice (LMS), lokalda overlay.
   // fromScreen — praktika QAYSI ekrandan keyin ochilgani; tugatilganda mentor paneli
   // uchun «tugatdim» signali serverga yoziladi (o'quvchi jonli darsda bo'lsa).
@@ -3912,7 +4074,11 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
       runPractice(entry, screen); // o'quvchi / self: mashqni o'zi bajaradi
     }
   };
-  const prev = () => setScreen(s => Math.max(s - 1, 0));
+  const prev = () => setScreen(s => {
+    let n = Math.max(s - 1, 0);
+    if (n === FLASH_IDX && flashHidden()) n = Math.max(n - 1, 0);
+    return n;
+  });
   const recordAnswer = (idx, data) => {
     setAnswers(a => ({ ...a, [idx]: data }));
     const _m = SCREEN_META[idx];
@@ -3927,13 +4093,22 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   const isStudentLive = live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
   const locked = isStudentLive && (screen + 1 > live.mentorScreen);
   useEffect(() => { live.reportScreen(screen); }, [screen, live.mode, live.pin]); // eslint-disable-line
-  // 🏅 Yakuniy ekranga yetganda: bitiruvchi + (hammasi to'g'ri bo'lsa) a'lochi
+  // 👋 Onboarding — rejim tanlangач bir marta (rolga qarab, localStorage'da eslab qolinadi)
+  const [onboard, setOnboard] = useState(false);
+  const onboardShownRef = useRef(false);
+  const onboardRole = live.mode === 'mentor' ? 'mentor' : 'learner';
   useEffect(() => {
-    if (screen === TOTAL_SCREENS - 1) {
-      earn('graduate');
-      const scored = SCREEN_META.map((s, i) => (s.scored ? !!answers[i]?.correct : null)).filter(v => v !== null);
-      if (scored.length && scored.every(Boolean)) earn('ace');
+    if (live.mode !== 'choosing' && !onboardShownRef.current) {
+      onboardShownRef.current = true;
+      let show = true;
+      try { if (localStorage.getItem('hcOnboarded_' + onboardRole)) show = false; } catch {}
+      if (show) { const t = setTimeout(() => setOnboard(true), 500); return () => clearTimeout(t); } // sahifa chizilib bo'lsin
     }
+  }, [live.mode, onboardRole]);
+  const closeOnboard = () => { try { localStorage.setItem('hcOnboarded_' + onboardRole, '1'); } catch {} setOnboard(false); };
+  // 🏅 Yakuniy ekranga yetganda: bitiruvchi nishoni
+  useEffect(() => {
+    if (screen === TOTAL_SCREENS - 1) earn('graduate');
   }, [screen]); // eslint-disable-line
 
   const finishLesson = () => {
@@ -4172,6 +4347,15 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .bskel-page { background: #fff; padding: 16px; min-height: 80px; }
         .bskel-ptitle { font-family: 'Georgia, serif'; font-size: 18px; color: ${T.ink}; margin: 0 0 4px; } .bskel-ptext { font-family: 'Georgia, serif'; color: ${T.ink2}; margin: 0; font-size: 13px; }
         .bskel-zone-b { position: absolute; bottom: 6px; right: 10px; }
+        .sk-tapguide { margin: 0 0 8px; font-family: 'Manrope'; font-weight: 600; font-size: clamp(12.5px,1.7vw,14px); color: ${T.ink2}; }
+        .sk-tapguide b { color: ${T.ink}; }
+        .sk-tapcount { background: ${T.accent}; color: #fff; border-radius: 99px; padding: 2px 9px; font-weight: 800; margin-left: 6px; font-size: 12px; font-family: 'Manrope'; }
+        @keyframes tap-hint { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(255,79,40,0); } 50% { box-shadow: inset 0 0 0 2px rgba(255,79,40,0.45); } }
+        .bskel-doctype:not(.seen), .bskel-tab:not(.seen), .bskel-page:not(.seen) { animation: tap-hint 1.8s ease-in-out infinite; }
+        .bskel-html:not(.seen) .bskel-htmllabel { animation: tap-hint 1.8s ease-in-out infinite; border-radius: 6px; }
+        .bskel-doctype.seen::after { content: '✓'; float: right; color: ${T.success}; font-weight: 700; }
+        .bskel-html.seen .bskel-htmllabel::after { content: ' ✓'; color: ${T.success}; font-weight: 700; }
+        .bskel-tab.seen .bskel-zone::before, .bskel-page.seen .bskel-zone-b::before { content: '✓ '; color: ${T.success}; font-weight: 700; }
         .bskel-doctype.active, .bskel-html.active, .bskel-tab.active, .bskel-page.active { box-shadow: inset 0 0 0 2px ${T.accent}; background: ${T.accentSoft}; }
         .bskel-tab.active, .bskel-page.active { background: ${T.accentSoft}; }
         .ck { cursor: pointer; border-radius: 4px; transition: all 0.15s; padding: 0 2px; }
@@ -4237,15 +4421,29 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         /* === 🃏 FLASHCARDS (reusable, 3D flip) === */
         .fc-center { display: flex; justify-content: center; padding-top: 4px; }
         .fc { display: flex; flex-direction: column; gap: 11px; max-width: 480px; width: 100%; }
-        .fc-top { display: flex; justify-content: space-between; align-items: baseline; font-family: 'Manrope'; font-weight: 700; font-size: 13px; }
-        .fc-count { color: ${T.ink2}; } .fc-count b { color: ${T.accent}; font-size: 1.15em; }
-        .fc-remain { color: ${T.ink3}; font-size: 12px; }
+        .fc-top { display: flex; justify-content: space-between; align-items: center; }
+        .fc-pill { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; border-radius: 99px; padding: 5px 13px; animation: fc-pill-pop 0.35s cubic-bezier(.34,1.5,.4,1); }
+        .fc-pill b { font-size: 1.15em; font-variant-numeric: tabular-nums; }
+        .fc-pill.learn { background: ${T.accentSoft}; color: ${T.accent}; border: 1.5px solid ${T.accent}44; }
+        .fc-pill.knew { background: ${T.successSoft}; color: ${T.success}; border: 1.5px solid ${T.success}44; }
+        @keyframes fc-pill-pop { 40% { transform: scale(1.16); } }
         .fc-bar { height: 7px; background: ${T.line}; border-radius: 99px; overflow: hidden; }
         .fc-bar-fill { display: block; height: 100%; background: linear-gradient(90deg, #FF8A3D, ${T.accent}); border-radius: 99px; transition: width .4s cubic-bezier(.34,1.2,.4,1); }
         .fc-cardwrap { perspective: 1200px; position: relative; }
         .fc-cardwrap::before, .fc-cardwrap::after { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-radius: 20px; background: ${T.paper}; border: 2px solid ${T.line}; z-index: -1; }
         .fc-cardwrap::before { transform: translateY(7px) scale(0.965); opacity: 0.7; }
         .fc-cardwrap::after { transform: translateY(15px) scale(0.93); opacity: 0.4; }
+        /* Quizlet uslubi: karta rangli muhr bilan chapga (✗ qizil) / o'ngga (✓ yashil) uchib ketadi */
+        .fc-fly { position: relative; animation: fc-in 0.3s ease; }
+        @keyframes fc-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+        .fc-fly.out-knew { animation: fc-out-knew 0.42s ease forwards; }
+        .fc-fly.out-again { animation: fc-out-again 0.42s ease forwards; }
+        @keyframes fc-out-knew { 30% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(70%) rotate(5deg); opacity: 0; } }
+        @keyframes fc-out-again { 30% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(-70%) rotate(-5deg); opacity: 0; } }
+        .fc-fly.out-knew::after, .fc-fly.out-again::after { position: absolute; top: 50%; left: 50%; z-index: 6; width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #fff; pointer-events: none; animation: fc-stamp 0.3s cubic-bezier(.34,1.6,.4,1); transform: translate(-50%, -50%); }
+        .fc-fly.out-knew::after { content: '✓'; background: ${T.success}; box-shadow: 0 10px 26px -8px ${T.success}; }
+        .fc-fly.out-again::after { content: '✗'; background: ${T.accent}; box-shadow: 0 10px 26px -8px ${T.accent}; }
+        @keyframes fc-stamp { from { transform: translate(-50%, -50%) scale(0); } }
         .fc-card { position: relative; height: clamp(160px,26vw,188px); cursor: pointer; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.4,0,.2,1); }
         .fc-card.flip { transform: rotateY(180deg); }
         .fc-card:not(.flip):hover { transform: translateY(-3px); }
@@ -4261,7 +4459,9 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .fc-btn { flex: 1; padding: 13px; border-radius: 13px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: transform .15s; }
         .fc-btn:hover { transform: translateY(-2px); }
         .fc-btn.knew { background: ${T.success}; color: #fff; box-shadow: 0 10px 22px -10px ${T.success}; }
-        .fc-btn.again { background: ${T.paper}; border: 1.5px solid ${T.line}; color: ${T.ink}; }
+        .fc-btn.again { background: ${T.paper}; border: 2px solid ${T.accent}66; color: ${T.accent}; }
+        .fc-btn.again:hover { border-color: ${T.accent}; background: ${T.accentSoft}; }
+        .fc-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
         .fc-btn.ghost { background: ${T.paper}; border: 1.5px solid ${T.line}; color: ${T.ink}; flex: none; align-self: center; padding: 11px 22px; }
         .fc-hint { margin: 0; text-align: center; color: ${T.ink3}; font-style: italic; font-size: 13px; }
         .fc-done { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; background: ${T.successSoft}; border-radius: 18px; padding: 22px; max-width: 480px; }
@@ -4270,19 +4470,51 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .fc-done-s { font-family: 'Manrope'; color: ${T.ink2}; margin: 0 0 8px; font-size: 14px; }
 
         /* === 🏅 ACHIEVEMENTS === */
-        .ach-toasts { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-        .ach-toast { position: relative; overflow: hidden; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 12px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-left: 4px solid ${T.accent}; border-radius: 15px; padding: 11px 18px 11px 13px; box-shadow: 0 16px 40px -12px rgba(${T.shadowBase},0.4); animation: ach-in 0.5s cubic-bezier(.34,1.4,.4,1), ach-out 0.4s ease 3.2s forwards; min-width: 236px; }
-        @keyframes ach-in { from { opacity: 0; transform: translateY(-26px) scale(0.9); } to { opacity: 1; transform: none; } }
-        @keyframes ach-out { to { opacity: 0; transform: translateY(-16px) scale(0.96); } }
-        .ach-toast-ic { font-size: 30px; line-height: 1; flex-shrink: 0; animation: ach-pop 0.6s cubic-bezier(.34,1.6,.4,1) 0.1s both; }
-        @keyframes ach-pop { 0% { transform: scale(0) rotate(-25deg); } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
-        .ach-toast-txt { display: flex; flex-direction: column; gap: 1px; }
-        .ach-toast-lbl { font-family: 'Manrope'; font-weight: 800; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.accent}; }
-        .ach-toast-name { font-family: 'Manrope'; font-weight: 800; font-size: 15.5px; color: ${T.ink}; }
-        .ach-toast-shine { position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-18deg); animation: ach-shine 1.1s ease 0.35s; }
-        @keyframes ach-shine { to { left: 130%; } }
+        /* ===== 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI ===== */
+        .acu-overlay { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;
+          background: radial-gradient(circle at 50% 42%, rgba(20,14,6,0.34) 0%, rgba(10,8,14,0.72) 62%, rgba(8,6,12,0.86) 100%);
+          animation: acu-bg-in 0.35s ease-out, acu-bg-out 0.55s ease-in 3.45s forwards; }
+        @keyframes acu-bg-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes acu-bg-out { to { opacity: 0; } }
+        /* Aylanuvchi nur burjlari (butun ekran) */
+        .acu-rays { position: absolute; top: 50%; left: 50%; width: 170vmax; height: 170vmax; transform: translate(-50%,-50%); pointer-events: none;
+          background: repeating-conic-gradient(from 0deg, rgba(255,201,77,0.16) 0deg 7deg, transparent 7deg 20deg);
+          -webkit-mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%); mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%);
+          animation: acu-spin 16s linear infinite, acu-fade 0.6s ease-out; }
+        @keyframes acu-spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes acu-fade { from { opacity: 0; } to { opacity: 1; } }
+        /* Markaziy yorug'lik */
+        .acu-glow { position: absolute; top: 42%; left: 50%; width: 78vmin; height: 78vmin; transform: translate(-50%,-50%); pointer-events: none; filter: blur(4px);
+          background: radial-gradient(circle, rgba(255,224,150,0.62) 0%, rgba(255,150,60,0.30) 38%, rgba(255,120,40,0) 68%);
+          animation: acu-glow-pulse 2.2s ease-in-out infinite, acu-fade 0.5s ease-out; }
+        @keyframes acu-glow-pulse { 0%,100% { opacity: 0.85; transform: translate(-50%,-50%) scale(1); } 50% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } }
+        /* Zarba to'lqini (halqa) */
+        .acu-ring { position: absolute; top: 42%; left: 50%; width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(255,240,200,0.85); transform: translate(-50%,-50%) scale(0.3); pointer-events: none; animation: acu-shock 1s cubic-bezier(.2,.7,.3,1) forwards; }
+        .acu-ring.d2 { border-color: rgba(255,180,90,0.6); animation-delay: 0.22s; }
+        @keyframes acu-shock { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0.9; } 100% { transform: translate(-50%,-50%) scale(6.5); opacity: 0; } }
+        /* Sahna (medal + matn) */
+        .acu-stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,3vw,22px); animation: acu-bg-in 0.3s ease-out; }
+        .acu-medal-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+        .acu-medal { position: relative; width: clamp(112px,26vw,152px); height: clamp(112px,26vw,152px); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(54px,13vw,74px); overflow: hidden;
+          background: radial-gradient(circle at 38% 30%, #FFF0BE 0%, #FFD35A 42%, #F5A623 72%, #E4870C 100%);
+          box-shadow: 0 0 70px 12px rgba(255,201,77,0.55), 0 22px 54px -12px rgba(0,0,0,0.55), inset 0 -9px 18px rgba(140,70,0,0.28), inset 0 7px 14px rgba(255,255,255,0.6);
+          animation: acu-medal-pop 0.7s cubic-bezier(.28,1.5,.4,1) both, acu-float 2.6s ease-in-out 0.7s infinite; }
+        @keyframes acu-medal-pop { 0% { transform: scale(0) rotate(-40deg); } 55% { transform: scale(1.18) rotate(10deg); } 75% { transform: scale(0.94) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
+        @keyframes acu-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+        .acu-shine { position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-18deg); animation: acu-shine-sweep 1.1s ease 0.5s 2; }
+        @keyframes acu-shine-sweep { to { left: 130%; } }
+        .acu-spark { position: absolute; top: 50%; left: 50%; font-size: clamp(14px,2.6vw,20px); color: #FFE9A8; text-shadow: 0 0 8px rgba(255,201,77,0.9); pointer-events: none; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; animation: acu-spark-burst 1s ease-out both; }
+        @keyframes acu-spark-burst { 0% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(clamp(-130px,-24vw,-96px)) scale(1); opacity: 0; } }
+        .acu-txt { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+        .acu-eyebrow { font-family: 'Manrope', sans-serif; font-weight: 900; font-size: clamp(12px,1.8vw,14px); letter-spacing: 0.2em; text-transform: uppercase; color: #FFD35A; text-shadow: 0 2px 12px rgba(0,0,0,0.5); animation: acu-rise 0.5s ease-out 0.35s both; }
+        .acu-name { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: clamp(26px,5.5vw,42px); color: #fff; line-height: 1.1; text-shadow: 0 3px 22px rgba(0,0,0,0.55); animation: acu-rise 0.55s cubic-bezier(.3,1.2,.4,1) 0.45s both; }
+        .acu-desc { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: clamp(13px,2vw,16px); color: rgba(255,255,255,0.82); max-width: 30ch; line-height: 1.5; animation: acu-rise 0.5s ease-out 0.6s both; }
+        @keyframes acu-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .acu-tap { font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-top: 4px; animation: acu-rise 0.5s ease-out 1.1s both, acu-blink 1.6s ease-in-out 1.6s infinite; }
+        @keyframes acu-blink { 0%,100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+        @media (prefers-reduced-motion: reduce) { .acu-rays, .acu-medal, .acu-glow, .acu-tap { animation-iteration-count: 1 !important; } .acu-rays { animation: acu-fade 0.4s both !important; } }
         .ach-coll { display: flex; flex-direction: column; gap: 10px; }
-        .ach-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
         .ach-badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-radius: 14px; padding: 14px 10px; transition: transform 0.15s; }
         .ach-badge.got { background: linear-gradient(160deg, ${T.accentSoft}, #FFF3EC); border: 1.5px solid ${T.accent}55; }
@@ -4311,6 +4543,33 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .ach-pop-row:not(.got) .ach-pop-ic { filter: grayscale(1) opacity(0.5); font-size: 13px; }
         .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
         .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
+
+        /* === 👋 ONBOARDING — coach-mark spotlight tur === */
+        .tg-root { position: fixed; inset: 0; z-index: 10300; animation: fade-step 0.2s ease-out; }
+        .tg-dim { position: absolute; inset: 0; background: rgba(10,8,14,0.6); }
+        .tg-hole { position: absolute; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10,8,14,0.6), 0 0 0 3px #fff, 0 0 26px 5px rgba(255,201,77,0.55); pointer-events: none; transition: top 0.35s cubic-bezier(.4,0,.2,1), left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1), height 0.35s cubic-bezier(.4,0,.2,1); }
+        .tg-call { position: absolute; z-index: 2; background: ${T.paper}; border-radius: 16px; padding: 14px 16px 12px; box-shadow: 0 22px 54px -16px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px; animation: tg-pop 0.25s ease-out; transition: top 0.3s cubic-bezier(.4,0,.2,1), left 0.3s cubic-bezier(.4,0,.2,1); }
+        @keyframes tg-pop { from { opacity: 0; } }
+        .tg-head { display: flex; align-items: center; gap: 8px; }
+        .tg-ic { font-size: 20px; line-height: 1; }
+        .tg-h { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 15px; color: ${T.ink}; flex: 1; }
+        .tg-count { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; color: #fff; background: ${T.accent}; border-radius: 99px; padding: 2px 8px; }
+        .tg-body { font-family: 'Manrope', sans-serif; font-size: 14px; line-height: 1.5; color: ${T.ink2}; margin: 0; }
+        .tg-body b { color: ${T.ink}; }
+        .tg-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+        .tg-skip { background: none; border: none; color: ${T.ink3}; font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 6px 2px; }
+        .tg-skip:hover { color: ${T.accent}; }
+        .tg-navr { display: flex; align-items: center; gap: 8px; }
+        .tg-btn { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 11px; padding: 9px 16px; cursor: pointer; transition: all 0.16s; }
+        .tg-btn.go { background: linear-gradient(135deg,${T.accent},#FF8A3D); color: #fff; box-shadow: 0 8px 20px -6px rgba(255,79,40,0.55); }
+        .tg-btn.go:hover { transform: translateY(-1px); }
+        .tg-btn.ghost { background: ${T.bg}; color: ${T.ink2}; padding: 9px 12px; }
+        .tg-btn.ghost:hover { color: ${T.ink}; }
+
+        /* === Jonli panel (LiveBadge) — xira turadi, ustiga borilganda tiniqlashadi (kontentni to'smaydi) === */
+        .live-badge { opacity: 0.4; transition: opacity 0.25s ease, box-shadow 0.25s ease; }
+        .live-badge:hover, .live-badge:focus-within { opacity: 1; box-shadow: 0 8px 24px -6px rgba(58,53,48,0.32) !important; }
+        @media (hover: none) { .live-badge { opacity: 0.62; } }
 
         /* === LADDER (sarlavhalar) === */
         .ladder { display: flex; flex-direction: column; gap: 6px; }
@@ -4382,7 +4641,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .cmp-code { margin: 0; font-size: clamp(12px,1.6vw,13.5px) !important; }
         .cmp-leg { margin: 0; font-family: 'Manrope'; font-weight: 500; font-size: clamp(11.5px,1.5vw,13px); color: ${T.ink2}; line-height: 1.5; }
         .cmp-leg-tag { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: ${CODE.tag}; }
-        .cmp-merge { text-align: center; font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,15px); line-height: 1.5; color: ${T.ink}; background: ${T.accentSoft}; border-radius: 13px; padding: 13px 16px; transition: box-shadow 0.3s ease; }
+        .cmp-merge { text-align: center; font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,15px); line-height: 1.5; color: ${T.ink}; background: ${T.successSoft}; border-left: 4px solid ${T.success}; border-radius: 13px; padding: 13px 16px; transition: box-shadow 0.3s ease; }
         .cmp-merge.done { box-shadow: inset 0 0 0 2px ${T.success}55; }
         @media (max-width: 760px) {
           .cmp-grid { grid-template-columns: 1fr; }
@@ -4432,7 +4691,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .cmp2-site.lemon .cmp2-site-list.ol li::before { background: #F2A60C; }
         .cmp2-codewrap { margin-top: 8px; padding-top: 11px; border-top: 1.5px dashed ${T.line}; }
         .cmp2-code { margin: 0; font-size: clamp(11px,1.4vw,12.5px) !important; }
-        .cmp2-concl { background: ${T.accentSoft}; border-radius: 12px; padding: 11px 15px; }
+        .cmp2-concl { background: ${T.successSoft}; border-left: 4px solid ${T.success}; border-radius: 12px; padding: 11px 15px; }
         .cmp2-concl p { margin: 0; font-family: 'Manrope'; font-weight: 600; font-size: clamp(12.5px,1.7vw,14px); line-height: 1.5; color: ${T.ink}; }
         @media (max-width: 620px) { .cmp2-grid { grid-template-columns: 1fr; } }
 
@@ -4756,7 +5015,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         }
 
         /* === ⚔️ CTA (yakun sahifasida) === */
-        /* ===== 🦉 CODDYHOOT — CTA (dars ichida) ===== */
+        /* ===== ⚡ CODESTRIKE — CTA (dars ichida) ===== */
         .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #FFF3EA, #FFE7DC); border: 1px solid #F3D9CC; border-radius: 20px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 16px 40px -18px rgba(255,79,40,0.28); }
         .qz-cta-txt { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
         .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #121826; }
@@ -4766,7 +5025,52 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .qz-cta-btn:disabled { background: #E9E6DF; color: #98A0B4; cursor: default; box-shadow: none; }
         .qz-cta.ready .qz-cta-btn { animation: qz-pulse 1.1s ease-in-out infinite; }
         @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); } 50% { transform: scale(1.06); box-shadow: 0 16px 34px -6px rgba(255,79,40,0.9); } }
-        /* ===== 🦉 ARENA — issiq CoddyCamp muhiti ===== */
+
+        /* ===== ⚡ CODESTRIKE — yorqin wordmark (3D + glint) ===== */
+        .cs-cta { flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: clamp(8px,1.2vw,12px); position: relative; padding: clamp(14px,2vw,20px) clamp(16px,2.6vw,28px); background: radial-gradient(130% 130% at 50% 0%, #FFF2EA 0%, #FFE3D3 58%, #FFD4C0 100%); border-color: #F7C8B0; }
+        .cs-cta::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(58% 74% at 50% 34%, rgba(255,95,30,0.20), transparent 72%); pointer-events: none; animation: cs-bg-breathe 3.4s ease-in-out infinite; }
+        @keyframes cs-bg-breathe { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+        .cs-hero { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: clamp(6px,1vw,11px); text-align: center; width: 100%; }
+        .cs-clickable { cursor: pointer; user-select: none; transition: transform .18s cubic-bezier(.2,1,.3,1); outline: none; }
+        .cs-clickable:hover { transform: scale(1.04); }
+        .cs-clickable:active { transform: scale(.985); }
+        .cs-clickable:focus-visible .cs-word { outline: 2px dashed rgba(255,79,40,.6); outline-offset: 12px; border-radius: 10px; }
+        .cs-off { opacity: .62; filter: saturate(.55); }
+
+        .cs-boltrow { animation: cs-bolt-bob 2.2s ease-in-out infinite; margin-bottom: 2px; }
+        @keyframes cs-bolt-bob { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-7px) rotate(6deg); } }
+
+        .cs-word { position: relative; display: inline-block; font-family: 'Manrope','Manrope Fallback',sans-serif; font-weight: 900;
+          font-size: clamp(38px,7.4vw,82px); letter-spacing: .012em; line-height: 1;
+          background: linear-gradient(178deg,#FF9A4D 0%,#FF6A2C 40%,#FF4F28 68%,#EA360F 100%);
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+          transform-origin: center; animation: cs-throb 2.6s ease-in-out infinite; }
+        .cs-word::before { content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; pointer-events: none;
+          background: linear-gradient(100deg, transparent 34%, rgba(255,255,255,.92) 48%, rgba(255,255,255,.35) 54%, transparent 66%); background-size: 260% 100%;
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+          animation: cs-glint 3.4s cubic-bezier(.6,0,.4,1) infinite; }
+        @keyframes cs-throb { 0%,100% { transform: scale(1); filter: drop-shadow(0 2px 0 #C42F0E) drop-shadow(0 7px 16px rgba(226,58,22,.42)); }
+          50% { transform: scale(1.07); filter: drop-shadow(0 2px 0 #C42F0E) drop-shadow(0 12px 34px rgba(255,79,40,.8)); } }
+        @keyframes cs-glint { 0% { background-position: 135% 0; } 60%,100% { background-position: -55% 0; } }
+        .cs-clickable:hover .cs-word { animation-duration: 1.5s; }
+
+        .cs-chips { display: flex; gap: clamp(8px,1.3vw,13px); flex-wrap: wrap; justify-content: center; }
+        .cs-chip { display: inline-flex; align-items: baseline; gap: 5px; font-family: 'Manrope'; font-weight: 800; font-size: clamp(12px,1.55vw,15px); color: #9A3E1A;
+          background: #fff; border: 1.5px solid rgba(255,79,40,.42); padding: 6px 15px; border-radius: 999px; box-shadow: 0 5px 16px -7px rgba(255,79,40,.5);
+          animation: cs-chip-pop .5s cubic-bezier(.2,1.4,.4,1) both, cs-chip-glow 2.4s ease-in-out infinite; }
+        .cs-chip b { font-size: clamp(16px,2.1vw,21px); font-weight: 900; color: #FF4F28; }
+        .cs-chip:nth-child(2) { animation-delay: .09s, .35s; }
+        .cs-chip:nth-child(3) { animation-delay: .18s, .7s; }
+        @keyframes cs-chip-pop { from { transform: scale(.4) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+        @keyframes cs-chip-glow { 0%,100% { box-shadow: 0 5px 16px -7px rgba(255,79,40,.5); border-color: rgba(255,79,40,.42); } 50% { box-shadow: 0 8px 26px -5px rgba(255,79,40,.85); border-color: rgba(255,79,40,.8); } }
+
+        .cs-enter { font-family: 'Manrope'; font-weight: 900; font-size: clamp(13px,1.8vw,17px); color: #E23A16; letter-spacing: .01em; animation: cs-enter-pulse 1.3s ease-in-out infinite; }
+        .cs-enter.wait { color: #98A0B4; animation: none; }
+        @keyframes cs-enter-pulse { 0%,100% { opacity: .72; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(2px) scale(1.03); } }
+        @media (prefers-reduced-motion: reduce) { .cs-word, .cs-word::before, .cs-chip, .cs-enter, .cs-boltrow, .cs-cta::before { animation: none !important; } }
+        @media (max-width: 560px) { .cs-word { font-size: clamp(34px,11vw,58px); } }
+
+        /* ===== ⚡ ARENA — issiq CoddyCamp muhiti ===== */
         .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px); background: radial-gradient(60% 45% at 12% 8%, rgba(255,79,40,0.10) 0%, rgba(255,79,40,0) 55%), radial-gradient(58% 48% at 90% 14%, rgba(15,166,214,0.16) 0%, rgba(15,166,214,0) 55%), radial-gradient(60% 50% at 78% 100%, rgba(245,166,35,0.12) 0%, rgba(245,166,35,0) 60%), radial-gradient(80% 48% at 50% -6%, #E9F0FD 0%, rgba(233,240,253,0) 52%), #F0F4FC; }
         .qz-arena::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: radial-gradient(rgba(30,44,80,0.05) 1.1px, transparent 1.2px); background-size: 24px 24px; -webkit-mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); }
         .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
@@ -4779,7 +5083,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .qz-view { position: relative; z-index: 1; width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
         .qz-brand { display: flex; align-items: center; gap: 12px; }
         .qz-brand.sm { gap: 9px; }
-        .qz-owl { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
+        .qz-bolt { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
         .qz-wm { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,5vw,46px); letter-spacing: -0.03em; color: #121826; line-height: 1; }
         .qz-wm-h { color: #FF4F28; }
         .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; }
@@ -4833,10 +5137,10 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .qz-board.wide { max-width: 640px; max-height: 260px; overflow: auto; }
         .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FF4F28; margin-bottom: 3px; text-transform: uppercase; }
         .qz-brow { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 11px; background: #E6ECF8; }
-        .qz-brow.me { background: linear-gradient(90deg,#FFEBE1,rgba(255,235,225,0.4)); outline: 1.5px solid rgba(255,79,40,0.4); }
+        .qz-brow.me { background: linear-gradient(90deg,rgba(18,169,104,0.20),rgba(18,169,104,0.05)); outline: 1.5px solid rgba(18,169,104,0.5); }
         .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; color: #fff; background: #98A0B4; border-radius: 8px; min-width: 23px; height: 23px; display: flex; align-items: center; justify-content: center; }
         .qz-brow:first-of-type .qz-brank { background: #FFCE3D; color: #121826; }
-        .qz-brow.me .qz-brank { background: #FF4F28; }
+        .qz-brow.me .qz-brank { background: #12A968; }
         .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #121826; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FF8A3D; }
         .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: #525A6B; }
@@ -4853,9 +5157,9 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .qz-pod-col.p1 .qz-pod-bar { height: clamp(96px,14vw,156px); background: linear-gradient(180deg, #FFCE3D, #F5A623); box-shadow: inset 0 2px 0 rgba(255,255,255,0.5), 0 0 40px rgba(245,166,35,0.35); }
         .qz-pod-col.p2 .qz-pod-bar { height: clamp(66px,10vw,110px); background: linear-gradient(180deg, #D6D9E0, #A2A8B4); }
         .qz-pod-col.p3 .qz-pod-bar { height: clamp(48px,7vw,82px); background: linear-gradient(180deg, #EDB183, #CB8149); }
-        .qz-pod-col.me .qz-pod-name { color: #FF4F28; }
+        .qz-pod-col.me .qz-pod-name { color: #12A968; }
         .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: #525A6B; }
-        .qz-mypl b { color: #FF4F28; }
+        .qz-mypl b { color: #12A968; }
         .qz-solo-res { display: flex; flex-direction: column; align-items: center; gap: 12px; }
         .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FF4F28; text-shadow: 0 8px 30px rgba(255,79,40,0.3); font-variant-numeric: tabular-nums; }
         .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.92); border: 1px solid #DDE4F1; border-radius: 16px; padding: 10px 16px; color: #121826; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; box-shadow: 0 12px 30px -14px rgba(30,44,80,0.4); backdrop-filter: blur(6px); }
@@ -4870,12 +5174,12 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .pod-1 .pod-bar { height: clamp(74px,11vw,120px); }
         .pod-2 .pod-bar { height: clamp(52px,8vw,86px); background: linear-gradient(180deg, ${T.ink2}, ${T.ink3}); }
         .pod-3 .pod-bar { height: clamp(38px,6vw,62px); background: linear-gradient(180deg, #C98A3D, #DDA55C); }
-        .pod-col.me .pod-name { color: ${T.accent}; }
+        .pod-col.me .pod-name { color: ${T.success}; }
         .pod-my { margin: 0; text-align: center; font-family: 'Manrope'; font-size: 14px; color: ${T.ink2}; }
-        .pod-my b { color: ${T.accent}; }
+        .pod-my b { color: ${T.success}; }
         .pod-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow: auto; }
         .pod-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(${T.shadowBase},0.04); }
-        .pod-row.me { background: ${T.accentSoft}; outline: 1.5px solid ${T.accent}55; }
+        .pod-row.me { background: ${T.successSoft}; outline: 1.5px solid ${T.success}66; }
         .pod-rank { min-width: 22px; font-size: 12px; font-weight: 700; color: ${T.ink3}; }
         .pod-row-name { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14px; color: ${T.ink}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pod-row-dots { display: flex; gap: 4px; }
@@ -4907,6 +5211,9 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .option-wait { background: ${T.blueSoft} !important; color: ${T.blue} !important; box-shadow: inset 0 0 0 2px ${T.blue}, 0 8px 22px -8px rgba(1,154,203,0.3) !important; }
         /* frame-wait (feedback kutish) */
         .frame-wait { background: ${T.blueSoft}; border-left: 4px solid ${T.blue}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -8px rgba(1,154,203,0.22); }
+        /* kod atamasi chipi — savol/variant/izohlarda oddiy matndan ajralib turadi */
+        .qcode { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.92em; background: rgba(20,17,14,0.08); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+        .qz-tile .qcode { background: rgba(255,255,255,0.25); color: #fff; }
       `}</style>
       <LiveGateCtx.Provider value={{ locked, live }}>
         <AchCtx.Provider value={earned}>
@@ -4918,6 +5225,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
               <Current screen={screen} storedAnswer={answers[screen]} answers={answers} achievements={earned} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
               <AchToasts toasts={achToasts} onDone={(k) => setAchToasts(t => t.filter(x => x.k !== k))} />
               <LiveBadge live={live} total={TOTAL_SCREENS} />
+              {onboard && <TourGuide role={onboardRole} onClose={closeOnboard} />}
             </>
           )}
         </div>
