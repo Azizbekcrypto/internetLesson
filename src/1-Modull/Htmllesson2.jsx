@@ -2521,22 +2521,9 @@ const TASK_IMG = {
 const STARTER_IMG = `<!-- Bu yerga yozing -->
 `;
 
-// — P2: struktura (Screen6 — div guruhlash — dan keyin) —
-const TASK_STRUCT = {
-  eyebrow: 'Praktika · struktura',
-  title: "Sahifani bo'limlarga ajrating",
-  brief: "Har bir sahifa bo'limlardan tashkil topadi. Uchta asosiy blokni yozing: header (yuqori), main (asosiy), footer (past).",
-  requirements: [
-    { id: 'header', label: '<header> — yuqori bo\'lim', check: C.text('header', "`<header>` ichiga matn yozing (masalan logo yoki sarlavha)") },
-    { id: 'main', label: '<main> — asosiy bo\'lim', check: C.text('main', "`<main>` ichiga asosiy kontent yozing") },
-    { id: 'footer', label: '<footer> — past bo\'lim', check: C.text('footer', "`<footer>` ichiga matn yozing (masalan © yoki aloqa)") },
-  ],
-};
-const STARTER_STRUCT = `<!-- Bu yerga yozing -->
+// (Struktura praktikasi olib tashlandi — 9.4: AYNAN 3 praktika. header/main/footer nazariya ekranida + yakuniy saytda qoladi.)
 
-`;
-
-// — P3: forma (Screen8 — input turlari — dan keyin, testdan oldin) —
+// — P2: forma (Screen8 — input turlari — dan keyin, testdan oldin) —
 const TASK_FORM = {
   eyebrow: 'Praktika · forma',
   title: "Aloqa formasini yasang",
@@ -2570,10 +2557,10 @@ const STARTER_FINAL = `<!-- Bu yerga yozing -->
 // Indekslar — screens[] massividagi o'rin:
 //   3 = Screen3 (alt) · 7 = Screen6 (div) · 9 = Screen8 (input) · 15 = Screen14 (debugging)
 const PRACTICE_AFTER = {
-  3:  { task: TASK_IMG,    starter: STARTER_IMG },
-  7:  { task: TASK_STRUCT, starter: STARTER_STRUCT },
-  9:  { task: TASK_FORM,   starter: STARTER_FORM },
-  15: { task: TASK_FINAL,  starter: STARTER_FINAL },
+  // 🔴 9.4: AYNAN 3 praktika-compiler (Rasm + Forma + Yakuniy). Struktura praktikasi olib tashlandi (nazariyada + yakuniy saytda qoladi).
+  3:  { task: TASK_IMG,    starter: STARTER_IMG },   // 1) Rasm (img/src/alt)
+  9:  { task: TASK_FORM,   starter: STARTER_FORM },  // 2) Forma (form/input)
+  15: { task: TASK_FINAL,  starter: STARTER_FINAL }, // 3) Yakuniy (noldan sayt)
 };
 
 const Confetti = () => {

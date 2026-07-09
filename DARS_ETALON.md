@@ -305,6 +305,15 @@ sed -n '/const QUIZ_BANK = \[/,/^\];/p' <fayl> | grep -oE "correct: [0-9]" | sor
 ```
 → har raqamdan teng (12 savolda 3 tadan). Holat: Htmllesson1 ✅ 3/3/3/3 · Htmllesson2 ✅ 3/3/3/3.
 
+### 8.4 🔴 JAVOB UZUNLIGI TENG — to'g'ri javob uzunligidan bilinмasin (naqsh #2)
+Pozitsiya taqsimotidan (8.3) tashqari yana bir naqsh: **to'g'ri javob ko'pincha eng uzun/eng batafsil bo'lib qoladi** (yozuvchi to'g'risini to'liq, xatolarini qisqa yozadi). Ziyrak bola buni sezadi va **o'qimasdan eng uzun variantni** tanlaydi — to'g'ri chiqadi. Bu **inline testlarга ham (`QuestionScreen` `options`), arenaга ham (`QUIZ_BANK` `opts`)** tegishli.
+
+**Qoida:** bitta savoldagi variantlar **taxminan bir xil uzunlikda** bo'lsin. To'g'ri javob boshqalaridan sezilarli uzun (yoki qisqa) bo'lib ajralib turmasin — barchasi bir xil "vazn"да. Xato variantlar ham to'liq, ishonarli yozilsin (qisqa-quruq emas); to'g'ri javob ham ortiqcha cho'zilmasin.
+- ❌ To'g'ri: "`<a>` tegi havola yasaydi, `href` ichiga bosilganда ochiladigan manzil yoziladi" · Xatolar: "`<link>`", "`<url>`", "`<web>`" — to'g'risi 5× uzun → bola uzunidan taniydi.
+- ✅ Hammasi tegсimon/qisqa yoki hammasi tushuntirishli — bir xil shakl.
+- Mas'ul: 🎓 Metodist (variant matnlarини balanslaydi — `correct` indeks va POZITSIYAsiga TEGMAYDI); 🔍 Tekshiruvchi tekshiradi. Ko'z bilan: har savol variantlarини o'qib, to'g'risi uzunidan ajralib turmaganини tasdiqla.
+- Holat: **Htmllesson1 ✅** (2026-07-09 audit — QUIZ_BANK Q6/Q9/Q10 balanslandi, inline testlar avvaldan teng).
+
 ---
 
 ## 9. 🟢 INTERAKTIV REUSABLE KOMPONENTLAR
@@ -352,6 +361,8 @@ Har biri **kontentdan ajratilgan** — boshqa darsga faqat ma'lumot almashtirila
 
 ### 9.4 ✍️ PRAKTIKA — HtmlCompiler qatlami (student/self/mentor oqimlari)
 
+> 🔴 **SONI: AYNAN 3 praktika-compiler** (2026-07-09 qaror). 4–5 ta EMAS — dars mavzusining eng kerakli/muhim **3 tasi** olinadi (`PRACTICE_AFTER` uch kalit). Ko'p praktika darsni cho'zadi va charchatadi. Har biri boshqacha ko'nikmani mustahkamlasin (takror emas). Tekshiruv: `sed -n '/const PRACTICE_AFTER = {/,/};/p' <fayl> | grep -cE "^\s*[0-9]+:"` → **3**. (✅ 2026-07-09: L1=Sarlavha+Havola+Yakuniy, L2=Rasm+Forma+Yakuniy, CssLesson1=3 — hammasi 3.)
+
 **Komponent:** `HtmlCompiler({ task, starterCode, onContinue, onBack })` — chapda topshiriq
 paneli (shartlar ro'yxati, har birida hint), o'ngda kod maydoni + jonli iframe preview.
 
@@ -364,6 +375,8 @@ const TASK_X = {
 const STARTER_X = `<!-- Bu yerga yozing -->\n`;
 ```
 - Shartlar `C.*` bilan **haqiqiy DOM tahlili** (regex emas): `C.has / C.text / C.attr / C.attrs / C.nested / C.count / C.toggle`; **CSS uchun** `C.cssProp(sel, prop)` (xossa bor) / `C.cssValue(sel, prop, val)` (aniq qiymat).
+- 🔴 **`parseCss` QISQA XOSSALARni topsin (2026-07-09 bug):** `parseCss` CSSOM ishlatadi — brauzer qisqa xossalarni **longhandga yoyadi** (`gap`→`row-gap`/`column-gap`, `padding`/`margin`→4 tomon, `flex`→3 qism...). Enumeratsiyada faqat longhand chiqadi → `props['gap']` bo'sh → `C.cssProp('.row','gap')` **topa olmaydi** (o'quvchi `gap: 15px` yozsa ham "1/2"). Tuzatish: `parseCss` map ичida qisqa xossalar ro'yxatini `getPropertyValue(sh)` bilan `props`ga qo'sh. **Har CSS praktika sharti — o'quvchi yozadigan har xossa (ayniqsa gap/padding/margin/border) uchun compilator TAYYOR bo'lsin** (qo'lда: har `TASK_*` shartini kompilatorда sinab, to'g'ri yechim ✅ o'tishini tekshir). `C.cssProp` (aniq qiymat emas) ishlatilsin — masalan `gap` uchun `12px`ni majburlaMA.
+- **Material HTML — KO'P QATORDA, chekinish bilan** (2026-07-09): index.html material bir uzun qatorда bo'lmasin (o'ngga chiqib ketadi, o'qib bo'lmaydi). Ichma-ich elementlar `\n` + 2-bo'sh chekinish bilan. ❌ `<div class="row"><span>A</span><span>B</span><span>C</span></div>` → ✅ `<div class="row">\n  <span>A</span>\n  <span>B</span>\n  <span>C</span>\n</div>`.
 - **CSS praktikasi (2 fayl):** `task.files = [{name:'index.html', lang:'html', starter:'<h1>...</h1>'}, {name:'style.css', lang:'css', starter:'/* Bu yerga yozing */\\n'}]`. index.html — bezaladigan **material** (11.9 tegmaydi, chunki o'quvchi HTML yozmaydi); style.css — o'quvchi yozadigan joy, starter FAQAT `/* Bu yerga yozing */`. Ko'rinish uchun material'ga inline `style="background:..."` berish mumkin (padding/margin ko'rinsin). Namuna: CssLesson1 TASK_COLOR/TASK_TEXT/TASK_BOX (2026-07-08).
 - Starter qoidasi (11.9, MAJBURIY): kod maydonida FAQAT `<!-- Bu yerga yozing -->` (yoki CSS'da `/* Bu yerga yozing */`) komment — tayyor teg/matn/ko'rsatma YO'Q; nimani yozish chap paneldagi shartlarda.
 - **Pedagogik tartib (MAJBURIY):** praktika shartlari FAQAT shu ekranga qadar O'TILGAN teglarni so'raydi. Hali o'tilmagan teg so'ralmaydi (masalan, sarlavha praktikasida `<p>` so'rash — XATO, chunki `p` keyinroq o'tiladi; o'rniga h1/h2/h6 — narvon mustahkamlanadi). Tekshiruv: har `TASK_*.requirements`dagi teglar dars oqimida praktikadan OLDIN kelgan ekranlarda o'rgatilganini solishtirib chiqing.
@@ -398,7 +411,9 @@ const runPractice = (entry, fromScreen) => {
 
 ---
 
-## 10. 🏅 ACHIEVEMENT (nishonlar) tizimi
+## 10. 🏅 BADGES (nishonlar) tizimi
+
+> **Nomlash (2026-07-09):** yuqori panel **popover sarlavhasi + tugma aria/title = "Badges"** (inglizcha). ❌ "Achievements" ham, ❌ "🏅 Nishonlar" ham noto'g'ri (popover joyида). Ammo **yakun sahifasi** «🏅 Nishonlaringiz», **bayram** «🏅 Nishon ochildi!», **onboarding** «Nishonlaringiz» — O'ZBEKCHA qoladi (namuna: Htmllesson1). **Nishon NOMLARI (`ACHIEVEMENTS.name`) — inglizcha o'yin-nom** ("Built It!"/"Nice Catch!"/"Level Up!"), o'zbekcha tavsifiy EMAS (❌ "Sahifa quruvchi" — L2'даги eski uslub). Ichki KOD identifikatorlari o'zgarmaydi (`ACHIEVEMENTS`, `AchCtx`, `.acu-*`). Tekshiruv: `grep -n '"Achievements"\|Achievements —\|🏅 Nishonlar —'` — o'quvchi ko'radigan popover joyида bo'sh (faqat `🏅 Badges —`). ⚠️ **Htmllesson2 hozir ESKIRGAN** (o'zbekcha nom + "Nishonlar" popover) — standartga o'tkazilishi kerak.
 
 3 qatlamli, ko'rinadigan:
 1. **🎉 TO'LIQ-EKRAN BAYRAM** (`AchCelebrate`, o'yin uslubi — MAJBURIY, kichik toast EMAS): nishon olinganда butun ekran bo'ylab — spotlight fon + aylanuvchi oltin nur burjlari (`.acu-rays`, conic-gradient, masklangan) + markaziy pulslovchi yorug'lik + ikki zarba to'lqini (`.acu-ring`) + oltin medalyon (emoji, bounce bilan sakrab kiradi + suzadi + shine yugurib o'tadi) + ~14 uchqun radial otiladi (`.acu-spark`, `--a` burchak) + matn ("🏅 Nishon ochildi!" + `name` katta serif + `desc`) ketma-ket ko'tariladi. ~4s, bosib yopiladi, `prefers-reduced-motion` tinch varianti. **Navbatda bittalab** (`AchToasts` faqat `toasts[0]`ni ko'rsatadi — bir nechta nishon ketma-ket). CSS: `.acu-*` blok.
@@ -418,6 +433,7 @@ const AchCtx = createContext(null); // earned Set — Stage hisoblagichi o'qiydi
 - **Soni: 4 ta** (3 ta dars-bosqich nishoni + `graduate`). Ko'p nishon qiymatini tushiradi, kolleksiyada 🔒lar qolib ketadi.
 - **Hammasi darsni oxirigacha o'tgan bolada REAL ochilsin.** ❌ taqiq: jonli darsda yashirin ekranga bog'langan nishon (flashcard — jonli o'quvchi hech qachon ololmaydi) va "100% to'g'ri" (ace) kabi ko'pchilik bajarolmaydigan shart — ikkalasi kolleksiyada doim 🔒 bo'lib turadi.
 - Markazlashgan trigger: `recordAnswer` da `if (ACH_TRIGGERS[_m.id] && data.correct) earn(...)`; yakuniy ekranda `earn('graduate')`.
+- 🔴 **ACH_TRIGGERS faqat MA'NOLI ekranga bog'lanadi** (2026-07-09 CssLesson2 bug): SCORED test (`type:'test'` — `correct` = to'g'ri javob) yoki haqiqiy challenge (DragDrop/Debug). ❌ **Exploration/toggle ekranга (masalan flex-direction almashtirish) BOG'LANMAYDI** — u yerda `onAnswer({correct:true})` har bosishda yonadi → nishon **tekin** beriladi (o'quvchi bilmasdan «Davom etish» bossa ham oladi). Nishon "biror narsa evaziga" — real ko'nikma ko'rsatilganda ochilsin. Tekshiruv: har `ACH_TRIGGERS` kaliti SCREEN_META'da `type:'test'` yoki challenge ekaniga qara.
 - `earn` **`earnedRef` bilan StrictMode-safe** (setState ichida setState emas).
 - `AchCtx.Provider value={earned}` root'da; `<Current ... achievements={earned} />`; `<AchToasts .../>` root'da.
 - Boshqa darsga: `ACHIEVEMENTS` + `ACH_TRIGGERS` o'sha darsning bosqichlariga moslanadi.
@@ -428,7 +444,8 @@ const AchCtx = createContext(null); // earned Set — Stage hisoblagichi o'qiydi
 
 | # | Qoida | To'g'ri |
 |---|---|---|
-| 11.1 | Mentor avatari — rasm emas, emoji | `<div className="mentor-ava">🧑‍🏫</div>` |
+| 11.1 | 🟡 **Mentor avatari — HOSTLANGAN RASM** (standart, 2026-07-09 qaror) | `<div className="mentor-ava"><img src={MENTOR_IMG} alt="" /></div>` · `const MENTOR_IMG = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png'` · CSS: `.mentor-ava{width:40px;height:40px;border-radius:50%;overflow:hidden}` + `.mentor-ava img{width:100%;height:100%;object-fit:cover}`. ❌ emoji 🧑‍🏫 endi ESKI |
+| 11.1b | 🟡 **O'quvchi (profil) — qizcha RASMI** (doira) | `PHOTO_SET.profil = { ..., img:'https://go.coddycamp.uz/uploads/media_library/58ebafabd92e2e3a80d86b7bb7e88eda.png', round:true }` — o'quvchi/profil ko'rsatiladigan joyda (1-2 sahifa, natija mockup). Barcha darsда BIR XIL mentor+qizcha (brend izchilligi) |
 | 11.2 | h1 natija ko'rinishi qalin | `.pv-h1 { font-weight: 700; ... }` |
 | 11.3 | `<p>` tavsifi tushunarli | "matn (paragraf)" (❌ "xatboshi") |
 | 11.4 | Bo'sh `<li>` ortiqcha nuqta bermasin | `li:empty{display:none}` (preview CSS) |
@@ -442,13 +459,13 @@ const AchCtx = createContext(null); // earned Set — Stage hisoblagichi o'qiydi
 
 | 11.12 | **Kod namunalarida identifikatorlar INGLIZCHA** | Ekranda ko'rsatiladigan kodda class/id/o'zgaruvchi nomlari inglizcha yoziladi: ✅ `class="card"` ❌ `class="karta"`. Sabab: real dasturlashda nomlar inglizcha — bola boshidan to'g'ri odat oladi. Izoh/kontent matni o'zbekcha qolaveradi |
 | 11.13 | 🟢 **Vosita ekranlarida "haqiqiy hayotda sinang" bloki** | DevTools/terminal kabi VOSITA o'rgatilgan ekranda mashq tugagach yashil blok: real misolda sinash taklifi («🌐 Istalgan saytni oching (masalan, kun.uz), F12 bosing...») — mentor proyektorda jonli ko'rsatadi, o'quvchi uyda takrorlaydi. Audio/Mentor matniga ham jumla qo'shiladi |
-| 11.14 | 🟡 **👋 ONBOARDING — real coach-mark spotlight tur** (`TourGuide`, modal EMAS) | Rejim tanlangач (500ms kechikish bilan) rolga qarab HAQIQIY tugmalarni birma-bir yoritadi: har qadam `[data-tour="..."]` elementni topadi (`getBoundingClientRect`), atrofini spotlight bilan yoritadi (`.tg-hole` box-shadow 9999px), yoniga callout (ikonka+sarlavha+matn+«Keyingisi»). **learner** (self/student): next→mentor→progress→ach. **mentor**: live(PIN)→next→progress. Elementlarga `data-tour="next|mentor|progress|ach|live"` qo'yiladi. Mentor'da `LiveBadge deferBig={onboard}` — katta PIN tur tugagach ochiladi (to'qnashmaslik uchun). `localStorage hcOnboarded_<role>`. CSS: `.tg-*`. ❌ eski modal (`.ob-*`, `OnboardingOverlay`) — olib tashlangan |
+| 11.14 | 🟡 **👋 ONBOARDING — real coach-mark spotlight tur** (`TourGuide`, modal EMAS) | Rejim tanlangач (500ms kechikish bilan) rolga qarab HAQIQIY tugmalarni birma-bir yoritadi: har qadam `[data-tour="..."]` elementni topadi (`getBoundingClientRect`), atrofini spotlight bilan yoritadi (`.tg-hole` box-shadow 9999px), yoniga callout (ikonka+sarlavha+matn+«Keyingisi»). **learner** (self/student): next→mentor→progress→ach. **mentor**: live(PIN)→next→progress. Elementlarga `data-tour="next|mentor|progress|ach|live"` qo'yiladi. 🔴 **Mentor'da katta PIN (`LiveBigCode`) AVTOMATIK OCHILMAYDI — faqat «📺 Ko'rsatish» tugmasi bilan** (`bigOpen` useState `false`; auto-open `useEffect` YO'Q). Aks holda mentor kirishi bilanoq katta PIN ochilib, onboarding tur ortida qolgan kichik `data-tour="live"` badge'ni yoritadi → spotlight **qorong'u ustida BO'SH** chiqadi (2026-07-09 CssLesson2 bug, namuna L1 LiveBadge 1162-q izohi). `localStorage hcOnboarded_<role>`. CSS: `.tg-*`. ❌ eski modal (`.ob-*`, `OnboardingOverlay`) — olib tashlangan |
 | 11.15 | 🟡 **Jonli panel (LiveBadge) xira → hover'da tiniq** | Tepadagi mentor/o'quvchi paneli kontentni to'smasin: `.live-badge { opacity: 0.4 }` (odatda xira, ortidagi matn ko'rinadi) → `:hover/:focus-within { opacity: 1 }` (tiniqlashadi). Sensorli qurilmada `@media (hover:none) { opacity: 0.62 }`. Barcha 6 badge holatiga `className="live-badge"` |
 | 11.16 | 🟡 **Arenada o'quvchining O'Z bali YASHIL** (qizil emas) | CodeStrike/podiumda o'quvchining o'zi (`.me`) rag'batlantiruvchi yashil bilan belgilanadi, accent-qizil EMAS: `.qz-brow.me` (bg+outline yashil), `.qz-brow.me .qz-brank` `#12A968`, `.qz-pod-col.me .qz-pod-name` `#12A968`, `.qz-mypl b` `#12A968`; ScreenPodium ham: `.pod-row.me` `successSoft`, `.pod-col.me .pod-name`+`.pod-my b` `T.success`. Qizil faqat XATO javob (`.qz-res.bad`, `.qz-tile.lose`) uchun qoladi |
 
 > 11.2–11.5 faqat HTML-kod praktikasi (iframe preview) bor darslarga tegishli.
 >
-> **⚠️ OCHIQ QAROR — mentor avatari (11.1):** hozir DARS_ETALON emoji 🧑‍🏫 talab qiladi, lekin Htmllesson2'da hostlangan mentor rasmi (`MENTOR_IMG`) sinovda. Agar rasm standart bo'lsa — 11.1 yangilanadi + barcha darsga tarqatiladi. Foydalanuvchi tasdig'i kutilmoqda.
+> **✅ HAL QILINDI — mentor avatari (11.1, 2026-07-09):** foydalanuvchi qaror qildi — **hostlangan RASM standart** (emoji emas). Mentor = `MENTOR_IMG`, o'quvchi/profil = `PHOTO_SET.profil` qizcha rasmi (`round:true`). Namuna: `Htmllesson2.jsx` (1908/1928-qatorlar). **Barcha darsга tarqatiladi** (🎨 Dizayn roli qo'shadi) — har darsda BIR XIL mentor+qizcha, brend izchilligi. Eslatma: CssLesson1'da avval emojiga qaytarilgan edi — endi qayta rasmga o'tkaziladi.
 
 ---
 
@@ -489,7 +506,7 @@ Kahoot-reveal `reveal_screen` · RecapOverlay · optionalLive/freeRide (5.5) · 
 |---|---|---|---|
 | 1 | CodeStrike brend arenasi (QzBolt, QzFX, yorug' fon, brend ranglar) | 8.2 | hamma joyda eski ⚔️ ko'rinish |
 | 2 | 🃏 Flashcards ekrani (summarydan oldin, jonlida faqat mentorga) | 9.3 | hech birida yo'q |
-| 3 | 🏅 Achievement (4 nishon + toast + hisoblagich + kolleksiya) | 10 | hech birida yo'q |
+| 3 | 🏅 Badges (4 nishon + toast + hisoblagich + kolleksiya) | 10 | hech birida yo'q |
 | 4 | fmtCode kod-atama chiplari (savol/variant/izoh/arena) | 11.8 / 15-D | hech birida yo'q |
 | 5 | Praktika qatlami (compilator + MentorPracticeOverlay + 500+ signal) | 9.4 | hech birida yo'q (mavzuga qarab) |
 | 6 | DragDrop / DebugChallenge interaktivlari | 9.1 / 9.2 | hech birida yo'q (mavzuga qarab) |
@@ -550,19 +567,21 @@ JONLI / BALL (🔴 statistika buglari shu yerdan)
 [ ] 8    QUIZ_BANK correct indekslari to'g'ri; quizPts/quizScore o'zgarmagan; QZ_BG_SHAPES mavzuga mos
 [ ] 8.1  arena 12 savol · har biriga 20s
 [ ] 8.3  QUIZ_BANK to'g'ri javoblar 4 pozitsiyaga TENG taqsimlangan (3/3/3/3, birortasi 0 emas)
+[ ] 8.4  javob UZUNLIGI teng — to'g'ri javob uzunidan bilinmasin (inline QuestionScreen + arena QUIZ_BANK; qo'lda o'qib)
 
 INTERAKTIV / DIZAYN (🟢 to'liq etalon uchun)
 [ ] 8.2  CodeStrike arena (QzBolt, QzFX, brend ranglar; "CoddyHoot"/QzOwl qolmagan)
 [ ] 9    DragDrop / DebugChallenge / Flashcards — reusable, kontent moslangan
 [ ] 9.3  flashcard: Quizlet-uslub baholash; jonli darsda faqat mentorga, erkin rejimda hammaga
 [ ] 📖   RECAPS to'ldirilgan: har scored test uchun 3 karta (ic/h/body/vis/ask) — bo'sh {} EMAS (namuna: InternetLesson 1675-qator)
+[ ] 9.4  praktika-compiler soni AYNAN 3 (PRACTICE_AFTER 3 kalit — 4-5 emas)
 [ ] 9.4  praktika: TASK/STARTER shakli, practice-done signal (500+), mentor jonli panel (chiplar + doska-demo)
 [ ] 9.4  MAJBURIY: praktika shartlarida faqat SHU PAYTGACHA o'tilgan teglar (TASK_*.requirements ↔ dars oqimi)
-[ ] 10   Achievement — AYNAN 4 nishon (3 bosqich + graduate), hammasi real olinadigan; hisoblagich + kolleksiya
+[ ] 10   Badges — AYNAN 4 nishon (3 bosqich + graduate), hammasi real olinadigan; hisoblagich + kolleksiya; ko'rinadigan yorliq "Badges" (❌ "Achievements")
 [ ] 10   nishon nomi QISQA INGLIZCHA o'yin-nom ("Built It!", "Nice Catch!", "Level Up!") + o'zbekcha desc
 [ ] 10   TO'LIQ-EKRAN bayram (AchCelebrate, .acu-*) — kichik toast EMAS; navbatda bittalab
 [ ] 11   UI qoidalari (emoji, pv-h1, li:empty, base target)
-[ ] 11.14 onboarding: coach-mark spotlight tur (TourGuide .tg-*, data-tour, deferBig), bir marta
+[ ] 11.14 onboarding: coach-mark spotlight tur (TourGuide .tg-*, data-tour), bir marta; katta PIN AUTO-ochilmaydi (faqat «Ko'rsatish» — aks holda tur bilan to'qnashadi)
 [ ] 11.15 LiveBadge xira (.live-badge opacity 0.4) → hover'da tiniq
 [ ] 11.16 arenada o'z-ball YASHIL (.me highlight #12A968), qizil faqat xato javob
 [ ] 11.6 qizil fon faqat xatoda; xulosa/maslahat bloklari frame-success (yashil)
@@ -597,7 +616,7 @@ const ok = data.rows.filter(a => a.correct).length;   →   const ok = data.rows
 ```
 
 **C) Interaktiv qatlam (to'liq etalon):** `Htmllesson1.jsx` dan `DragDropOrder`, `DebugChallenge`,
-`Flashcards`, `ScreenFlashcards`, Achievement bloki (ACHIEVEMENTS/ACH_TRIGGERS/AchCtx/AchToasts/AchCounter),
+`Flashcards`, `ScreenFlashcards`, Badges bloki (ACHIEVEMENTS/ACH_TRIGGERS/AchCtx/AchToasts/AchCounter — kod nomlari o'zgarmaydi),
 MentorPracticeOverlay + PRACTICE_DONE_BASE (9.4), fmtCode (D)
 va `qz-`/`dd-`/`dbg-`/`fc-`/`ach-`/`mp-` CSS ko'chiriladi; kontent (kartalar, savollar, nishonlar) o'sha darsga moslanadi.
 
@@ -660,3 +679,55 @@ shuning uchun almashtirishdan keyin esbuild + `grep -n "\\\\\\'"` natijalarini k
 4) ARENA O'Z-BALL YASHIL (11.16): .me highlight (qz-brow.me, qz-brank, qz-pod-name, qz-mypl b, pod-row.me...) accent→yashil (#12A968/success).
 ```
 Barchasi ${T.} palitradan foydalanadi (hamma darsda bor). esbuild + brauzerda sinov.
+
+---
+
+## 15-I. 📍 L1 MANBA XARITASI — nima QAYERDA (`Htmllesson1.jsx`)
+
+> Rollar shu bo'limga ishora qiladi (takrorlanmaydi). **Qator raqamlari — v17, 2026-07-09 holati, DRIFT bo'ladi** — shuning uchun har doim **grep-anchor** (identifikator/CSS-marker) bilan toping; qator faqat mo'ljal. Yagona buyruq: `grep -n "<anchor>" src/1-Modull/Htmllesson1.jsx`.
+
+**CONSTLAR** (`grep -n "^const NAME"`):
+| Const | ~qator | Kimники |
+|---|---|---|
+| `T` (palitra) | 902 | 🎨 Dizayn |
+| `LESSON_META` / `SCREEN_META` | 1296 / 1297 | 🏗️ Quruvchi / ⚡ Jonli |
+| `RECAPS` | 1440 | 🎓 Metodist |
+| `SKELET_PIECES` | 2369 | 🏗️ Quruvchi (DragDrop kontenti) |
+| `INLINE_KEYS` | 3274 | ⚡ Jonli |
+| `QUIZ_COLORS` / `QZ_BG_SHAPES` | 3387 / 3390 | 🎨 Dizayn |
+| `QUIZ_BANK` | 3401 | ⚡ Jonli (correct) / 🎓 Metodist (matn) |
+| `PRACTICE_AFTER` / `PRACTICE_DONE_BASE` | 3898 / 958 | 🏗️ Quruvchi |
+| `ACHIEVEMENTS` / `ACH_TRIGGERS` | 3907 / 3914 | 🏗️ struktura · 🎓 nomlar |
+| `TOUR` | 3950 | 🏗️ Quruvchi (onboarding data) |
+
+**KOMPONENTLAR** (`grep -n "function NAME"`):
+| Komponent | ~qator | Kimники |
+|---|---|---|
+| `HtmlCompiler` | 526 | 🏗️ Quruvchi (praktika) |
+| `useLiveSession` (+`set_quiz_keys` ichida) | 963 | ⚡ Jonli |
+| `AchCounter` (yorliq "Badges") | 1332 | 🏗️ struktura · 🎨 ko'rinish |
+| `Stage` / `NavNext` (`optionalLive`) | 1360 / 1403 | 🏗️ Quruvchi |
+| `RecapOverlay` / `MentorTestStats` | 1505 / 1553 | 🎓 / ⚡ (`picked===correctIdx`) |
+| `fmtCode` | 1549 | 🏗️ helper · 🎨 chip · 🎓 backtick |
+| `MentorPracticeOverlay` | 1696 | 🏗️ Quruvchi |
+| `QuestionScreen` | 1763 | ⚡ Jonli (1-urinish, reveal) |
+| `ScoreRing` / `Mentor` | 1863 / 1890 | 🎨 / — |
+| `DragDropOrder` / `DebugChallenge` / `Flashcards` | 2375 / 2454 / 2498 | 🏗️ struktura · ✨ harakat |
+| `ScreenFlashcards` / `ScreenPodium` | 3176 / 3276 | ✨ / ⚡ (sort) |
+| `QzBolt` / `QzFX` | 3447 / 3479 | 🎨 mascot · ✨ canvas |
+| `AchCelebrate` / `AchToasts` | 3916 / 3942 | ✨ to'liq-ekran bayram |
+| `TourGuide` | 3963 | ✨ tg-* harakat · 🎨 ko'rinish |
+
+**CSS BLOKLAR** (`grep -n "/* ===" ` — emoji marker bilan):
+| Marker | ~qator | Kimники |
+|---|---|---|
+| `🧲 DRAG&DROP` | 4384 | ✨ Animatsiya |
+| `🐞 DEBUG CHALLENGE` | 4407 | ✨ Animatsiya |
+| `🃏 FLASHCARDS (3D flip)` | 4421 | ✨ Animatsiya |
+| `🏅 ACHIEVEMENTS` + `TO'LIQ-EKRAN NISHON BAYRAMI` (`.acu-*`) | 4472 / 4473 | ✨ Animatsiya |
+| `👋 ONBOARDING` (`.tg-*`) | 4547 | ✨ harakat · 🎨 ko'rinish |
+| `Jonli panel (LiveBadge)` | 4569 | 🎨 Dizayn |
+| `DINOZAVRNI DASTURLASH O'YINI` (`rg-*`) | 4776 | 💡 idea namunasi · ✨ harakat |
+| `Konfetti (yakun bayrami)` | 4907 | ✨ Animatsiya |
+
+> **Ishlatish:** yangi darsga qatlam ko'chirayotgan rol shu jadvaldan anchor'ni oladi → `grep -n` bilan L1'da aniq blokni topadi → python/Edit bilan ko'chiradi → mavzuga moslaydi → esbuild. Qator drift bo'lgani uchun HAR SAFAR grep bilan tasdiqlanadi.

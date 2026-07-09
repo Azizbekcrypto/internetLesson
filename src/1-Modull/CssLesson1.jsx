@@ -228,6 +228,14 @@ function parseCss(css) {
           const p = r.style[i];
           props[p] = r.style.getPropertyValue(p);
         }
+        // 🔴 QISQA XOSSALAR: CSSOM ularni longhandga yoyadi (padding→4 tomon, margin→4,
+        // gap→row-gap/column-gap...) — enumeratsiyada faqat longhand chiqadi, cssProp('.box','padding')
+        // topa olmaydi. Qisqa xossani ham qo'shamiz.
+        ['gap', 'margin', 'padding', 'border', 'flex', 'background', 'font', 'inset',
+         'place-items', 'place-content', 'border-radius', 'flex-flow', 'list-style',
+         'transition', 'overflow'].forEach((sh) => {
+          if (props[sh] == null) { const v = r.style.getPropertyValue(sh); if (v) props[sh] = v; }
+        });
         return { selector: r.selectorText || '', props };
       });
   } catch { /* parse xatosi — bo'sh qaytadi */ }
@@ -1780,6 +1788,7 @@ function ScoreRing({ correct, total }) {
 }
 
 // ===== MENTOR (nomsiz ustoz ovozi — intro/izoh shu orqali; audio matni = shu matn) =====
+const MENTOR_IMG = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png';
 const Mentor = ({ children }) => {
   const ctx = useContext(MentorCtx) || {};
   const enabled = !!ctx.enabled;
@@ -1787,7 +1796,7 @@ const Mentor = ({ children }) => {
   const expand = (e) => { e.stopPropagation(); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
     <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
-      <div className="mentor-ava" aria-hidden="true">🧑‍🏫</div>
+      <div className="mentor-ava" aria-hidden="true"><img src={MENTOR_IMG} alt="" /></div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
         <div className="mentor-msg body">{children}</div>
@@ -3464,6 +3473,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         /* === MENTOR === */
         .mentor { display: flex; gap: 12px; align-items: flex-start; }
         .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); display: flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
+        .mentor-ava img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .mentor-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
         .mentor-name { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13px; color: ${T.accent}; letter-spacing: 0.01em; }
         .mentor-msg { background: ${T.paper}; border-radius: 4px 14px 14px 14px; padding: 13px 16px; color: ${T.ink}; box-shadow: 0 6px 18px -6px rgba(${T.shadowBase},0.16); }

@@ -1342,12 +1342,12 @@ function AchCounter() {
   }, [count]);
   return (
     <div className="ach-cnt-wrap">
-      <button data-tour="ach" className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Achievements" title="Achievements">
+      <button data-tour="ach" className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Badges" title="Badges">
         <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
       </button>
       {open && (
         <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
-          <div className="ach-pop-h">🏅 Achievements — {count}/{total}</div>
+          <div className="ach-pop-h">🏅 Badges — {count}/{total}</div>
           {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
             <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
           ); })}
@@ -1887,6 +1887,7 @@ const MentorAutoClose = ({ when }) => {
   return null;
 };
 
+const MENTOR_IMG = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png';
 const Mentor = ({ children }) => {
   const ctx = useContext(MentorCtx) || {};
   // forced = ekran (masalan Xulosa) majburan yopgan — desktopda ham ishlaydi
@@ -1895,7 +1896,7 @@ const Mentor = ({ children }) => {
   const expand = (e) => { e.stopPropagation(); if (ctx.forced && ctx.setForced) ctx.setForced(false); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
     <div data-tour="mentor" className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
-      <div className="mentor-ava" aria-hidden="true">🧑‍🏫</div>
+      <div className="mentor-ava" aria-hidden="true"><img src={MENTOR_IMG} alt="" /></div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
         <div className="mentor-msg body">{children}</div>
@@ -1988,7 +1989,7 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
 };
 // ===== SCREEN 1 — REJA (mobil: preview <-> qadamlar, v16) =====
 const Screen1 = ({ screen, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's1', text: `Va'da beraman: dars oxirida o'zingizning saytingiz tayyor bo'ladi — xuddi mana shunaqa. Unga 7 ta qadamda yetib boramiz.`, trigger: 'on_mount', waits_for: null }]);
+  const audio = useAudio([{ id: 's1', text: `Ishonasizmi — dars oxirida o'zingizning saytingiz tayyor bo'ladi, xuddi mana shunaqa. Unga 7 ta qadamda yetib boramiz.`, trigger: 'on_mount', waits_for: null }]);
   const STEPS = [
     { text: 'Kod nima? — tushunamiz',   tag: '' },
     { text: 'HTML bilan tanishamiz',    tag: '' },
@@ -2039,7 +2040,7 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
         <div className="head">
           <h2 className="title h-title fade-up"><span className="italic" style={{ color: T.accent }}>Bugun haqiqiy sayt yasaymiz!</span></h2>
         </div>
-        <Mentor>Va'da beraman: dars oxirida <b style={{ color: T.ink }}>o'zingizning saytingiz</b> tayyor bo'ladi — xuddi mana shunaqa. Unga <b style={{ color: T.ink }}>7 ta qadamda</b> yetib boramiz.</Mentor>
+        <Mentor>Ishonasizmi — dars oxirida <b style={{ color: T.ink }}>o'zingizning saytingiz</b> tayyor bo'ladi, xuddi mana shunaqa. Unga <b style={{ color: T.ink }}>7 ta qadamda</b> yetib boramiz.</Mentor>
         {!isNarrow ? (
           <Split>{PreviewBlock}{StepsBlock}</Split>
         ) : !showSteps ? (
@@ -2184,7 +2185,7 @@ const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
                 <span className="pz-emoji">🦖</span>
                 <div>
                   <p className="pz-title">Dinozavrni o'zingiz boshqaring</p>
-                  <p className="pz-sub">Dinozavrga buyruq bering — u buyruqlarni <b style={{ color: T.ink }}>bergan tartibingizda, aynan</b> bajaradi. Bergan buyruqlaringiz ro'yxati <b style={{ color: T.ink }}>dastur</b> deyiladi (uni <b style={{ color: T.ink }}>kod</b> ham deymiz).</p>
+                  <p className="pz-sub">Dinozavrga buyruq bering — u buyruqlarni <b style={{ color: T.ink }}>siz bergan tartibda, birma-bir</b> bajaradi. Bergan buyruqlaringiz ro'yxati <b style={{ color: T.ink }}>dastur</b> deyiladi (uni <b style={{ color: T.ink }}>kod</b> ham deymiz).</p>
                 </div>
               </div>
 
@@ -3404,11 +3405,11 @@ const QUIZ_BANK = [
   { q: "Tartibsiz (nuqtali) ro'yxatni qaysi teg boshlaydi?", opts: ["`ul`", "`ol`", "`li`", "`a`"], correct: 0 },
   { q: "Ro'yxatning har bir bandi qaysi tegga o'raladi?", opts: ["`ul`", "`li`", "`ol`", "`dd`"], correct: 1 },
   { q: "Havolada (link) manzil qaysi atributga yoziladi?", opts: ["`src`", "`link`", "`href`", "`url`"], correct: 2 },
-  { q: "`title` tegidagi matn qayerda ko'rinadi?", opts: ["Sahifa o'rtasida", "Brauzer yorlig'ida (tab)", "Tugma ustida", "Hech qayerda"], correct: 1 },
+  { q: "`title` tegidagi matn qayerda ko'rinadi?", opts: ["Sahifaning o'rtasida", "Brauzer yorlig'ida", "Tugmaning ustida", "Hech qayerda ko'rinmaydi"], correct: 1 },
   { q: "Ko'rinmaydigan sozlamalar (`title`, `meta`) qaysi qismga yoziladi?", opts: ["`body`", "`p`", "`head`", "`h1`"], correct: 2 },
   { q: "Matnni QALIN (bold) qilish uchun qaysi teg?", opts: ["`strong`", "`em`", "`p`", "`i`"], correct: 0 },
-  { q: "`<!DOCTYPE html>` nimani bildiradi?", opts: ["Sahifa rangini", "Rasm qo'shishni", "Sahifani yopishni", "Bu HTML5 hujjat ekanini"], correct: 3 },
-  { q: "Sahifa skeletining to'g'ri tartibi qaysi?", opts: ["`body` ichida `html`", "`head` ichida `html`", "`title` ichida `body`", "`html` ichida `head` va `body`"], correct: 3 },
+  { q: "`<!DOCTYPE html>` nimani bildiradi?", opts: ["Sahifaning fon rangini", "Rasm qo'shilishini", "Sahifa tugaganini", "HTML5 hujjat ekanini"], correct: 3 },
+  { q: "Sahifa skeletining to'g'ri tartibi qaysi?", opts: ["`head` ichida `html` va `body`", "`body` ichida `head` va `html`", "`title` ichida `head`", "`html` ichida `head` va `body`"], correct: 3 },
   { q: "HTML kodni o'qib, sahifaga aylantiradigan dastur qaysi?", opts: ["Server", "Brauzer", "Word", "Fayl menejeri"], correct: 1 },
   { q: "Matnni QIYA (kursiv) qilish uchun qaysi teg?", opts: ["`em`", "`ul`", "`a`", "`h1`"], correct: 0 },
 ];
@@ -3674,7 +3675,7 @@ function QuizArena({ live, onClose, startSolo }) {
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
           <CsWordmark />
-          <p className="qz-sub" style={{ marginTop: -4 }}>Tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
+          <p className="qz-sub" style={{ marginTop: -4 }}>Tezroq to'g'ri bossangiz — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {solo && isStudent && <p className="qz-sub" style={{ color: '#FFC94D' }}>📖 Mashq rejimi — o'z tezligingizda ishlaysiz, natija faqat sizga ko'rinadi.</p>}
           {!solo && (
             <div className="qz-lobby-players">
@@ -3839,34 +3840,9 @@ const STARTER_HEADINGS = `<!-- Bu yerga yozing -->
 
 `;
 
-// — P2: matn (Screen9 — strong/em — dan keyin) —
-const TASK_TEXT = {
-  eyebrow: 'Praktika · matn',
-  title: "Muhim so'zlarni ajrating",
-  brief: "Bir jumla yozing. Muhim so'zni <strong> bilan qalin, boshqasini <em> bilan qiya qiling.",
-  requirements: [
-    { id: 'strong', label: '<strong> — qalin so\'z', check: C.nested('p', 'strong', "`<p>` ichida bitta so'zni `<strong>...</strong>` bilan qalin qiling") },
-    { id: 'em', label: '<em> — qiya so\'z', check: C.nested('p', 'em', "`<p>` ichida bitta so'zni `<em>...</em>` bilan qiya qiling") },
-  ],
-};
-const STARTER_TEXT = `<!-- Bu yerga yozing -->
-`;
+// (Matn va Ro'yxat praktikalari olib tashlandi — 9.4: AYNAN 3 praktika. strong/em va ul/ol/li nazariya ekranlarida qoladi.)
 
-// — P3: ro'yxat (Screen10 — Ro'yxatlar — dan keyin) —
-const TASK_LIST = {
-  eyebrow: 'Praktika · ro\'yxat',
-  title: "O'z ro'yxatingizni yasang",
-  brief: "Sevimli narsalaringizdan ro'yxat tuzing: ro'yxat qobig'i (ul yoki ol) ichida kamida 3 ta band (li).",
-  requirements: [
-    { id: 'list', label: '<ul> yoki <ol> — ro\'yxat qobig\'i', check: C.has('ul, ol', "`<ul>` (nuqtali) yoki `<ol>` (raqamli) ro'yxatni qo'shing") },
-    { id: 'items', label: 'kamida 3 ta <li> band', check: C.count('li', 3, "Ro'yxat ichiga kamida 3 ta `<li>...</li>` band yozing") },
-  ],
-};
-const STARTER_LIST = `<!-- Bu yerga yozing -->
-
-`;
-
-// — P4: havola (Screen12 — Havolalar — dan keyin) —
+// — P2: havola (Screen12 — Havolalar — dan keyin) —
 const TASK_LINK = {
   eyebrow: 'Praktika · havola',
   title: "Havola yasang",
@@ -3896,11 +3872,10 @@ const STARTER_FINAL = `<!-- Bu yerga yozing -->
 
 // Praktika handoff xaritasi: shu ekran INDEKSIDAN keyin qaysi praktika chaqiriladi.
 const PRACTICE_AFTER = {
-  9:  { task: TASK_HEADINGS, starter: STARTER_HEADINGS },
-  10: { task: TASK_TEXT,     starter: STARTER_TEXT },
-  11: { task: TASK_LIST,     starter: STARTER_LIST },
-  13: { task: TASK_LINK,     starter: STARTER_LINK },
-  15: { task: TASK_FINAL,    starter: STARTER_FINAL }, // Screen15 olib tashlandi → yakuniy praktika Debugging (idx 15) dan keyin
+  // 🔴 9.4: AYNAN 3 praktika-compiler (Sarlavha + Havola + Yakuniy). Matn/Ro'yxat praktikalari olib tashlandi (nazariyada qoladi).
+  9:  { task: TASK_HEADINGS, starter: STARTER_HEADINGS }, // 1) Sarlavha (h1–h6)
+  13: { task: TASK_LINK,     starter: STARTER_LINK },     // 2) Havola (a/href)
+  15: { task: TASK_FINAL,    starter: STARTER_FINAL },    // 3) Yakuniy (noldan sayt) — Debugging (idx 15) dan keyin
 };
 
 // ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
@@ -4199,6 +4174,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         /* === MENTOR === */
         .mentor { display: flex; gap: 12px; align-items: flex-start; }
         .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); display: flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
+        .mentor-ava img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .mentor-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
         .mentor-name { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13px; color: ${T.accent}; letter-spacing: 0.01em; }
         .mentor-msg { background: ${T.paper}; border-radius: 4px 14px 14px 14px; padding: 13px 16px; color: ${T.ink}; box-shadow: 0 6px 18px -6px rgba(${T.shadowBase},0.16); }
