@@ -37,6 +37,13 @@ Yangi darsni SHU jonlilik darajasiga olib chiqing.
 4. Ijodiy idea bo'lsa (Ijodkor brifi) — uni jonlantiring (dinozavr `rg-*` kabi mavzu-personaj harakati).
 5. Har o'zgarishдан keyin `npx esbuild <fayl> --loader:.jsx=jsx --outfile=/dev/null`.
 
+## 📜 L1 TARIX SABOQLARI (git-tarixdan — qanday O'YLASH; batafsil: `L1_TARIX.md`)
+- **S19 · Muhim yutuq — muhim nishonlanadi.** L1 nishoni avval 3.6s mikro-toast edi — dopamin bermasdi → to'liq-ekran AchCelebrate (nurlar, medal-bounce, 14 uchqun, ~4s) bo'ldi. Lekin NAVBAT bilan bittalab. Feedback kuchini hodisa muhimligiga moslang: katta yutuq=katta bayram, oddiy javob=mikro-pop.
+- **S20 · Harakat javobni TASDIQLAYDI.** L1 flashcard: quruq setTimeout-almashish → Quizlet-muhr (✓ yashil o'ngga uchadi / ✗ qizil chapga, yangi karta pastdan `swapRef` remount, `exiting` paytida qulf). Har foydalanuvchi qarori harakat bilan "muhrlansin".
+- **S21 · reduced-motion TUG'ILISHDAN.** QzFX canvas birinchi kunidanoq `prefers-reduced-motion` tekshirgan. Har og'ir animatsiya bilan BIRGA tinch variant yoziladi — keyin emas.
+- **S22 · Almashtirish swap-in bilan.** Statik skelet → DragDrop o'tishi `sk-swapin` orqali — kontent "sakrab" o'zgarmaydi. Har rejim/holat almashinuvida o'tish animatsiyasi bormi tekshiring.
+- **S23 · Affordance jim turmaydi.** Bosilmagan qism `tap-hint` pulsatsiya + bosilgani ✓ + jonli `2/4` hisoblagich. Interfeys "meni bos" deb chaqirsin. M4: o'tkinchi effekt yetarli emas — doimiy progress-signal (hisoblagich bump kabi) qo'shing.
+
 ## QAT'IY TAQIQLAR (DO-NOT)
 - ❌ Rang/palitra/rasm/layout (statik ko'rinish) — TEGMANG (🎨 Dizayn). Siz faqat HARAKAT (keyframes, transition, transform, timing).
 - ❌ Matn/metafora/ball-logikasi/SCREEN_META tuzilishi — TEGMANG (🎓 Metodist / ⚡ Jonli / 🏗️ Quruvchi).

@@ -15,6 +15,10 @@ Siz — **✅ Verifikator**. Vazifangiz: butun pipeline yakunida darslik HAQIQAT
 3. **(Imkon bo'lsa) render sinovi**: agar loyihada dev-server / build skripti bo'lsa (`package.json` scripts), uni ishga tushirib kalit ekranlar render bo'lishini tekshiring; `run` yoki `verify` skill mavjud bo'lsa undan foydalaning. Skrinshot oling: arena, podium, flashcard, summary. Server ochilmasa — esbuild + statik tekshiruv bilan cheklaning va buni aniq yozing.
 4. **Jonli sinov ESLATMASI** (o'zingiz qila olmasangiz): "yangi PIN + 2 o'quvchi → podium/arena ballari 0 EMAS (MENTOR-2026)" — bu QO'LDA sinov ekanini foydalanuvchiga eslating.
 
+## 📜 L1 TARIX SABOQLARI (git-tarixdan; batafsil: `L1_TARIX.md`)
+- **S41 · Regressiya sinflari.** L1 tarixidagi har bug — imzolashdan oldingi yakuniy ko'z ro'yxati: (a) podium/arena 0/5 (set_quiz_keys zanjiri uzuq); (b) zid statistika (sanoq↔ustun); (c) homoglif kirill lotin so'z ichida; (d) refaktordan qolgan o'lik kod; (e) JSX matnida noto'g'ri `\'`. Bularning birortasi ko'rinsa — IMZOLAMANG.
+- **S42 · Hajm-sanity.** L1 har qatlam bilan o'sgan (4422→5228 qator). Yangi dars build hajmi ishlov OLDIDAGIDAN keskin kichik bo'lsa — qatlam yo'qolgan; solishtirib imzolang.
+
 ## QAT'IY TAQIQLAR (DO-NOT)
 - ❌ Faylni tahrirlamang (Edit/Write yo'q). Nuqson topsangiz — qaytaring.
 - ❌ "Ishlaydi" deb build dalilsiz aytmang. ❌ Commit qilmang.

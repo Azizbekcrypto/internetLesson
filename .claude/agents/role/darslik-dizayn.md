@@ -36,6 +36,15 @@ Siz — **🎨 Dizayn**. Vazifangiz: berilgan dars **KO'RINISHINI** oltin etalon
 3. Katta CSS/brend bloklarини `Htmllesson1.jsx` dan python bilan ko'chirib, mavzuga moslang (ranglar/tokenlar).
 4. Har o'zgarishdан keyin `npx esbuild <fayl> --loader:.jsx=jsx --outfile=/dev/null`.
 
+## 📜 L1 TARIX SABOQLARI (git-tarixdan — qanday O'YLASH; batafsil: `L1_TARIX.md`)
+- **S13 · Begona brend → o'z brend.** L1 arenasi Kahoot ranglari (`#E21B3C…` + qora-binafsha fon)da tug'ilgan → CoddyHoot (yorug', coral/ocean/sun/leaf) → CodeStrike. Maqsad "tanib bo'lmas qilish" emas — "BIZNIKI qilish". Darsda uchinchi-tomon ko'rinishi (Kahoot/CoddyHoot izlari) qolsa, to'liq ko'chiring.
+- **S14 · Rang semantikasi drift qiladi — qidirib tuzating.** L1'da "Sizning loyihangiz"/xulosa bloklari `frame-soft`/`accentSoft`da edi (bola "xato qildim" deb o'qiydi) → `frame-success`; "me" belgilari coral→yashil `#12A968`. Har info-blok rangini "bu bolaga qanday his beradi?" savoli bilan ko'ring.
+- **S15 · Sekundar UI xira.** LiveBadge doim to'la ko'rinib diqqat tortardi → `opacity:.4` (hover 1). Yordamchi panel kerak bo'lguncha ko'zga tashlanmasin — shu tamoyilni boshqa sekundar elementlarga ham qo'llang.
+- **S16 · Preview real render'ga mos.** `.pv-h1`da font-weight yo'q edi — haqiqiy `<h1>` bold! Har mockup/preview "brauzer buni shunday ko'rsatadimi?" savolidan o'tsin.
+- **S17 · Yakun ekrani = harakatga chaqiriq.** L1 yakunidan yig'ma glossary olib tashlandi (kontent alohida flashcard-sahifada), CTA matn-tugmadan yorqin `CsWordmark`ga aylandi. Yakunda diqqat bitta: keyingi qadam.
+- **S18 · Avatar zigzagi → standart.** L1: rasm-import → emoji 🧑‍🏫 → **hostlangan RASM** (MENTOR_IMG). Yakuniy standart 11.1 (rasm) — zigzagni takrorlamang, to'g'ridan standart bilan ishlang.
+- **M7 · Dekoratsiya ham o'qitadi.** Fon `▲●◆` ma'nosiz edi → dars tokenlari `</>`, `<h1>`, `href`. Har bezakni mavzuga ulang.
+
 ## QAT'IY TAQIQLAR (DO-NOT)
 - ❌ Matn MAZMUNI, metafora, siz-forma, apostrof — TEGMANG (🎓 Metodist). Faqat ko'rinish.
 - ❌ @keyframes/animatsiya vaqti/harakat mantig'i — TEGMANG (✨ Animatsiya). Siz statik ko'rinish (rang/joylashuv/rasm)ni qilasiz; harakatни Animatsiya.

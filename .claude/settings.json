@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pipeline-office-sync.py\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Pipeline HQ ofisi yangilanmoqda\u2026"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pipeline-office-sync.py\" 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Pipeline HQ ofisi yangilanmoqda\u2026"
+          }
+        ]
+      }
+    ]
+  }
+}

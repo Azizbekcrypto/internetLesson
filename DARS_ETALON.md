@@ -277,12 +277,12 @@ Sabab: pastdagi ustunlar `picked === correctIdx` bilan chizadi. (Bu — "1 xato"
 
 ### 8.1 Ball formulasi (o'zgartirmang)
 ```js
-const QUIZ_MS = 20000, QUIZ_BASE_IDX = 100;
+const QUIZ_MS = 15000, QUIZ_BASE_IDX = 100;
 const quizPts = (ms) => ms <= 500 ? 1000 : Math.max(0, Math.round(1000 * (1 - (Math.min(ms, QUIZ_MS) / QUIZ_MS) / 2)));
 // quizScore: har to'g'ri javob quizPts + (streak>=2 ? 100 : 0); pts ↓, teng bo'lsa ok ↓
 ```
-- Max 1000 ball (≤500ms), 20s oxirida to'g'ri javob 500. Streak (2+) → +100.
-- **Standart hajm: 12 savol** (8.3 taqsimot 3/3/3/3 shunga mo'ljallangan), har biriga 20 soniya.
+- Max 1000 ball (≤500ms), 15s oxirida to'g'ri javob 500. Streak (2+) → +100.
+- **Standart hajm: 12 savol** (8.3 taqsimot 3/3/3/3 shunga mo'ljallangan), har biriga **15 soniya** (`QUIZ_MS = 15000` — 2026-07-09 "optimallashdi"da 20s→15s: CodeStrike=jang/tezlik hissi, L1 g'olib. ⚠️ L2/CssLesson1/CssLesson2'da hali 20000 — ko'chirish/keyingi ishlovda 15000 ga tushiriladi).
 - `QUIZ_BANK` har elementida `{ q, opts, correct }` — `correct` **haqiqiy indeks** (kalitga kiradi).
 - ⚠️ `quizScore` `a.correct`ga tayanadi → kalit yuklanmasa **0 0 0 0**.
 
@@ -565,7 +565,7 @@ JONLI / BALL (🔴 statistika buglari shu yerdan)
 [ ] 6    MentorTestStats: ok = rows.filter(a => a.picked === correctIdx).length
 [ ] 7    ScreenPodium sort: y.okCount - x.okCount || x.time - y.time
 [ ] 8    QUIZ_BANK correct indekslari to'g'ri; quizPts/quizScore o'zgarmagan; QZ_BG_SHAPES mavzuga mos
-[ ] 8.1  arena 12 savol · har biriga 20s
+[ ] 8.1  arena 12 savol · har biriga 15s (QUIZ_MS = 15000, 20000 EMAS)
 [ ] 8.3  QUIZ_BANK to'g'ri javoblar 4 pozitsiyaga TENG taqsimlangan (3/3/3/3, birortasi 0 emas)
 [ ] 8.4  javob UZUNLIGI teng — to'g'ri javob uzunidan bilinmasin (inline QuestionScreen + arena QUIZ_BANK; qo'lda o'qib)
 

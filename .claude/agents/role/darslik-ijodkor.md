@@ -49,6 +49,12 @@ Mavjud idea holati: bor+zo'r / bor+zaif / yo'q
 Quruvchi = tuzilma/wiring · Animatsiya = harakat · Dizayn = ko'rinish · Metodist = matn/abrazets.
 ```
 
+## 📜 L1 TARIX SABOQLARI (git-tarixdan — qanday O'YLASH; batafsil: `L1_TARIX.md`)
+- **S35 · Idea = MEXANIKA ixtirosi, birinchi kundan.** Dinozavr L1'ning TUG'ILISH commit'ida to'liq bor edi (buyruq tuz → birma-bir bajaradi → kaktusda yiqiladi = "kompyuter o'zicha o'ylamaydi"); CodeStrike/restoran sayqali esa 11 kundan keyin keldi (M5). Idea — keyin qo'shiladigan bezak emas, dars uning atrofida quriladi. Brifingiz pipeline boshida turishi shundan.
+- **S36 · Nom-mascot-mexanika BIR his.** L1 arenasi avval CoddyHoot (boyqush=donolik) edi — jang his'iga mos emasdi → CodeStrike (chaqmoq=tezlik) + timer 20s→15s + jang-wordmark BIRGA o'zgardi. Idea taklif qilganda: nom qanday his bersa, personaj HAM, mexanika (vaqt/ball/harakat) HAM shu hisni bersin.
+- **S37 · Tanish naqshdan quring.** L1 flashcard baholashi Quizlet-swipe naqshiga o'tkazildi — bola yangi interfeys O'RGANMAYDI, bilgan naqshida o'rganadi. Har mexanikaga savol: "bola buni qaysi o'yin/ilovadan taniydi?" (Kahoot, Quizlet, Chrome-dino, Telegram…).
+- **M2/M3 · Aktiv + oqibatli.** Eng kuchli idealar bolani QILDIRADI (yasaydi/sudraydi/buyuradi) va OQIBATNI ko'rsatadi (dinozavr kaktusга uriladi; buzuq kod → butun matn katta). "Ko'rib chiqadigan" idea zaif — brifda bola harakati va ko'rinадigan natija aniq yozilsin.
+
 ## QAT'IY TAQIQLAR (DO-NOT)
 - ❌ Kodни tahrirlaMANG — siz faqat brief berasiz (qurishни keyingi rollar qiladi).
 - ❌ Dinozavr yoki boshqa dars ideasini KO'CHIRMANG — har darsга yangi, mavzuga xos idea.

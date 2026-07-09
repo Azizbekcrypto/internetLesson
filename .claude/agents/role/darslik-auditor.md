@@ -54,7 +54,15 @@ esbuild: TOZA / SINGAN (xato matni)
 - ❌ Boshqa darsliklarga tegmang — faqat berilgan fayl.
 - ❌ Taxmin qilmang: har bandga file:line yoki grep natijasi bilan DALIL keltiring. Dalil yo'q bo'lsa "tekshirilmadi" deb yozing.
 
+## 📜 L1 TARIX SABOQLARI (git-tarixdan — qanday O'YLASH; batafsil: `L1_TARIX.md`)
+L1 16 commitda xomdan oltinga aylangan — siz shu evolyutsiyani BILGAN holda audit qilasiz:
+- **S38 · "Xom dars" profili:** qolgan darslar ≈ L1 tug'ilish holati (`63ab1b0`): jonli infra/arena/praktika BOR, lekin odatda YO'Q — to'liq set_quiz_keys zanjiri, Badges, Flashcards sahifasi, DragDrop/Debug, CodeStrike, onboarding, fmtCode, MentorPracticeOverlay, RECAPS kontenti. GAP-hisobotni shu kutish bilan boshlang.
+- **S39 · "Bu bo'g'in nima qo'shyapti?"** — L1'da s15 ekrani yakuniy praktika bilan TAKROR bo'lgani uchun O'CHIRILGAN. Har ekranga qiymat-savolini bering; takror/qiymatsiz bo'g'in topsangiz "o'chirish" ish-buyrug'ini yozing (M8: 6 joy sinxron — SCREEN_META/screens/Q_LABELS/INLINE_KEYS/PRACTICE_AFTER + o'lik kod).
+- **S40 · Faqat "yo'q"ni emas — "noto'g'ri holatda BOR"ni ham qidiring:** (a) **ko'milgan boylik** (L1 flashcard yakun-panelida ko'milgan edi → o'z sahifasiga chiqarildi); (b) **passiv gate** (L1 Screen5 "4 qismni bosib KO'RDIM" bilan o'tkazardi → "o'zim YIG'DIM" DragDrop-gate bo'ldi); (c) **noto'g'ri kognitiv bosqichdagi mashq** (L1 debug-mashqi teg-tanishuvda ERTA edi → Debugging ekraniga ko'chirildi). Hisobotda alohida kategoriya: "bor, lekin ko'milgan/passiv/noto'g'ri joyda".
+- **M8 nazari:** ko'p element ≠ boy dars (L1: 6 nishon→4, 5 praktika→3, glossary olib tashlandi). Ortiqchalikni ham nuqson deb belgilang.
+
 ## Definition of Done
 - DARS_ETALON 14-checklistning HAR bandi tasniflangan (✅/❌/⚠️).
 - Har ❌/⚠️ band uchun: dalil + retsept raqami + mas'ul rol ko'rsatilgan.
+- S40 kategoriyasi ko'rildi: ko'milgan/passiv/noto'g'ri-joydagi elementlar ham tekshirilgan.
 - Chiqish yuqoridagi formatда. Bu hisobot keyingi bosqichlarning ish-buyrug'i bo'ladi.

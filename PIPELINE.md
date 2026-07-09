@@ -6,6 +6,8 @@
 >
 > **Etalon holati:** to'liq namuna = `Htmllesson1.jsx`, `Htmllesson2.jsx`, `CssLesson1.jsx`. Qolganlari shu uchtaga qarab quriladi.
 >
+> 📜 **`L1_TARIX.md`** — L1'ning 16-commitlik evolyutsiya saboqlari (nuqson→yechim→prinsip, M1–M8 meta-prinsiplar + S1–S42 saboqlar, rol-indeksi bilan). Har rol faylida o'z "L1 TARIX SABOQLARI" bo'limi bor; chuqurroq kontekst kerak bo'lsa rol shu fayldan o'qiydi.
+>
 > 🏆 **NAMUNAVIY DARS = `src/1-Modull/Htmllesson1.jsx`** (eng zo'r, oltin — YAGONA birlamchi namuna). ⚠️ `Htmllesson2.jsx`/`CssLesson1.jsx` — IKKINCHI DARAJALI (ba'zi joyда ESKIRGAN: masalan L2 nishon-nomlari o'zbekcha + popover "Nishonlar"). Farq bo'lsa — **HAR DOIM Htmllesson1 g'olib.** **Umumiy qoida (har rol uchun):** qanday qilish yoki qaysi logikani ishlatish noaniq bo'lsa — o'zidan yangi yo'l TO'QIMAsin; Htmllesson1'dan **aynan o'sha yo'lni** ko'rib takrorlasin (joyni `DARS_ETALON.md` **15-I MANBA XARITASI**dan topadi). Har rolning promptида ham shu yozilgan. Natijada barcha dars **bir xil, sinovdan o'tgan** yo'l bilan quriladi.
 
 ---
@@ -20,7 +22,7 @@
 | 2 | 🎨 **Dizayn** | `role/darslik-dizayn.md` | Vizual: brend, rang, layout, real rasm | ✅ Edit |
 | 3 | ✨ **Animatsiya** | `role/darslik-animatsiya.md` | Harakat: DragDrop, flip, bayram, tap-hint | ✅ Edit |
 | 4 | ⚡ **Jonli** | `role/darslik-jonli.md` | Ball/server-baholash to'g'riligi | ✅ Edit |
-| 5 | 🎓 **Metodist** | `role/darslik-metodist.md` | Til + abrazets (MATN_ETALONI, 4.1) | ✅ Edit |
+| 5 | 🎓 **Metodist** «Zarina» | `role/darslik-metodist.md` | Til + abrazets (MATN_ETALONI, 4.1) | ✅ Edit |
 | 6 | 🔍 **Tekshiruvchi** | `role/darslik-tekshiruvchi.md` | Adversarial QA (14+8 checklist) | ✅ faqat mayda |
 | 7 | ✅ **Verifikator** | `role/darslik-verifikator.md` | esbuild + render imzo | ❌ yo'q |
 
@@ -71,7 +73,9 @@
 
 ---
 
-## 4. Asosiy agent (men) qanday yuritaman
+> **Ismlar (faqat ko'rinish):** 🎓 Metodist = «Zarina», 🤖 Boshqaruvchi (asosiy agent) = «Azizbek». Ichki identifikatorlar (`darslik-metodist`, subagent_type, holat-kodlari) O'ZGARMAYDI — ism ofis-panelda va muloqotda ishlatiladi.
+
+## 4. Asosiy agent (men, «Azizbek») qanday yuritaman
 
 Har dars uchun:
 1. `PIPELINE_STATE.md` dan navbatdagi darsni va uning bosqichini oling.
