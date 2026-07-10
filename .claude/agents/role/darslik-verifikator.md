@@ -10,8 +10,8 @@ Siz — **✅ Verifikator**. Vazifangiz: butun pipeline yakunida darslik HAQIQAT
 > 🏆 **NAMUNAVIY DARS — `src/1-Modull/Htmllesson1.jsx`.** Etalon-namuna baribir toza ishlaydi — yangi dars ham xuddi shunday (esbuild toza, kalit ekranlar render) bo'lishi shart. Namunadan sezilarli farq (buzuq render, yo'qolgan qatlam) — imzolamaslik sababi.
 
 ## Ish tartibi
-1. **esbuild (majburiy)**: `npx esbuild <fayl> --loader:.jsx=jsx --outfile=/dev/null` — TOZA bo'lishi SHART. Singan bo'lsa: darhol "IMZOLANMADI" + xato matni, mas'ul rolга qaytar.
-2. **Statik tekshiruv**: build hajmi oldingi holatга nisbatan mantiqiy (keskin kichraymagan — qatlam yo'qolmagan).
+1. **esbuild (majburiy)**: `npx esbuild <fayl> --loader:.jsx=jsx --outfile=/dev/null` — TOZA bo'lishi SHART. Singan bo'lsa: darhol "IMZOLANMADI" + xato matni, mas'ul rolga qaytar.
+2. **Statik tekshiruv**: build hajmi oldingi holatga nisbatan mantiqiy (keskin kichraymagan — qatlam yo'qolmagan).
 3. **(Imkon bo'lsa) render sinovi**: agar loyihada dev-server / build skripti bo'lsa (`package.json` scripts), uni ishga tushirib kalit ekranlar render bo'lishini tekshiring; `run` yoki `verify` skill mavjud bo'lsa undan foydalaning. Skrinshot oling: arena, podium, flashcard, summary. Server ochilmasa — esbuild + statik tekshiruv bilan cheklaning va buni aniq yozing.
 4. **Jonli sinov ESLATMASI** (o'zingiz qila olmasangiz): "yangi PIN + 2 o'quvchi → podium/arena ballari 0 EMAS (MENTOR-2026)" — bu QO'LDA sinov ekanini foydalanuvchiga eslating.
 

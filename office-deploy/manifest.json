@@ -1,0 +1,11 @@
+{
+  "name": "Pipeline HQ — jonli ofis",
+  "short_name": "Pipeline HQ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#10141f",
+  "theme_color": "#10141f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -49,4 +49,4 @@ Siz — **⚡ Jonli**. Vazifangiz: berilgan darslikda **jonli sessiya + server-b
 - Yuqoridagi 10 bandning HAMMASI ✅ (har biriga grep dalili).
 - `INLINE_KEYS[id] === correctIdx` har scored ekran uchun tasdiqlangan; QUIZ_BANK 3/3/3/3.
 - esbuild TOZA.
-- Chiqishда: har band holati (✅ + dalil), qanday tuzatilgani, va **jonli sinov eslatmasi** ("yangi PIN + 2 o'quvchi bilan podium/arena 0 emasligini MENTOR-2026 bilan qo'lda sinash kerak") yozing.
+- Chiqishda: har band holati (✅ + dalil), qanday tuzatilgani, va **jonli sinov eslatmasi** ("yangi PIN + 2 o'quvchi bilan podium/arena 0 emasligini MENTOR-2026 bilan qo'lda sinash kerak") yozing.

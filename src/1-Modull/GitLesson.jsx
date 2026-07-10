@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
-import mentorImg from '../assets/common/mentor.png';
+import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react';
 
 // ============================================================
 // HTML 1-DARS — PLATFORM STANDARD v15 (Notion: design_system + platform_contract + infrastructure_v1)
@@ -11,8 +10,8 @@ import mentorImg from '../assets/common/mentor.png';
 const T = {
   bg: '#F6F4EF', ink: '#0E0E10', ink2: '#5A5A60', ink3: '#A7A6A2',
   paper: '#FFFFFF', accent: '#FF4F28', accentSoft: '#FFE8E1', accentVivid: '#FF4F28',
-  success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', link: '#1a56db',
-  shadowBase: '58, 53, 48'
+  success: '#1F7A4D', successSoft: '#E3F0E8', blue: '#019ACB', blueSoft: '#E1F3FA', link: '#1a56db',
+  line: '#E9E6DF', shadowBase: '58, 53, 48'
 };
 const CODE = { bg: '#1A2436', text: '#E8E5DD', tag: '#FF7755', attr: '#FFD380', str: '#7DD181', comment: '#6B7585', punct: '#9FB4D8' };
 
@@ -62,6 +61,7 @@ const liveAnswers = (pin, screenIdx) => liveList(`live_answers?pin=eq.${encodeUR
 const liveQuizAnswers = (pin) => liveList(`live_answers?pin=eq.${encodeURIComponent(pin)}&screen_idx=gte.100&select=player_id,screen_idx,picked,correct,elapsed_ms`);
 
 const LiveGateCtx = createContext(null);
+const AchCtx = createContext(null); // 🏅 olingan nishonlar (Set) — Stage hisoblagichi uchun
 
 function useLiveSession(lessonId, answerKey) {
   const keyRef = useRef(answerKey); keyRef.current = answerKey; // javob kaliti — mentor sessiya ochganda serverga yuklanadi
@@ -146,7 +146,7 @@ function useLiveSession(lessonId, answerKey) {
       tokenRef.current = row.token; setPin(row.pin); setMode('mentor'); setEnded(false);
       liveStore(lessonId, { mode: 'mentor', pin: row.pin, token: row.token });
       if (keyRef.current) liveRpc('set_quiz_keys', { p_lesson_id: lessonId, p_mentor_code: (mentorCode || '').trim(), p_keys: keyRef.current }).catch(() => {});
-    } catch { setJoinError('Mentor kodi noto‘g‘ri yoki ulanishda xato.'); }
+    } catch { setJoinError("Mentor kodi noto'g'ri yoki ulanishda xato."); }
     finally { setBusy(false); }
   }, [lessonId]);
 
@@ -260,8 +260,7 @@ function LiveGate({ live, title = 'Jonli dars' }) {
 function LiveBadge({ live, total }) {
   const [bigOpen, setBigOpen] = useState(false);
   const [nPlayers, setNPlayers] = useState(null);
-  const shownRef = useRef(false);
-  useEffect(() => { if (live.mode === 'mentor' && live.pin && !live.ended && !shownRef.current) { shownRef.current = true; setBigOpen(true); } }, [live.mode, live.pin, live.ended]);
+  // Katta PIN AUTO-OCHILMAYDI — faqat «📺 Ko'rsatish» tugmasi ochadi (onboarding turi bilan to'qnashmasin).
   // Mentor: qo'shilgan o'quvchilar soni (har 6s yangilanadi)
   useEffect(() => {
     if (live.mode !== 'mentor' || !live.pin || live.ended) return;
@@ -274,10 +273,10 @@ function LiveBadge({ live, total }) {
     return () => { on = false; clearTimeout(t); };
   }, [live.mode, live.pin, live.ended]);
   if (live.mode === 'mentor') {
-    if (live.ended) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
+    if (live.ended) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
     return (<>
       {bigOpen && <LiveBigCode pin={live.pin} onClose={() => setBigOpen(false)} />}
-      <div style={_liveBadgeS}>
+      <div data-tour="live" className="live-badge" style={_liveBadgeS}>
         <span style={_liveDot(LT.success)} /> Kod: <b style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{fmtPin(live.pin)}</b>
         {nPlayers !== null && <span style={{ color: LT.ink2 }}>👥 {nPlayers}</span>}
         <button onClick={() => setBigOpen(true)} title="Kodni katta ko'rsatish" style={{ marginLeft: 6, background: LT.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>📺 Ko'rsatish</button>
@@ -286,10 +285,10 @@ function LiveBadge({ live, total }) {
     </>);
   }
   if (live.mode === 'student') {
-    if (live.status === 'ended') return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
-    if (!live.mentorAlive) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
-    if (!live.connected) return <div style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
-    return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
+    if (live.status === 'ended') return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
+    if (!live.mentorAlive) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
+    if (!live.connected) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
+    return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
   }
   return null;
 }
@@ -394,7 +393,7 @@ function useAudio(segments) {
 
 // AUDIOSIZ: AudioIndicator (ovoz/replay tugmalari) olib tashlandi — ovoz o'chirilgan, ikonka kerak emas.
 
-const LESSON_META = { lessonId: 'git-github-01-v17', lessonTitle: { uz: 'Git va GitHub — kod uchun vaqt mashinasi', ru: 'Git и GitHub — машина времени для кода' } };
+const LESSON_META = { lessonId: 'git-github-01-v18', lessonTitle: { uz: 'Git va GitHub — kod uchun vaqt mashinasi', ru: 'Git и GitHub — машина времени для кода' } };
 const SCREEN_META = [
   { id: 's0',  type: 'hook',        template: 'custom',   scored: false, scope: 'hook' },
   { id: 's1',  type: 'rule',        template: 'custom',   scored: false, scope: null },
@@ -412,8 +411,10 @@ const SCREEN_META = [
   { id: 's12', type: 'test',        template: 'MCScreen', scored: true,  scope: 'module-mikro' },
   { id: 's13', type: 'case',        template: 'custom',   scored: false, scope: null },
   { id: 's14', type: 'rule',        template: 'custom',   scored: false, scope: null },
+  { id: 's14b', type: 'challenge',  template: 'custom',   scored: false, scope: null },
   { id: 's15', type: 'test',        template: 'MCScreen', scored: true,  scope: 'final' },
   { id: 's15b', type: 'stats',      template: 'custom',   scored: false, scope: null },
+  { id: 'sflash', type: 'flashcard', template: 'custom',  scored: false, scope: null },
   { id: 's16', type: 'summary',     template: 'custom',   scored: false, scope: null }
 ];
 const TOTAL_SCREENS = SCREEN_META.length;
@@ -428,6 +429,35 @@ const Preview = ({ children, title = 'preview.html', minH }) => (
 );
 const Split = ({ children }) => <div className="split">{children}</div>;
 const Col = ({ children, gap }) => <div className="col" style={gap ? { gap } : undefined}>{children}</div>;
+
+// 🏅 Yuqori paneldagi nishon hisoblagichi — doim ko'rinadi, yangi olinganda pulslaydi, bosilsa ro'yxat chiqadi
+function AchCounter() {
+  const earned = useContext(AchCtx);
+  const count = earned ? earned.size : 0;
+  const total = Object.keys(ACHIEVEMENTS).length;
+  const prevRef = useRef(count);
+  const [bump, setBump] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (count > prevRef.current) { setBump(true); const t = setTimeout(() => setBump(false), 800); prevRef.current = count; return () => clearTimeout(t); }
+    prevRef.current = count;
+  }, [count]);
+  return (
+    <div className="ach-cnt-wrap">
+      <button data-tour="ach" className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Badges" title="Badges">
+        <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
+      </button>
+      {open && (
+        <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
+          <div className="ach-pop-h">🏅 Badges — {count}/{total}</div>
+          {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
+            <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
+          ); })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navContent, narrow, mentorStatic }) => {
   const isMobile = useIsMobile();
@@ -455,11 +485,12 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
     <MentorCtx.Provider value={{ enabled: collapseOn, collapsed: mCollapsed, setCollapsed }}>
       <div className="stage">
         <div className="stage-header" style={{ paddingLeft: padH, paddingRight: padH }}>
-          <div className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
+          <div data-tour="progress" className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
           <div className="chrome">
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* AUDIOSIZ: ovoz tugmasi (AudioIndicator) ko'rsatilmaydi — ovoz allaqachon o'chirilgan */}
+              <AchCounter />
               <div className="mono small" style={{ color: T.ink3 }}>{String(screen + 1).padStart(2, '0')} / {String(totalScreens).padStart(2, '0')}</div>
             </div>
           </div>
@@ -476,7 +507,7 @@ const NavNext = ({ disabled, label = 'Davom etish', onClick, optionalLive }) => 
   const locked = !!(gate && gate.locked);
   const live = gate && gate.live;
   const freeRide = !!(optionalLive && live && live.mode === 'student' && live.status !== 'ended' && live.mentorAlive);
-  return <button className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
+  return <button data-tour="next" className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
 };
 
 const FeedbackBlock = ({ show, isCorrect, neutral, children }) => {
@@ -507,8 +538,82 @@ const RECAP_MIN_ANSWERS = 3; // foizga ishonch uchun kamida shuncha javob kerak
 const RcFlow = ({ items, sep = '→' }) => (
   <div className="rc-flow">{items.map((t, i) => <React.Fragment key={i}><span className="rc-chip">{t}</span>{sep && i < items.length - 1 && <span className="rc-arr">{sep}</span>}</React.Fragment>)}</div>
 );
-// RECAPS kontenti — Stage 4'da JS-intro testlariga to'ldiriladi (hozircha bo'sh)
-const RECAPS = {};
+// RECAPS — har scored test uchun «Qayta tushuntirish» kartalari (kalit = ekran indeksi, Q_LABELS bilan bir xil)
+const RECAPS = {
+  // idx 4 — s4: «Git asosan nima qiladi?» (nazariya: Git = checkpoint / versiya nazorati)
+  4: {
+    title: 'Git — kod uchun vaqt mashinasi', cards: [
+      { ic: '🎮', h: 'Git — kod uchun checkpoint',
+        body: <>Kompyuter o'yinida qiyin joyga yetganda <b>checkpoint</b> (saqlash nuqtasi) qo'yasiz. O'lib qolsangiz — boshidan emas, o'sha nuqtadan davom etasiz. <b>Git</b> kodingiz uchun aynan shunday ishlaydi.</>,
+        vis: <RcFlow items={['🎮 O\'yin', '🚩 Checkpoint', '↩️ Qaytish']} />,
+        ask: "Qaysi o'yinlarda checkpoint bo'ladi?" },
+      { ic: '🕐', h: 'Har holatni eslab qoladi',
+        body: <>Git — <b>versiya nazorati</b> tizimi: u kodning <b>har bir holatini</b> eslab qoladi. Xato qilsangiz, eski holatga bemalol qaytasiz — hech narsa yo'qolmaydi.</>,
+        vis: <RcFlow items={["Kod o'zgardi", 'Git eslab qoldi', 'Orqaga qaytish']} /> },
+      { ic: '☝️', h: 'Git nima QILMAYDI',
+        body: <>Git kodni <b>ranglamaydi</b> (bu — CSS ishi), internetni tezlashtirmaydi va rasm tahrirlamaydi. Uning bitta vazifasi bor: kod <b>versiyalarini saqlash</b> va orqaga qaytarish.</>,
+        vis: <RcFlow items={['Versiyani saqlaydi', 'Orqaga qaytaradi']} sep="·" />,
+        ask: "Git kodni saqlaydi — yana nima qiladi?" },
+    ]
+  },
+  // idx 6 — s5b: «commit nima deb ataladi?» (nazariya: commit = surat, add → commit)
+  6: {
+    title: 'commit — kodning surati', cards: [
+      { ic: '📸', h: 'commit — kodning surati',
+        body: <>Har bir saqlash — <b className="mono">commit</b>. Bu kodingizning o'sha lahzadagi <b>surati</b> (xuddi fotosurat), qisqa <b>izoh</b> bilan: nima o'zgardi.</>,
+        vis: <RcFlow items={['Kod', '📸 commit', 'Izoh']} /> },
+      { ic: '🛒', h: 'Avval add, keyin commit',
+        body: <>commit ikki qadamda bo'ladi: <b className="mono">git add</b> — qaysi fayllarni saqlashni tanlaysiz (xuddi savatga solganday), keyin <b className="mono">git commit</b> — ularni izoh bilan saqlaysiz.</>,
+        vis: <RcFlow items={['git add', 'git commit']} /> },
+      { ic: '🕐', h: 'Har commit — alohida nuqta',
+        body: <>Har commit'ning <b>izohi</b>, <b>vaqti</b> va maxsus raqami (<b className="mono">hash</b>) bo'ladi. Shu tufayli istalgan eski commit'ni topib, o'sha holatga qaytishingiz mumkin.</>,
+        ask: "commit izohiga nima yozgan bo'lardingiz?" },
+    ]
+  },
+  // idx 10 — s9: «git push nima qiladi?» (nazariya: tarix, GitHub bulut, push/pull)
+  10: {
+    title: 'push — bulutga yuborish', cards: [
+      { ic: '💻', h: 'Kod ikki joyda yashaydi',
+        body: <>Kodingiz ikki joyda turadi: <b>kompyuteringizda</b> (lokal) va <b>bulutda</b> (GitHub). Maqsad — ikkalasini bir xil holatda tutish.</>,
+        vis: <RcFlow items={['💻 Lokal', '☁️ GitHub']} sep="·" /> },
+      { ic: '⬆️', h: 'push — sizdan bulutga',
+        body: <><b className="mono">git push</b> — kompyuteringizdagi yangi <b>commit'larni</b> GitHub'ga (bulutga) yuboradi. Endi kod bulutda ham xavfsiz turadi.</>,
+        vis: <RcFlow items={['💻 commit', '⬆️ push', '☁️ GitHub']} /> },
+      { ic: '⬇️', h: 'pull — bulutdan sizga',
+        body: <><b className="mono">git pull</b> — buning teskarisi: bulutdagi yangi commit'larni <b>kompyuteringizga</b> oladi. Do'stingiz o'zgarish qo'shsa, pull bilan olasiz.</>,
+        vis: <RcFlow items={['☁️ GitHub', '⬇️ pull', '💻 Lokal']} />,
+        ask: "push va pull — qaysi biri bulutga yuboradi?" },
+    ]
+  },
+  // idx 13 — s12: «GitHub nima uchun kerak?» (nazariya: GitHub bulut, repo, jamoa)
+  13: {
+    title: 'GitHub — bulutdagi uy', cards: [
+      { ic: '☁️', h: "GitHub — kodning bulutdagi uyi",
+        body: <>Git kompyuteringizda ishlaydi. Kompyuter buzilsa-chi? <b>GitHub</b> — kodning <b>bulutdagi nusxasi</b>: internetda xavfsiz saqlanadi va istalgan joydan ochiladi.</>,
+        vis: <RcFlow items={['💻 Git', '☁️ GitHub']} sep="·" /> },
+      { ic: '👥', h: 'Birga ishlash uchun',
+        body: <>GitHub'ning eng kuchli tomoni — <b>jamoa bilan ishlash</b>. Boshqaning loyihasini <b className="mono">clone</b> qilib nusxalaysiz, o'zgartirasiz va push qilasiz. Millionlab dasturchi shunday birga ishlaydi.</>,
+        vis: <RcFlow items={['clone', "o'zgartir", 'push']} /> },
+      { ic: '📦', h: 'Repo — bitta loyiha uyi',
+        body: <><b>Repository</b> (qisqacha <b>repo</b>) — Git kuzatadigan loyiha papkasi. Ichida barcha fayllar, commit tarixi va <b className="mono">README</b> (loyiha tavsifi) — hammasi birga turadi.</>,
+        ask: "Birinchi rep'ingiz nima haqida bo'lardi?" },
+    ]
+  },
+  // idx 17 — s15 (yozma, yakuniy): «commit buyrug'ini o'zingiz yozing» (nazariya: to'liq aylana + commit shakli)
+  17: {
+    title: "To'liq aylana va commit buyrug'i", cards: [
+      { ic: '🔄', h: 'Git ish-oqimi — bitta aylana',
+        body: <>Har o'zgarishdan keyin bir xil aylana takrorlanadi: <b className="mono">add</b> (tanlash) → <b className="mono">commit</b> (surat qilish) → <b className="mono">push</b> (bulutga yuborish). Tartib muhim!</>,
+        vis: <RcFlow items={['add', 'commit', 'push']} /> },
+      { ic: '⌨️', h: "commit buyrug'i — uch qism",
+        body: <>To'liq buyruq: <b className="mono">git commit</b> (buyruq) + <b className="mono">-m</b> (izoh bayrog'i) + <b>qo'shtirnoq</b> ichida izoh. Masalan: <b className="mono">git commit -m "birinchi commit"</b>.</>,
+        vis: <RcFlow items={['git commit', '-m', '"izoh"']} /> },
+      { ic: '⚠️', h: "commit'siz push ishlamaydi",
+        body: <>Faqat <b className="mono">add</b> qilib, to'g'ridan push qilsangiz — xato chiqadi. <b>Saqlanmagan</b> narsani yuborib bo'lmaydi. Avval <b className="mono">commit</b> bilan surat oling, keyin push.</>,
+        ask: "add'dan keyin, push'dan oldin qaysi qadam kerak?" },
+    ]
+  },
+};
 
 // Overlay — ekran ustida (indekslarga tegmaydi)
 // Overlay — ekran USTIDA ochiladi (indekslarga tegmaydi), slayd-slayd o'tiladi.
@@ -571,7 +676,7 @@ function MentorTestStats({ live, screenIdx, options, correctIdx, reveal, onRevea
   if (data.players === null) return null;
   const total = data.players.length;
   const answered = data.rows.length;
-  const ok = data.rows.filter(a => a.correct).length;
+  const ok = data.rows.filter(a => a.picked === correctIdx).length;
   const bad = answered - ok;
   const allIn = total > 0 && answered >= total;
   const struggling = answered >= 2 && bad > ok;
@@ -689,6 +794,12 @@ function MentorWorkStats({ live, screenIdx, taskLabel }) {
   );
 }
 
+// `...` bilan belgilangan kod atamalarini (buyruq, teg) matndan ajratib chip qilib ko'rsatadi.
+// Savol, variant va izoh satrlarida ishlatiladi: "`git add` fayllarni tanlaydi" → git add chipda.
+const fmtCode = (s) => (typeof s === 'string' && s.includes('`'))
+  ? s.split('`').map((p, i) => i % 2 ? <code className="qcode" key={i}>{p}</code> : p)
+  : s;
+
 const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, options, correctIdx, explainCorrect, explainWrong, audioText, audioOk, audioWrong, storedAnswer, onAnswer, onNext, onPrev }) => {
   const audio = useAudio(audioText ? [{ id: `s${screen}_intro`, text: audioText, trigger: 'on_mount', waits_for: { type: 'option_picked' } }] : null);
   const gate = useContext(LiveGateCtx) || {};
@@ -752,7 +863,7 @@ const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, option
             return (
               <button key={i} className={cls} disabled={solved || isMentorLive} onClick={() => pick(i)} style={{ padding: 'clamp(12px,1.8vw,16px) clamp(14px,2.2vw,20px)', fontSize: 'clamp(14px,1.7vw,16px)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span className="mono small" style={{ minWidth: 20, color: showGreenLetter ? T.success : T.ink3 }}>{String.fromCharCode(65 + i)}</span>
-                <span style={{ flex: 1 }}>{opt}</span>
+                <span style={{ flex: 1 }}>{fmtCode(opt)}</span>
               </button>
             );
           })}
@@ -760,21 +871,21 @@ const QuestionScreen = ({ screen, scope, eyebrow, question, questionText, option
         <FeedbackBlock show={isMentorLive ? mReveal : picked !== null} isCorrect={isMentorLive ? true : (solved && !wrongLocked)} neutral={waiting}>
           <p className="small mono" style={{ margin: '0 0 6px', fontWeight: 600, color: waiting ? T.blue : (isMentorLive || (solved && !wrongLocked)) ? T.success : T.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {isMentorLive
-              ? `✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+              ? fmtCode(`✓ To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`)
               : waiting
                 ? '📨 Javobingiz qabul qilindi'
                 : wrongLocked
-                  ? `To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`
+                  ? fmtCode(`To'g'ri javob: ${String.fromCharCode(65 + correctIdx)} — ${options[correctIdx]}`)
                   : solved ? "To'g'ri" : "Qaytadan urinib ko'ring"}
           </p>
           <p className="body" style={{ margin: 0 }}>
             {isMentorLive
-              ? explainCorrect
+              ? fmtCode(explainCorrect)
               : waiting
-                ? "Javobingiz yozib olindi 🤫 To'g'rimi-xatomi — hozircha sir! Mentor «Natijani ochish»ni bosganda hammada birdan ko'rinadi."
+                ? "Hozir to'g'ri javobni bilib olasiz."
                 : wrongLocked
-                  ? (explainWrong[picked] ?? explainWrong.default)
-                  : solved ? explainCorrect : (explainWrong[picked] ?? explainWrong.default)}
+                  ? fmtCode(explainWrong[picked] ?? explainWrong.default)
+                  : solved ? fmtCode(explainCorrect) : fmtCode(explainWrong[picked] ?? explainWrong.default)}
           </p>
           {/* Xato qilgan o'quvchi mavzuni qisqa kartalarda qayta ko'radi (3-qadamda kontent keladi).
               Jonli darsda — javob sirini saqlash uchun faqat reveal'dan keyin chiqadi. */}
@@ -807,15 +918,16 @@ function ScoreRing({ correct, total }) {
 }
 
 // ===== MENTOR (nomsiz ustoz ovozi — intro/izoh shu orqali; audio matni = shu matn) =====
+const MENTOR_IMG = 'https://go.coddycamp.uz/uploads/media_library/c7b711619071c92bef604c7ad68380dd.png';
 const Mentor = ({ children }) => {
   const ctx = useContext(MentorCtx) || {};
   const enabled = !!ctx.enabled;
   const collapsed = enabled && ctx.collapsed;
   const expand = (e) => { e.stopPropagation(); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
-    <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
+    <div data-tour="mentor" className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
       <div className="mentor-ava" aria-hidden="true">
-        <img src={mentorImg} alt="" />
+        <img src={MENTOR_IMG} alt="" />
       </div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
@@ -860,7 +972,7 @@ const Screen0 = ({ screen, storedAnswer, onAnswer, onNext }) => {
   const save = () => setSaved(s => Math.min(s + 1, FILES.length));
   const pick = (v) => { if (picked !== null) return; setPicked(v); onAnswer(screen, { stage: 'hook', screenIdx: screen, picked: v, correct: true }); audio.triggerEvent('option_picked'); };
   return (
-    <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext disabled={picked === null} label="Davom etish" onClick={onNext} />}>
+    <Stage eyebrow="Kirish" screen={screen} audioState={audio} navContent={<NavNext optionalLive disabled={picked === null} label="Davom etish" onClick={onNext} />}>
       <div className="screen">
         <h1 className="title h-title fade-up" style={{ maxWidth: 760 }}>Xato qildingiz — kodni <span className="italic" style={{ color: T.accent }}>orqaga</span> qaytarib bo'ladimi?</h1>
         <Mentor>Bir narsani o'zgartirib <b style={{ color: T.ink }}>saqlaysiz</b>. Yana — yana saqlaysiz. Tez orada papka to'la: <span className="mono">loyiha_final_ROST.html</span>… Endi 3-versiya yaxshiroq edi. Qaysi biriga qaytasiz? Tugmani bosib, tartibsizlikni ko'ring.</Mentor>
@@ -933,46 +1045,96 @@ const Screen1 = ({ screen, onNext, onPrev }) => {
   );
 };
 
-// ===== SCREEN 2 — GIT (save point) =====
+// ===== SCREEN 2 — MINORA QURUVCHI (checkpoint-o'yin) =====
+// Holat-mashina: blocks (balandlik) · cp (checkpoint-balandlik | null) · photos (📸 tarix)
+// crash + qutqarish (cp'dan tiklash) = done. Matn — PLACEHOLDER (Metodist moslaydi).
+const S2_HASHES = ['a1b2c3d', 'e4f5a6b', 'c7d8e9f', 'b9a8c7d', 'd2c3b4a'];
 const Screen2 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's2', text: `Git — versiya nazorati tizimi. Eng oson tushuntirish: kompyuter o'yinini eslang. Qiyin bosqichga yetganda checkpoint — saqlash nuqtasi qo'yasiz. Agar o'lib qolsangiz, boshidan emas, o'sha checkpointdan davom etasiz. Git aynan shu — kodingiz uchun checkpoint qo'yadi. Oldinga yuring, checkpoint qo'ying va xato qilib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
-  const N = 5;
-  const [pos, setPos] = useState(storedAnswer ? 3 : 0);
+  const audio = useAudio([{ id: 's2', text: `Git — versiya nazorati tizimi. Minora quruvchini tasavvur qiling: blok ustiga blok qo'yasiz. Ba'zan «Checkpoint» bosib, minoraning suratini olasiz — bu commit. Agar bug chiqib minora qulasa, checkpoint bo'lsa — o'sha suratdan tiklanasiz, boshidan emas! Blok qo'ying, checkpoint qo'ying va bug'ni bosib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const [blocks, setBlocks] = useState(storedAnswer ? 3 : 0);
   const [cp, setCp] = useState(storedAnswer ? 3 : null);
-  const done = cp !== null;
-  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
-  const fwd = () => setPos(p => Math.min(p + 1, N - 1));
-  const save = () => setCp(pos);
-  const die = () => { if (cp !== null) setPos(cp); };
+  const [photos, setPhotos] = useState(storedAnswer?.photos || []);
+  const [anim, setAnim] = useState(null);          // null | 'fall' | 'rewind'
+  const [rescued, setRescued] = useState(!!storedAnswer); // kamida bir marta checkpoint-QUTQARISH bo'ldimi
+  const [crashed, setCrashed] = useState(false);   // butun minora quladi (checkpointsiz)
+  const [celebrate, setCelebrate] = useState(false);
+  const done = rescued;
+  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, photos }); }, [done]); // eslint-disable-line
+  const putBlock = () => { if (anim) return; setCrashed(false); setBlocks(b => b + 1); };
+  const checkpoint = () => {
+    if (anim || blocks === 0) return;
+    setCp(blocks); setCrashed(false);
+    setPhotos(p => [{ n: blocks, hash: S2_HASHES[p.length % S2_HASHES.length] }, ...p]);
+  };
+  const bug = () => {
+    if (anim || blocks === 0) return;
+    setAnim('fall'); setCelebrate(false);
+    if (cp === null) {
+      // Checkpoint yo'q — butun minora qulaydi, boshidan
+      setTimeout(() => { setBlocks(0); setCrashed(true); setAnim(null); }, 520);
+    } else {
+      // Checkpoint bor — cp'dan yuqorisi qulaydi, so'ng cp holatiga tiklanadi
+      setTimeout(() => {
+        setBlocks(cp); setCrashed(false); setRescued(true); setCelebrate(true);
+        setAnim('rewind');
+        setTimeout(() => setAnim(null), 520);
+        setTimeout(() => setCelebrate(false), 2200);
+      }, 520);
+    }
+  };
+  const heights = Array.from({ length: blocks }, (_, i) => i + 1); // 1..blocks
+  const twrCls = `twr ${anim === 'fall' ? 'falling' : ''} ${anim === 'rewind' ? 'rewinding' : ''}`;
   return (
-    <Stage eyebrow="Git" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Checkpoint qo'ying"} onClick={onNext} /></>}>
+    <Stage eyebrow="Git" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Minorangizni qutqaring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Git aslida <span className="italic" style={{ color: T.accent }}>nima</span>?</h2></div>
-        <Mentor>Git — <b style={{ color: T.ink }}>versiya nazorati</b> tizimi. Kompyuter o'yinini eslang: qiyin joyga yetganda <b style={{ color: T.ink }}>checkpoint</b> qo'yasiz. O'lib qolsangiz — boshidan emas, o'sha nuqtadan davom etasiz. Git kodingiz uchun shunday ishlaydi.</Mentor>
+        <Mentor>Git — <b style={{ color: T.ink }}>versiya nazorati</b> tizimi. <b style={{ color: T.ink }}>Minora quruvchi</b>ni tasavvur qiling: blok qo'yasiz, ba'zan <b style={{ color: T.ink }}>Checkpoint</b> bosib suratga olasiz (commit). Bug chiqsa — checkpoint bo'lsa o'sha suratdan tiklanasiz, boshidan emas!</Mentor>
         <Zoomable>
         <div className="split">
           <div className="col">
-            <div className="flow-label">O'yin bosqichi</div>
-            <div className="lvl fade-up delay-2">
-              {Array.from({ length: N }).map((_, i) => (
-                <div key={i} className={`lvl-cell ${cp === i ? 'cp' : ''} ${pos === i ? 'here' : ''}`}>{pos === i ? '🏃' : (cp === i ? '🚩' : '')}</div>
-              ))}
+            <div className="flow-label">Minora</div>
+            <div className="twr-wrap fade-up delay-2">
+              <div className={twrCls}>
+                {heights.length === 0
+                  ? <span className="twr-empty">{crashed ? '💥 Minora quladi — boshidan' : "Blok qo'ying — minora o'sadi"}</span>
+                  : heights.map(h => (
+                      // --fi = qulash navbat indeksi (0 = eng tepa, birinchi qulaydi; pastdagilar kattaroq = keyinroq)
+                      <div key={h} className={`twr-block ${h === cp ? 'flag' : ''}`} style={{ '--fi': blocks - h }}>
+                        {h === cp && <span className="twr-flag">🚩</span>}
+                      </div>
+                    ))}
+              </div>
+              <div className="twr-h"><b>{blocks}</b>-qavat{cp !== null && <span style={{ color: T.success, fontWeight: 700 }}> · 🚩 {cp}-qavatda checkpoint</span>}</div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn" onClick={fwd} disabled={pos >= N - 1}>▶ Oldinga</button>
-              <button className="btn-soft" onClick={save}>💾 Checkpoint (commit)</button>
-              <button className="btn-soft" onClick={die} disabled={cp === null}>💀 Xato qildim!</button>
+              <button className="btn" onClick={putBlock} disabled={!!anim}>▶ Blok qo'yish</button>
+              <button className="btn-soft" onClick={checkpoint} disabled={!!anim || blocks === 0}>💾 Checkpoint (commit)</button>
+              <button className="btn-soft" onClick={bug} disabled={!!anim || blocks === 0}>💥 Bug!</button>
             </div>
           </div>
           <div className="col">
             {done ? (
-              <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Checkpoint ishladi</p><p className="body" style={{ margin: 0, color: T.ink }}>"Xato qildim" bossangiz — oxirgi <b>🚩 checkpoint</b>ga qaytdingiz, boshidan emas! Git ham xuddi shunday: har <b>commit</b> — checkpoint.</p></div>
-            ) : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Oldinga yuring, bir joyda <b>Checkpoint</b> qo'ying, keyin "Xato qildim"ni bosib ko'ring.</p></div>)}
-            <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Git</b> — kodning har bir holatini eslab qoladigan dastur. Checkpoint = <span className="mono">commit</span>.</p></div>
+              <div className="frame-success fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.success, textTransform: 'uppercase', letterSpacing: '0.08em' }}>✓ Checkpoint sizni qutqardi</p><p className="body" style={{ margin: 0, color: T.ink }}>Bug minorani qulatdi, lekin faqat <b>saqlanmagan</b> bloklar yo'qoldi — qolgani <b>🚩 checkpoint</b> suratida xavfsiz. Git ham xuddi shunday: har <b>commit</b> — vaqt mashinasidagi qaytish nuqtasi.</p></div>
+            ) : crashed ? (
+              <div className="frame-soft fade-step"><p className="small mono" style={{ margin: '0 0 4px', fontWeight: 600, color: T.accent, textTransform: 'uppercase', letterSpacing: '0.08em' }}>💥 Hech nima saqlanmagan edi</p><p className="body" style={{ margin: 0, color: T.ink }}>Voy! Butun minora quladi va butun mehnatingiz yo'qoldi — hech qayerda surat yo'q edi. Xafa bo'lmang: keyingi safar avval <b>💾 Checkpoint</b> qo'ying, keyin bemalol tajriba qiling.</p></div>
+            ) : (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Bir necha blok qo'ying, <b>Checkpoint</b> bosing, keyin <b>Bug!</b>ni bosib ko'ring — minorangizni qutqaring.</p></div>)}
+            <div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Git</b> — kodning har bir holatini surat qilib saqlaydi. Checkpoint = <span className="mono">commit</span>.</p></div>
+            {photos.length > 0 && (
+              <div className="col" style={{ gap: 8 }}>
+                <div className="flow-label">📸 Suratlar</div>
+                {photos.map((p, i) => (
+                  <div key={i} className="gcommit">
+                    <span className="gcommit-dot">📸</span>
+                    <span className="gcommit-body"><span className="gcommit-msg">{p.n}-qavat saqlandi</span><span className="gcommit-meta">commit {p.hash} · hozir</span></span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         </Zoomable>
       </div>
+      {celebrate && <Confetti />}
     </Stage>
   );
 };
@@ -992,7 +1154,7 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, commits: next });
   };
   return (
-    <Stage eyebrow="commit" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Surat oling (commit)"} onClick={onNext} /></>}>
+    <Stage eyebrow="commit" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Surat oling (commit)"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Git o'zgarishni qanday <span className="italic" style={{ color: T.accent }}>eslab qoladi</span>?</h2></div>
         <Mentor>Git'da har bir saqlash — <b style={{ color: T.ink }}>commit</b>. Bu kodingizning o'sha lahzadagi <b style={{ color: T.ink }}>surati</b> 📸, qisqa izoh bilan. Rangni o'zgartirib, surat oling.</Mentor>
@@ -1003,7 +1165,7 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
             <pre className="code-box fade-up delay-2" style={{ minHeight: 50 }}><Tg>{'<h1 '}</Tg><At>style</At>=<Sr>{`"color:${COLORS[ci].c}"`}</Sr><Tg>{'>'}</Tg>Salom<Tg>{'</h1>'}</Tg></pre>
             <Preview title="index.html" minH={64}><h1 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(20px,3vw,28px)', color: COLORS[ci].c, margin: 0 }}>Salom</h1></Preview>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn-soft" onClick={change}>🎨 Rangini o'zgartir</button>
+              <button className="btn-soft" onClick={change}>🎨 Rangini o'zgartirish</button>
               <button className="btn" onClick={commit}>📸 commit qilish</button>
             </div>
           </div>
@@ -1036,10 +1198,10 @@ const Screen4 = (props) => (
   <QuestionScreen {...props} scope="module-mikro" eyebrow="Mashq · 1-savol"
     audioText="Git dasturchiga asosan nima beradi — uning asosiy vazifasi nima?"
     questionText="Git asosan nima qiladi?"
-    question={<><p className="eyebrow" style={{ color: T.accent }}>To’g’ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Git asosan <span className="italic" style={{ color: T.accent }}>nima</span> qiladi?</h2></>}
-    options={['Kodni chiroyli ranglaydi', 'Kod versiyalarini saqlaydi va orqaga qaytaradi', 'Internetni tezlashtiradi', 'Rasmlarni tahrirlaydi']} correctIdx={1}
-    explainCorrect="To’g’ri! Git — versiya nazorati: u kodning har bir versiyasini (commit) saqlaydi va istalgan nuqtaga qaytaradi."
-    explainWrong={{ 0: 'Ranglash — CSS ishi. Git esa kod versiyalarini saqlaydi.', 2: "Internet tezligi Git bilan bog'liq emas. Git versiyalarni boshqaradi.", 3: 'Rasm tahrirlash — Git vazifasi emas. U kod tarixini saqlaydi.', default: 'Git kod versiyalarini saqlaydi va orqaga qaytaradi.' }} />
+    question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Git asosan <span className="italic" style={{ color: T.accent }}>nima</span> qiladi?</h2></>}
+    options={['Versiyalarni saqlab, orqaga qaytaradi', 'Kodni chiroyli ranglarga bo\'yaydi', 'Internet tezligini oshirib beradi', 'Rasm va suratlarni tahrirlab beradi']} correctIdx={0}
+    explainCorrect="To'g'ri! Git — versiya nazorati: u kodning har bir versiyasini (commit) saqlaydi va istalgan nuqtaga qaytaradi."
+    explainWrong={{ 1: 'Ranglash — CSS ishi. Git esa kod versiyalarini saqlaydi.', 2: "Internet tezligi Git bilan bog'liq emas. Git versiyalarni boshqaradi.", 3: 'Rasm tahrirlash — Git vazifasi emas. U kod tarixini saqlaydi.', default: 'Git kod versiyalarini saqlaydi va orqaga qaytaradi.' }} />
 );
 
 // ===== SCREEN 5 — COMMIT JARAYONI (add -> commit) =====
@@ -1053,7 +1215,7 @@ const Screen5 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const add = () => { if (stage === 0) setStage(1); };
   const commit = () => { if (stage === 1) setStage(2); };
   return (
-    <Stage eyebrow="commit jarayoni" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Saqlang (add → commit)"} onClick={onNext} /></>}>
+    <Stage eyebrow="commit jarayoni" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Saqlang (add → commit)"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Saqlashdan oldin <span className="italic" style={{ color: T.accent }}>nima bo'ladi</span>?</h2></div>
         <Mentor>Avval <span className="mono">git add</span> — qaysi fayllarni saqlashni tanlaysiz (xuddi savatga solganday). Keyin <span className="mono">git commit</span> — ularni <b style={{ color: T.ink }}>izoh bilan</b> saqlaysiz. Tugmalarni bosing.</Mentor>
@@ -1091,9 +1253,9 @@ const Screen5b = (props) => (
     audioText="Kodning bir holatini izoh bilan saqlagan nuqta — bu nima deb ataladi?"
     questionText="Kodning izoh bilan saqlangan nuqtasi nima deb ataladi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>Mustahkamlash</p><h2 className="title h-sub" style={{ marginTop: 8 }}>Kodning izoh bilan saqlangan <span className="italic" style={{ color: T.accent }}>nuqtasi (surati)</span> nima deb ataladi?</h2></>}
-    options={['Brauzer', 'commit', 'Parol', 'Domen']} correctIdx={1}
-    explainCorrect="To’g’ri! commit — kodning o’sha lahzadagi saqlangan nuqtasi (surati), izoh bilan birga."
-    explainWrong={{ 0: 'Brauzer — saytni ochadigan dastur. Saqlangan nuqta — commit.', 2: "Parol — maxfiy so'z. Kod surati — commit.", 3: 'Domen — sayt manzili. Kodning saqlangan nuqtasi — commit.', default: 'Kodning saqlangan surati — commit.' }} />
+    options={['Brauzer', 'Parol', 'commit', 'Domen']} correctIdx={2}
+    explainCorrect="To'g'ri! commit — kodning o'sha lahzadagi saqlangan nuqtasi (surati), izoh bilan birga."
+    explainWrong={{ 0: 'Brauzer — saytni ochadigan dastur. Saqlangan nuqta — commit.', 1: "Parol — maxfiy so'z. Kod surati — commit.", 3: 'Domen — sayt manzili. Kodning saqlangan nuqtasi — commit.', default: 'Kodning saqlangan surati — commit.' }} />
 );
 // ===== SCREEN 6 — TARIX (vaqt mashinasi) =====
 const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
@@ -1109,7 +1271,7 @@ const Screen6 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const pick = (i) => { setSel(i); if (i !== 0 && !traveled) { setTraveled(true); audio.triggerEvent('time_travel'); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); } };
   const cur = HISTORY[sel];
   return (
-    <Stage eyebrow="Tarix" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Eski commit'ga qayting"} onClick={onNext} /></>}>
+    <Stage eyebrow="Tarix" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Eski commit'ga qayting"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Bir hafta oldingi kodga <span className="italic" style={{ color: T.accent }}>qaytib bo'ladimi</span>?</h2></div>
         <Mentor>Har commit tarixda saqlanadi. Istalgan <b style={{ color: T.ink }}>eski commit</b>'ni tanlasangiz, kod aynan o'sha holatga qaytadi — xuddi <b style={{ color: T.ink }}>vaqt mashinasi</b>. Eski commit'ni bosib ko'ring.</Mentor>
@@ -1147,7 +1309,7 @@ const Screen7 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   const BEN = [{ ic: '🛡️', t: 'Zaxira — kompyuter buzilsa ham kod saqlanadi' }, { ic: '🌍', t: 'Istalgan joydan — uydan, maktabdan ochiladi' }, { ic: '👥', t: "Ulashish — do'stlar bilan birga ishlaysiz" }, { ic: '💼', t: "Portfolio — ishlaringiz ko'rinadi" }];
   return (
-    <Stage eyebrow="GitHub" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "GitHub'ga joylang"} onClick={onNext} /></>}>
+    <Stage eyebrow="GitHub" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "GitHub'ga joylang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Kompyuter buzilsa, kod <span className="italic" style={{ color: T.accent }}>yo'qoladimi</span>?</h2></div>
         <Mentor>Git faqat <b style={{ color: T.ink }}>kompyuteringizda</b> ishlaydi. Lekin kompyuter buzilsa yoki yo'qolsa — kod ham ketadimi? Yo'q! <b style={{ color: T.ink }}>GitHub</b> bor — kodning <b style={{ color: T.ink }}>bulutdagi nusxasi</b>. Tugmani bosib, loyihani bulutga joylang.</Mentor>
@@ -1194,7 +1356,7 @@ const Screen8 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const push = () => { if (anim || local <= cloud) return; const target = local; setAnim('push'); timer.current = setTimeout(() => { setCloud(target); setAnim(null); setDidPush(true); }, 750); };
   const pull = () => { if (anim || cloud <= local) return; const target = cloud; setAnim('pull'); timer.current = setTimeout(() => { setLocal(target); setAnim(null); setDidPull(true); }, 750); };
   return (
-    <Stage eyebrow="push & pull" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "push va pull'ni sinang"} onClick={onNext} /></>}>
+    <Stage eyebrow="push & pull" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "push va pull'ni sinang"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Kodni bulut bilan qanday <span className="italic" style={{ color: T.accent }}>almashasiz</span>?</h2></div>
         <Mentor>Kodingiz ikki joyda: kompyuter va bulut. <b style={{ color: T.ink }}>push</b> — sizdagini bulutga yuboradi, <b style={{ color: T.ink }}>pull</b> — bulutdagini sizga oladi. Erkin sinang: commit qo'shib push qiling, do'st commit qo'shsa pull qiling — qayta-qayta.</Mentor>
@@ -1243,7 +1405,7 @@ const Screen9 = (props) => (
     audioText="git push buyrug'i nima qiladi — u kodni qayerga jo'natadi?"
     questionText="git push buyrug'i nima qiladi?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}><span className="italic" style={{ color: T.accent }}>git push</span> buyrug'i nima qiladi?</h2></>}
-    options={["Kodni butunlay o'chiradi", "Lokal commit'larni GitHub'ga (bulutga) yuboradi", "Yangi rang qo'shadi", 'Internetni tezlashtiradi']} correctIdx={1}
+    options={["Barcha kodni butunlay o'chiradi", "Lokal commit'larni bulutga yuboradi", "Sahifaga yangi ranglar qo'shadi", 'Internet tezligini oshirib beradi']} correctIdx={1}
     explainCorrect="To'g'ri! push — lokal kompyuteringizdagi commit'larni GitHub'ga (bulutga) yuboradi."
     explainWrong={{ 0: "push o'chirmaydi — aksincha, commit'laringizni bulutga yuboradi.", 2: "Rang — CSS ishi. push esa commit'larni bulutga yuboradi.", 3: "Internet tezligi push bilan bog'liq emas. U commit'larni yuboradi.", default: "push — lokal commit'larni GitHub'ga yuboradi." }} />
 );
@@ -1263,7 +1425,7 @@ const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const done = seen.length >= KEYS.length;
   const click = (k) => { setActive(k); setSeen(s => { const ns = s.includes(k) ? s : [...s, k]; if (ns.length >= KEYS.length && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true, seen: ns }); return ns; }); };
   return (
-    <Stage eyebrow="Repository" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : `Qismlarni oching (${seen.length}/${KEYS.length})`} onClick={onNext} /></>}>
+    <Stage eyebrow="Repository" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : `Qismlarni oching (${seen.length}/${KEYS.length})`} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Loyihaning hamma narsasi <span className="italic" style={{ color: T.accent }}>qayerda turadi</span>?</h2></div>
         <Mentor>Loyihangizning fayllari, commit tarixi va tavsifi — hammasi qayerda? <b style={{ color: T.ink }}>Repository</b>'da (qisqacha <b style={{ color: T.ink }}>repo</b>) — Git kuzatadigan loyiha papkasi. GitHub'dagi repo qismlarini bosib o'rganing.</Mentor>
@@ -1272,10 +1434,10 @@ const Screen10 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
           <div className="col">
             <div className="repo fade-up delay-2">
               <div className="repo-top">📦 <b>mening-saytim</b> <span style={{ marginLeft: 'auto', color: T.ink3, fontSize: 11 }}>Public</span></div>
-              <div className={`repo-row ${active === 'name' ? 'on' : ''}`} onClick={() => click('name')}>🔗 github.com/siz/mening-saytim</div>
-              <div className={`repo-row ${active === 'files' ? 'on' : ''}`} onClick={() => click('files')}>📄 index.html · style.css</div>
-              <div className={`repo-row ${active === 'readme' ? 'on' : ''}`} onClick={() => click('readme')}>📝 README.md</div>
-              <div className={`repo-row ${active === 'commits' ? 'on' : ''}`} onClick={() => click('commits')}>🕐 5 commit</div>
+              <div className={`repo-row ${active === 'name' ? 'on' : ''} ${seen.includes('name') ? 'seen' : ''}`} onClick={() => click('name')}>🔗 github.com/siz/mening-saytim</div>
+              <div className={`repo-row ${active === 'files' ? 'on' : ''} ${seen.includes('files') ? 'seen' : ''}`} onClick={() => click('files')}>📄 index.html · style.css</div>
+              <div className={`repo-row ${active === 'readme' ? 'on' : ''} ${seen.includes('readme') ? 'seen' : ''}`} onClick={() => click('readme')}>📝 README.md</div>
+              <div className={`repo-row ${active === 'commits' ? 'on' : ''} ${seen.includes('commits') ? 'seen' : ''}`} onClick={() => click('commits')}>🕐 5 commit</div>
             </div>
           </div>
           <div className="col">
@@ -1299,7 +1461,7 @@ const Screen11 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const done = cloned;
   useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]);
   return (
-    <Stage eyebrow="Jamoa" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Clone qiling"} onClick={onNext} /></>}>
+    <Stage eyebrow="Jamoa" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Clone qiling"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Boshqaning loyihasini qanday <span className="italic" style={{ color: T.accent }}>olasiz</span>?</h2></div>
         <Mentor>GitHub'ning eng kuchli tomoni — <b style={{ color: T.ink }}>birga ishlash</b>. Boshqaning loyihasini <b style={{ color: T.ink }}>clone</b> qilib, butun repo'ni kompyuteringizga nusxalaysiz. Keyin o'zgartirib, push qilasiz. Tugmani bosing.</Mentor>
@@ -1332,9 +1494,9 @@ const Screen12 = (props) => (
     audioText="GitHub asosan nima uchun kerak — uning ikki asosiy foydasi nima?"
     questionText="GitHub asosan nima uchun kerak?"
     question={<><p className="eyebrow" style={{ color: T.accent }}>To'g'ri javobni tanlang</p><h2 className="title h-sub" style={{ marginTop: 8 }}>GitHub asosan <span className="italic" style={{ color: T.accent }}>nima uchun</span> kerak?</h2></>}
-    options={["Faqat o'yin o'ynash uchun", "Kodni bulutda saqlash va jamoa bilan ishlash uchun", "Rasmlarni tahrirlash uchun", "Internetni tezlashtirish uchun"]} correctIdx={1}
+    options={["Faqat onlayn o'yin o'ynash uchun", "Internet tezligini oshirish uchun", "Rasmlarni chiroyli tahrirlash uchun", "Bulutda saqlash va birga ishlash uchun"]} correctIdx={3}
     explainCorrect="To'g'ri! GitHub — kodni bulutda xavfsiz saqlaydi va boshqalar bilan birga ishlash imkonini beradi."
-    explainWrong={{ 0: "GitHub o'yin platformasi emas. U kodni saqlaydi va jamoa ishini birlashtiradi.", 2: "Rasm tahrirlash — Photoshop ishi. GitHub kod va loyihalar uchun.", 3: "Internet tezligi GitHub bilan bog'liq emas. U kodni bulutda saqlaydi.", default: "GitHub — kodni bulutda saqlash va birga ishlash uchun." }} />
+    explainWrong={{ 0: "GitHub o'yin platformasi emas. U kodni saqlaydi va jamoa ishini birlashtiradi.", 1: "Internet tezligi GitHub bilan bog'liq emas. U kodni bulutda saqlaydi.", 2: "Rasm tahrirlash — Photoshop ishi. GitHub kod va loyihalar uchun.", default: "GitHub — kodni bulutda saqlash va birga ishlash uchun." }} />
 );
 
 // ===== SCREEN 13 — WORKFLOW SIMULATOR =====
@@ -1350,7 +1512,7 @@ const Screen13 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const done = step >= CMDS.length;
   const run = (i) => { if (i !== step) return; const ns = step + 1; setStep(ns); if (ns >= CMDS.length && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); };
   return (
-    <Stage eyebrow="Amaliyot · workflow" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : "Aylanani bajaring"} onClick={onNext} /></>}>
+    <Stage eyebrow="Amaliyot · workflow" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Aylanani bajaring"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(12px,2vw,18px)' }}>
         <div className="head"><h2 className="title h-title fade-up">To'liq aylana — <span className="italic" style={{ color: T.accent }}>o'zingiz bajaring</span></h2></div>
         <Mentor>Faylni o'zgartirdingiz. Endi uchta buyruqni <b style={{ color: T.ink }}>tartib bilan</b> bosing: <span className="mono">add</span> → <span className="mono">commit</span> → <span className="mono">push</span>. Tartib muhim!</Mentor>
@@ -1378,7 +1540,7 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const fail = () => { if (stage !== 'idle') return; setStage('failed'); audio.triggerEvent('error_found'); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff("Mana muammo: git add dan keyin to'g'ridan-to'g'ri push. Orasida git commit yo'q — saqlanmagan o'zgarishni yuborib bo'lmaydi."); }, 300); };
   const fix = () => { setStage('fixed'); if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); if (!audio.muted) setTimeout(() => { const e = getAudioEngine(); if (e && !audio.muted) e.pushOneOff("Tuzatildi! Endi git commit bor — o'zgarish saqlandi va push ishladi."); }, 300); };
   return (
-    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!done} label={done ? "Davom etish" : (stage === 'failed' ? "Endi tuzating" : "Ishga tushiring")} onClick={onNext} /></>}>
+    <Stage eyebrow="Debugging" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : (stage === 'failed' ? "Endi tuzating" : "Ishga tushiring")} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">push ishlamadi — <span className="italic" style={{ color: T.accent }}>nega</span>?</h2></div>
         <Mentor>AI buyruqlar berdi, lekin push ishlamadi. Diqqat bilan qarang: <span className="mono">add</span> bor, <span className="mono">push</span> bor, lekin orasida <b style={{ color: T.ink }}>commit yo'q</b>! Ishga tushiring, keyin tuzating.</Mentor>
@@ -1399,7 +1561,7 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
           <div className="col">
             {stage === 'idle' && (<div className="hint"><p className="body" style={{ margin: 0, color: T.ink2 }}>Buyruqlarni o'qing. "Bajarish"ni bosib, nima bo'lishini ko'ring.</p></div>)}
             {stage === 'failed' && (<div className="frame-warn fade-step"><p className="note-h" style={{ color: T.accent }}>❌ commit tushib qolgan</p><p className="body" style={{ margin: 0, color: T.ink }}><span className="mono">add</span> fayllarni tanladi, lekin <b>commit</b> qilinmadi — saqlangan narsa yo'q. push yuboradigan narsani topolmadi. Chap tomondagi tugma bilan tuzating →</p></div>)}
-            {stage === 'fixed' && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Yetishmagan qadamni topding!</p><p className="ta-sub">add → commit → push: har biri kerak, tartib bilan</p></div>)}
+            {stage === 'fixed' && (<div className="takeaway fade-step"><div className="ta-bulb">🛠️</div><p className="ta-h">Yetishmagan qadamni topdingiz!</p><p className="ta-sub">add → commit → push: har biri kerak, tartib bilan</p></div>)}
           </div>
         </div>
       </div>
@@ -1453,8 +1615,324 @@ const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
+// 🧲 Qayta ishlatiladigan DRAG&DROP TARTIB — bo'laklarni to'g'ri ketma-ketlikda joylash.
+// Boshqa darsga: faqat `items` ({ id, label }), `hints`, `onSolved` almashtiriladi.
+// YAGONA holat (pool+slots birga) — StrictMode'da dublikat bo'lmaydi (S7 saboq).
+function DragDropOrder({ items, hints, onSolved }) {
+  const order = items.map(x => x.id);
+  const byId = useMemo(() => Object.fromEntries(items.map(x => [x.id, x])), [items]);
+  const [st, setSt] = useState(() => {
+    const a = order.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return { pool: a, slots: order.map(() => null) };
+  });
+  const { pool, slots } = st;
+  const slotRefs = useRef([]);
+  const full = slots.every(s => s !== null);
+  const solved = slots.every((s, i) => s === order[i]);
+  const wrong = full && !solved;
+  useEffect(() => { if (solved) onSolved && onSolved(); }, [solved]); // eslint-disable-line
+  const place = (id, from, slotIdx) => setSt(({ pool, slots }) => {
+    const ns = slots.slice(); const occ = ns[slotIdx];
+    if (typeof from === 'number') ns[from] = null;
+    ns[slotIdx] = id;
+    let np = from === 'pool' ? pool.filter(x => x !== id) : pool.slice();
+    if (occ) np = [...np, occ];
+    return { pool: np, slots: ns };
+  });
+  const toPool = (slotIdx) => setSt(({ pool, slots }) => {
+    const id = slots[slotIdx]; if (!id) return { pool, slots };
+    const ns = slots.slice(); ns[slotIdx] = null;
+    return { pool: [...pool, id], slots: ns };
+  });
+  const tap = (id) => setSt(({ pool, slots }) => {
+    const e = slots.findIndex(s => s === null); if (e < 0) return { pool, slots };
+    const ns = slots.slice(); ns[e] = id;
+    return { pool: pool.filter(x => x !== id), slots: ns };
+  });
+  const down = (ev, id, from) => {
+    if (ev.button != null && ev.button !== 0) return;
+    ev.preventDefault();
+    const el = ev.currentTarget; const sx = ev.clientX, sy = ev.clientY; let moved = false;
+    el.style.transition = 'none'; el.style.zIndex = '9999'; el.style.willChange = 'transform';
+    const mv = (e) => {
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+      if (moved) el.style.transform = `translate(${dx}px,${dy}px) scale(1.06) rotate(-2deg)`;
+    };
+    const finish = (el2) => { el2.style.zIndex = ''; el2.style.willChange = ''; el2.style.transform = ''; el2.style.transition = ''; };
+    const up = (e) => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      if (!moved) { finish(el); if (from === 'pool') tap(id); else toPool(from); return; }
+      let t = -1;
+      slotRefs.current.forEach((elm, i) => { if (!elm) return; const r = elm.getBoundingClientRect(); if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) t = i; });
+      if (t >= 0) { finish(el); place(id, from, t); }
+      else if (typeof from === 'number') { finish(el); toPool(from); }
+      else { el.style.transition = 'transform .2s cubic-bezier(.34,1.3,.4,1)'; el.style.transform = ''; setTimeout(() => finish(el), 210); }
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="dd fade-up">
+      <div className="dd-slots">
+        {slots.map((sid, i) => (
+          <div key={i} ref={el => (slotRefs.current[i] = el)} className={`dd-slot ${sid ? 'filled' : ''} ${solved && sid ? 'ok' : ''} ${wrong && sid && sid !== order[i] ? 'bad' : ''}`}>
+            <span className="dd-slotn">{i + 1}</span>
+            {sid ? <button className="dd-chip in" onPointerDown={(e) => down(e, sid, i)}>{byId[sid].label}</button> : <span className="dd-hint">{hints ? hints[i] : 'bu yerga joylang'}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="dd-pool">
+        {pool.length === 0 && !solved && <span className="dd-pool-empty">Tartib xato — bo'lakni bosib qaytaring va qayta joylang</span>}
+        {pool.map(id => <button key={id} className="dd-chip" onPointerDown={(e) => down(e, id, 'pool')}>{byId[id].label}</button>)}
+      </div>
+      {solved && <div className="dd-done">✓ To'g'ri! Git ish-oqimi aynan shu tartibda.</div>}
+      {wrong && !solved && <div className="dd-wrong">⚠️ Tartib xato — qayta joylang.</div>}
+    </div>
+  );
+}
+
+// 🃏 Qayta ishlatiladigan FLASHCARDS — aktiv takrorlash (3D flip + o'z-o'zini baholash).
+// Boshqa darsga: faqat `cards` ({ front, back, note }) almashtiriladi.
+const GIT_FLASHCARDS = [
+  { front: 'Kod uchun vaqt mashinasi', back: 'Git', note: 'versiya nazorati' },
+  { front: 'Kodning saqlangan surati', back: 'commit', note: 'izoh bilan nuqta' },
+  { front: 'Loyiha papkasi (kod uyi)', back: 'repository', note: 'qisqa: repo' },
+  { front: 'Kodning bulutdagi uyi', back: 'GitHub', note: 'onlayn platforma' },
+  { front: 'O\'zgarishni saqlashga tanlash', back: 'git add', note: 'staged' },
+  { front: 'Suratni saqlash buyrug\'i', back: 'git commit', note: '-m "izoh"' },
+  { front: 'Lokaldan bulutga yuborish', back: 'git push', note: 'yuqoriga' },
+  { front: 'Bulutdan lokalga olish', back: 'git pull', note: 'pastga' },
+  { front: 'Repo nusxasini olib kelish', back: 'git clone', note: 'birga ishlash' },
+  { front: 'commitdagi qisqa izoh bayrog\'i', back: '-m', note: 'message' },
+  { front: 'Repo holatini ko\'rish', back: 'git status', note: 'nima o\'zgardi' },
+  { front: 'Commitlar tarixini ko\'rish', back: 'git log', note: 'barcha suratlar' },
+];
+function Flashcards({ cards }) {
+  const [queue, setQueue] = useState(() => cards.map((_, i) => i));
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown] = useState(0);
+  const [exiting, setExiting] = useState(null);
+  const swapRef = useRef(0);
+  const total = cards.length;
+  const cur = queue[0];
+  const card = cur != null ? cards[cur] : null;
+  const advance = (removed) => {
+    if (exiting) return;
+    setExiting(removed ? 'knew' : 'again');
+    setTimeout(() => {
+      setExiting(null); setFlipped(false); swapRef.current++;
+      if (removed) setKnown(k => k + 1);
+      setQueue(q => { const [first, ...rest] = q; return removed ? rest : [...rest, first]; });
+    }, 420);
+  };
+  const knew = () => advance(true);
+  const again = () => advance(false);
+  const restart = () => { setQueue(cards.map((_, i) => i)); setKnown(0); setFlipped(false); };
+  if (!card) return (
+    <div className="fc-done fade-up"><span className="fc-done-emoji">🎉</span><p className="fc-done-h">Hammasini bilasiz!</p><p className="fc-done-s">{total}/{total} atama yodlandi</p><button className="fc-btn ghost" onClick={restart}>↻ Qaytadan takrorlash</button></div>
+  );
+  return (
+    <div className="fc fade-up">
+      <div className="fc-top"><span className="fc-pill learn" key={`l-${queue.length}-${swapRef.current}`}>↻ O'rganilmoqda · <b>{queue.length}</b></span><span className="fc-pill knew" key={`k-${known}`}>✓ Bildim · <b>{known}</b></span></div>
+      <div className="fc-bar"><span className="fc-bar-fill" style={{ width: `${(known / total) * 100}%` }} /></div>
+      <div className="fc-cardwrap">
+        <div className={`fc-fly ${exiting === 'knew' ? 'out-knew' : ''} ${exiting === 'again' ? 'out-again' : ''}`} key={swapRef.current}>
+        <div className={`fc-card ${flipped ? 'flip' : ''}`} onClick={() => !flipped && !exiting && setFlipped(true)} role="button" tabIndex={0}>
+          <div className="fc-face fc-front"><span className="fc-q">{card.front}</span><span className="fc-cue">Qaysi atama? 🤔 <span className="fc-tap">bosing</span></span></div>
+          <div className="fc-face fc-back"><span className="fc-tag">{card.back}</span>{card.note && <span className="fc-note">{card.note}</span>}</div>
+        </div>
+        </div>
+      </div>
+      {flipped
+        ? (<div className="fc-actions"><button className="fc-btn again" disabled={!!exiting} onClick={again}>✗ Takrorlash</button><button className="fc-btn knew" disabled={!!exiting} onClick={knew}>✓ Bildim</button></div>)
+        : (<p className="fc-hint">👆 Kartani bosing — javobni ko'rasiz</p>)}
+    </div>
+  );
+}
+
+// ⚡ CodeStrike chaqmoq mascot (brend belgisi)
+const QzBolt = ({ size = 72 }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="qz-bolt">
+    <defs><linearGradient id="qzbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF8A3D" /><stop offset="1" stopColor="#FF4F28" /></linearGradient></defs>
+    <rect x="6" y="6" width="88" height="88" rx="24" fill="url(#qzbg)" />
+    <path d="M56 12 L28 54 L45 54 L38 88 L72 40 L53 40 Z" fill="#fff" stroke="#E23A16" strokeWidth="2" strokeLinejoin="round" />
+    <circle cx="76" cy="24" r="3.5" fill="#FFD9A8" /><circle cx="22" cy="72" r="2.6" fill="#FFD9A8" /><circle cx="80" cy="66" r="2.2" fill="#FFD9A8" />
+  </svg>
+);
+// ⚡ Katta yonib turuvchi CODESTRIKE wordmark (CTA'da bosiladi, lobbyda ko'rsatiladi)
+const CsWordmark = ({ onClick, disabled, hint, stats = true, bolt = true }) => {
+  const clickable = !!onClick && !disabled;
+  return (
+    <div
+      className={`cs-hero ${clickable ? 'cs-clickable' : ''} ${disabled ? 'cs-off' : ''}`}
+      {...(clickable ? { role: 'button', tabIndex: 0, onClick, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } } : {})}
+    >
+      {bolt && <div className="cs-boltrow"><QzBolt size={48} /></div>}
+      <div className="cs-word" data-text="CODESTRIKE" aria-label="CodeStrike">CODESTRIKE</div>
+      {stats && (
+        <div className="cs-chips">
+          <span className="cs-chip"><b>{QUIZ_BANK.length}</b> savol</span>
+          <span className="cs-chip"><b>{QUIZ_MS / 1000}</b> soniya</span>
+          <span className="cs-chip">🏆 podium</span>
+        </div>
+      )}
+      {hint && <span className={`cs-enter ${disabled ? 'wait' : ''}`}>{hint}</span>}
+    </div>
+  );
+};
+
+// ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
+const ACHIEVEMENTS = {
+  timetravel: { icon: '🔍', name: 'Nice Catch!', desc: "Yetishmagan git-qadamni topib tuzatdingiz" },
+  quizace:    { icon: '🎯', name: 'Bullseye!',      desc: "Test savoliga birinchi urinishda to'g'ri javob berdingiz" },
+  gitflow:    { icon: '🔀', name: 'Flow Master!',   desc: "Git ish-oqimini to'g'ri tartibladingiz" },
+  graduate:   { icon: '🏆', name: 'Level Up!',      desc: "Git va GitHub darsini to'liq yakunladingiz" },
+};
+// Ekran id → nishon (recordAnswer'da avtomatik beriladi) — FAQAT ma'noli ekranga (haqiqiy challenge/scored):
+// s14 = debug challenge (yetishmagan qadamni topib TUZATGANDA correct:true otadi) · s9 = scored test · s14b = DragDrop gate g'alabasi
+const ACH_TRIGGERS = { s14: 'timetravel', s9: 'quizace', s14b: 'gitflow' };
+// 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI
+function AchCelebrate({ ach, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 4000); return () => clearTimeout(t); }, []); // eslint-disable-line
+  return (
+    <div className="acu-overlay" onClick={onDone} role="status" aria-label={`Yangi nishon: ${ach.name}`}>
+      <div className="acu-rays" aria-hidden="true" />
+      <div className="acu-glow" aria-hidden="true" />
+      <div className="acu-ring" aria-hidden="true" />
+      <div className="acu-ring d2" aria-hidden="true" />
+      <div className="acu-stage">
+        <div className="acu-medal-wrap">
+          <div className="acu-medal">{ach.icon}<span className="acu-shine" /></div>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span key={i} className="acu-spark" style={{ '--a': `${i * (360 / 14)}deg`, animationDelay: `${0.18 + (i % 5) * 0.05}s` }}>✦</span>
+          ))}
+        </div>
+        <div className="acu-txt">
+          <span className="acu-eyebrow">🏅 Nishon ochildi!</span>
+          <span className="acu-name">{ach.name}</span>
+          {ach.desc && <span className="acu-desc">{ach.desc}</span>}
+        </div>
+        <span className="acu-tap">bosib davom eting</span>
+      </div>
+    </div>
+  );
+}
+// Navbatda bittasi ko'rsatiladi (to'liq-ekran bayram) — tugagach keyingisi chiqadi
+function AchToasts({ toasts, onDone }) {
+  const t = toasts[0];
+  const a = t && ACHIEVEMENTS[t.id];
+  if (!a) return null;
+  return <AchCelebrate key={t.k} ach={a} onDone={() => onDone(t.k)} />;
+}
+
+// ===== 👋 ONBOARDING — coach-mark turi: har qadamda haqiqiy tugmaga spotlight + so'z (rolga qarab, bir marta) =====
+const TOUR = {
+  learner: [
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Oldinga o\'tish', body: <>Tayyor bo'lsangiz, <b>«Davom etish»</b> bilan keyingi qadamga o'tasiz. Yonidagi <b>«Orqaga»</b> bilan qaytasiz.</> },
+    { sel: '[data-tour="mentor"]', ic: '🧑‍🏫', h: 'Mentor yordami', body: <>Har ekranda mentor nima qilishni tushuntiradi — avval uni <b>o'qing</b>, keyin bajaring.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: 'Progress chizig\'i', body: <>Bu chiziq dars <b>qancha qolganini</b> ko'rsatadi — to'lgani sari yakunlaysiz.</> },
+    { sel: '[data-tour="ach"]', ic: '🏅', h: 'Nishonlaringiz', body: <>Vazifalarni bajarib, shu yerda <b>nishon</b> yig'asiz. Bosib ro'yxatini ko'rasiz.</> },
+  ],
+  mentor: [
+    { sel: '[data-tour="live"]', ic: '🔢', h: 'Qo\'shilish kodi', body: <>O'quvchilar shu <b>PIN kod</b> bilan qo'shiladi. Kim qo'shilganini shu yerda ko'rasiz.</> },
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Siz boshqarasiz', body: <><b>«Davom etish»</b> bosganingizda, barcha o'quvchilar birga oldinga o'tadi.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: 'Progress chizig\'i', body: <>Dars qaysi bosqichda ekanini shu chiziq ko'rsatadi.</> },
+  ],
+};
+function TourGuide({ role, onClose }) {
+  const steps = TOUR[role] || TOUR.learner;
+  const [i, setI] = useState(0);
+  const [rect, setRect] = useState(null);
+  const step = steps[i];
+  const last = i === steps.length - 1;
+  useEffect(() => {
+    const el = typeof document !== 'undefined' && document.querySelector(step.sel);
+    if (!el) { setRect(null); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    const measure = () => { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height, bottom: r.bottom }); };
+    const raf = requestAnimationFrame(() => { measure(); });
+    const t = setTimeout(measure, 90);
+    window.addEventListener('resize', measure);
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); else if (e.key === 'ArrowRight') setI(p => Math.min(p + 1, steps.length - 1)); else if (e.key === 'ArrowLeft') setI(p => Math.max(p - 1, 0)); };
+    window.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); window.removeEventListener('resize', measure); window.removeEventListener('keydown', onKey); };
+  }, [i, step.sel, steps.length, onClose]);
+  const next = () => last ? onClose() : setI(i + 1);
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1000;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const CW = Math.min(300, vw - 24);
+  let callStyle = { top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: CW };
+  if (rect) {
+    const below = rect.bottom + 168 < vh;
+    const cx = Math.min(Math.max(rect.left + rect.width / 2, CW / 2 + 12), vw - CW / 2 - 12);
+    callStyle = below
+      ? { top: rect.bottom + 16, left: cx, transform: 'translateX(-50%)', width: CW }
+      : { top: Math.max(12, rect.top - 16), left: cx, transform: 'translate(-50%,-100%)', width: CW };
+  }
+  return (
+    <div className="tg-root">
+      {rect
+        ? <div className="tg-hole" style={{ top: rect.top - 7, left: rect.left - 7, width: rect.width + 14, height: rect.height + 14 }} />
+        : <div className="tg-dim" />}
+      <div className="tg-call" style={callStyle}>
+        <div className="tg-head"><span className="tg-ic">{step.ic}</span><span className="tg-h">{step.h}</span><span className="tg-count">{i + 1}/{steps.length}</span></div>
+        <p className="tg-body">{step.body}</p>
+        <div className="tg-nav">
+          <button className="tg-skip" onClick={onClose}>O'tkazib yuborish</button>
+          <div className="tg-navr">
+            {i > 0 && <button className="tg-btn ghost" onClick={() => setI(i - 1)} aria-label="Oldingi">←</button>}
+            <button className="tg-btn go" onClick={next}>{last ? 'Boshladik!' : 'Keyingisi →'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== SCREEN 14b — GIT ISH-OQIMI GATE (DragDrop tartiblash) =====
+// Bo'laklarni to'g'ri ketma-ketlikda joylash — «o'zim qildim» gate (S8 saboq: passiv→aktiv).
+const GIT_FLOW_PIECES = [
+  { id: 'edit',   label: '✏️ Faylni o\'zgartir' },
+  { id: 'add',    label: 'git add' },
+  { id: 'commit', label: 'git commit' },
+  { id: 'push',   label: 'git push' },
+  { id: 'github', label: '🌐 GitHub\'da ko\'rinadi' },
+];
+const ScreenGitFlow = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 's14b', text: "Endi butun aylanani o'zingiz tartiblang. Fayl o'zgardi, keyin git add tanlaydi, git commit surat qilib saqlaydi, git push GitHub'ga yuboradi — va u yerda ko'rinadi. Bo'laklarni to'g'ri tartibda joylang.", trigger: 'on_mount', waits_for: null }]);
+  const [done, setDone] = useState(!!storedAnswer);
+  useEffect(() => { if (done && storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, [done]); // eslint-disable-line
+  return (
+    <Stage eyebrow="Amaliyot · tartib" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!done} label={done ? "Davom etish" : "Bosqichlarni tartiblang"} onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up">Git ish-oqimini <span className="italic" style={{ color: T.accent }}>o'zingiz tartiblang</span></h2></div>
+        <Mentor>Butun aylanani eslang: <b style={{ color: T.ink }}>o'zgartir → add → commit → push → GitHub</b>. Bo'laklarni to'g'ri tartibda joylang — sudrab yoki bosib.</Mentor>
+        <div className="sk-buildbox">
+          <DragDropOrder items={GIT_FLOW_PIECES} hints={["ish shu qadamdan boshlanadi", "o'zgarishni saqlashga tanlash", "surat qilib saqlash", "bulutga yuborish", "natijada bulutda ko'rinadi"]} onSolved={() => setDone(true)} />
+        </div>
+      </div>
+    </Stage>
+  );
+};
+
+// ===== SCREEN FLASHCARDS — teglarni tez takrorlash (podiumdan keyin) =====
+const ScreenFlashcards = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 'sflash', text: "Darsni yakunlashdan oldin bugun o'rgangan Git atamalarini tez takrorlaymiz. Har kartada bir vazifa — qaysi atama yoki buyruq ekanini o'ylang, keyin kartani bosib tekshiring.", trigger: 'on_mount', waits_for: null }]);
+  useEffect(() => { if (storedAnswer === undefined) onAnswer(screen, { correct: true, picked: true }); }, []); // eslint-disable-line
+  return (
+    <Stage eyebrow="Takrorlash" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={false} label="Yakunlash →" onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up">Atamalarni <span className="italic" style={{ color: T.accent }}>tez takrorlaymiz</span>.</h2></div>
+        <Mentor>Bugun o'rgangan Git atama va buyruqlarini takrorlaymiz. Har kartada bir vazifa — <b style={{ color: T.ink }}>qaysi atama</b> ekanini o'ylang, keyin kartani bosib tekshiring. <b style={{ color: T.ink }}>Bildim</b> yoki <b style={{ color: T.ink }}>Takrorlash</b> bilan baholang.</Mentor>
+        <div className="fc-center"><Flashcards cards={GIT_FLASHCARDS} /></div>
+      </div>
+    </Stage>
+  );
+};
+
 // ===== SCREEN 16 — YAKUN =====
-const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
+const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) => {
   const _gate = useContext(LiveGateCtx) || {};
   const _live = _gate.live;
   const [arena, setArena] = useState(false);
@@ -1473,36 +1951,39 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
   const audio = useAudio([{ id: 's16', text: "Tabriklaymiz! Endi Git va GitHub sirini bilasiz: Git — kod uchun vaqt mashinasi, commit — saqlangan surat, tarix orqali istalgan nuqtaga qaytasiz, GitHub — kodning bulutdagi uyi va jamoa maydoni. push bilan yuborasiz, clone bilan birga ishlaysiz. Endi o'zingizning birinchi repongizni ochishga tayyorsiz!", trigger: 'on_mount', waits_for: null }]);
   const RECAP = ['Git — kod uchun vaqt mashinasi', 'commit — kodning saqlangan surati', 'Tarix — istalgan nuqtaga qaytish', 'GitHub — kodning bulutdagi uyi', 'push / pull — bulut bilan aloqa', 'clone — jamoa bilan birga ishlash'];
   const HOMEWORK = [{ b: "Ro'yxatdan o'ting", t: '— github.com da bepul account oching' }, { b: 'Repo yarating', t: '— birinchi repository: mening-saytim' }, { b: 'commit qiling', t: "— fayl qo'shib, izoh bilan saqlang" }];
-  const GLOSSARY = [{ b: 'Git', t: '— versiya nazorati (vaqt mashinasi)' }, { b: 'commit', t: '— kodning saqlangan surati' }, { b: 'repository', t: '— loyiha papkasi (repo)' }, { b: 'GitHub', t: '— bulutdagi uy' }, { b: 'push', t: '— lokal → bulut' }, { b: 'pull', t: '— bulut → lokal' }, { b: 'clone', t: '— repo nusxasini olish' }];
   const correct = SCORED_IDX.filter(i => answers[i]?.correct).length;
   const total = SCORED_IDX.length;
   const PASSED = (total ? correct / total : 0) >= 0.6;
-  const [open, setOpen] = useState(false);
   return (
     <Stage eyebrow="Tayyor" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><button className="btn-ghost" onClick={onReset} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(16px,2.2vw,22px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Qaytadan</button><button className="btn-white-accent" onClick={onFinish} style={{ marginLeft: 'auto', padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)' }}>Yakunlash ✓</button></>}>
       <div className="screen">
-        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Git va GitHub darsi tugadi</span><h2 className="title h-title fade-up d1">Git va GitHub <span className="italic" style={{ color: T.accent }}>sirini</span> ochding.</h2><p className="body h-sub fade-up d2">{PASSED ? "Tabriklaymiz! Endi kodingizni Git bilan boshqarib, GitHub'ga joylaysiz." : "Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko'ring."}</p></div><ScoreRing correct={correct} total={total} /></div>
-        <div className={`qz-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
-          <div className="qz-cta-txt">
-            <span className="qz-cta-h">⚔️ Mustahkamlash testi</span>
-            <span className="qz-cta-s">{studentSolo
-              ? `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · mashq rejimi — natija faqat sizga`
-              : `${QUIZ_BANK.length} savol · har biriga ${QUIZ_MS / 1000} soniya · tezkorlar podiumga 🏆`}</span>
-          </div>
-          <button className="qz-cta-btn" disabled={studentWait} onClick={openArena}>
-            {studentWait ? '⏳ Mentorni kuting'
-              : studentSolo ? "📖 Testni o'zim ishlash"
-              : studentLive ? (quizSt === 'done' ? "🏆 Natijalarni ko'rish" : '🔥 Testga kirish!')
-              : isMentorL ? (quizSt === 'off' ? '⚔️ Testni ochish' : '⚔️ Davom ettirish')
-              : '⚔️ Testni ishlash'}
-          </button>
+        <div className="hero"><div className="hero-l"><span className="done-chip fade-up"><span className="tick">✓</span> Git va GitHub darsi tugadi</span><h2 className="title h-title fade-up d1">Git va GitHub <span className="italic" style={{ color: T.accent }}>sirini</span> ochdingiz.</h2><p className="body h-sub fade-up d2">{PASSED ? "Tabriklaymiz! Endi kodingizni Git bilan boshqarib, GitHub'ga joylaysiz." : "Yaxshi harakat! Bir-ikki joyni mustahkamlash uchun darsni qayta ko'ring."}</p></div><ScoreRing correct={correct} total={total} /></div>
+        <div className={`qz-cta cs-cta fade-up d2 ${studentLive ? 'ready' : ''}`}>
+          <CsWordmark
+            stats={false}
+            bolt={false}
+            disabled={studentWait}
+            onClick={studentWait ? undefined : openArena}
+            hint={studentWait ? '⏳ Mentorni kuting' : undefined}
+          />
         </div>
         {arena && <QuizArena live={_live || { mode: 'self' }} startSolo={arenaSolo} onClose={() => setArena(false)} />}
         <div className="split">
           <div className="card fade-up d3"><div className="card-lbl" style={{ color: T.success }}><span className="tick" style={{ width: 16, height: 16, borderRadius: '50%', background: T.success, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>✓</span> Endi siz bilasiz</div><ul className="recap">{RECAP.map((r, i) => (<li key={i} style={{ animationDelay: `${0.3 + i * 0.07}s` }}><span className="ck">✓</span><span>{r}</span></li>))}</ul></div>
           <div className="card hw fade-up d4"><div className="card-lbl" style={{ color: T.accent }}>🔎 Uyga vazifa</div><p className="body" style={{ margin: '0 0 10px', color: T.ink }}>Bilimingizni amalda sinang:</p><ul>{HOMEWORK.map((h, i) => (<li key={i}><b>{h.b}</b> <span className="t">{h.t}</span></li>))}</ul><p className="hw-note">GitHub'da birinchi repongizni yaratib, do'stlaringizga ulashing!</p></div>
         </div>
-        <div className="gloss fade-up d4"><div className="gloss-head" onClick={() => setOpen(o => !o)}><span className="lbl">💡 Kalit so'zlar (takrorlash)</span><span className="gloss-toggle">{open ? '−' : '+'}</span></div>{open && (<div className="gloss-body">{GLOSSARY.map((g, i) => (<span key={i}><b>{g.b}</b> {g.t}{i < GLOSSARY.length - 1 ? ' · ' : ''}</span>))}</div>)}</div>
+        <div className="card ach-coll fade-up d3">
+          <div className="card-lbl" style={{ color: T.accent }}>🏅 Nishonlaringiz — {(achievements ? achievements.size : 0)}/{Object.keys(ACHIEVEMENTS).length}</div>
+          <div className="ach-grid">
+            {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(achievements && achievements.has(id)); return (
+              <div key={id} className={`ach-badge ${got ? 'got' : 'locked'}`} title={a.desc}>
+                <span className="ach-badge-ic">{got ? a.icon : '🔒'}</span>
+                <span className="ach-badge-name">{a.name}</span>
+                {got && <span className="ach-badge-desc">{a.desc}</span>}
+              </div>
+            ); })}
+          </div>
+        </div>
       </div>
     </Stage>
   );
@@ -1510,7 +1991,7 @@ const Screen16 = ({ screen, answers, onReset, onPrev, onFinish }) => {
 
 // ============================================================ LESSON ROOT — ({ lang, onFinished })
 // Podium yorliqlari (scored indeks -> qisqa nom)
-const Q_LABELS = { 4: "Git nima qiladi", 6: "commit nima", 10: "git push", 13: "GitHub nega kerak", 16: "commit buyrug'i yozish (yakuniy)" };
+const Q_LABELS = { 4: "Git nima qiladi", 6: "commit nima", 10: "git push", 13: "GitHub nega kerak", 17: "commit buyrug'i yozish (yakuniy)" };
 
 const Confetti = () => {
   const COLORS = [T.accent, T.success, T.blue, '#FFD380', '#FF7755', '#7DD181'];
@@ -1534,7 +2015,7 @@ const Confetti = () => {
 };
 
 // Server-baholash javob kaliti (mentor darsni ochganda avto-yuklanadi). s15 = -1 (yakuniy amaliy).
-const INLINE_KEYS = { s4: 1, s5b: 1, s9: 1, s12: 1, s15: -1 };
+const INLINE_KEYS = { s4: 0, s5b: 2, s9: 1, s12: 3, s15: -1 };
 
 const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   const gate = useContext(LiveGateCtx) || {};
@@ -1644,37 +2125,36 @@ const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
   );
 };
 
-// ===== ⚔️ MUSTAHKAMLASH-JANG (Kahoot arena) =====
-const QUIZ_MS = 20000;
+// ===== ⚡ CODESTRIKE (CoddyCamp jonli test arenasi — Git mavzusi) =====
+const QUIZ_MS = 15000;
 const QUIZ_BASE_IDX = 100;
-const QUIZ_COLORS = ['#E21B3C', '#1368CE', '#D89E00', '#26890C']; // Kahoot ranglari
+const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CodeStrike brend palitrasi: coral · ocean · sun · leaf
 const QUIZ_SHAPES = ['▲', '◆', '●', '■'];
-// Arena foni: suzuvchi neon shakllar (statik pozitsiyalar)
+// Arena foni: suzuvchi Git tokenlari (checkpoint/vaqt mashinasi hissi)
 const QZ_BG_SHAPES = [
-  { ch: '▲', l: 5,  t: 10, s: 88,  c: 'rgba(255,80,110,0.16)',  d: 19, dl: 0 },
-  { ch: '●', l: 86, t: 7,  s: 64,  c: 'rgba(255,201,77,0.15)',  d: 23, dl: 1.5 },
-  { ch: '◆', l: 8,  t: 72, s: 104, c: 'rgba(80,150,255,0.18)',  d: 27, dl: 0.8 },
-  { ch: '■', l: 82, t: 68, s: 76,  c: 'rgba(90,220,120,0.16)',  d: 21, dl: 2.2 },
-  { ch: '▲', l: 44, t: 86, s: 54,  c: 'rgba(255,201,77,0.12)',  d: 25, dl: 1.1 },
-  { ch: '◆', l: 66, t: 26, s: 46,  c: 'rgba(255,80,110,0.12)',  d: 17, dl: 0.4 },
-  { ch: '●', l: 26, t: 34, s: 38,  c: 'rgba(90,220,120,0.12)',  d: 20, dl: 1.9 },
-  { ch: '■', l: 55, t: 5,  s: 42,  c: 'rgba(80,150,255,0.14)',  d: 22, dl: 0.6 },
-  { ch: '▲', l: 93, t: 42, s: 48,  c: 'rgba(160,120,255,0.14)', d: 24, dl: 1.3 },
-  { ch: '●', l: 2,  t: 45, s: 44,  c: 'rgba(255,80,110,0.10)',  d: 26, dl: 2.6 },
+  { ch: 'commit',  l: 6,  t: 18, s: 30, c: 'rgba(20,17,14,0.06)',   d: 19, dl: 0 },
+  { ch: 'git add', l: 82, t: 12, s: 24, c: 'rgba(20,17,14,0.05)',   d: 23, dl: 1.5 },
+  { ch: 'push',    l: 9,  t: 74, s: 30, c: 'rgba(255,79,40,0.09)',  d: 27, dl: 0.8 },
+  { ch: '💾',      l: 78, t: 70, s: 34, c: 'rgba(20,17,14,0.5)',    d: 21, dl: 2.2 },
+  { ch: 'main',    l: 46, t: 86, s: 28, c: 'rgba(34,160,92,0.11)',  d: 25, dl: 1.1 },
+  { ch: '📸',      l: 66, t: 24, s: 30, c: 'rgba(20,17,14,0.5)',    d: 17, dl: 0.4 },
+  { ch: '.git',    l: 24, t: 36, s: 26, c: 'rgba(15,166,214,0.10)', d: 20, dl: 1.9 },
+  { ch: '🕰️',     l: 92, t: 46, s: 30, c: 'rgba(20,17,14,0.5)',    d: 24, dl: 1.3 },
+  { ch: 'commit',  l: 2,  t: 46, s: 24, c: 'rgba(20,17,14,0.05)',   d: 26, dl: 2.6 },
 ];
 const QUIZ_BANK = [
-  { q: "Git asosan nima ish bajaradi?", opts: ["Kodni ranglaydi", "Kod versiyalarini saqlaydi va orqaga qaytaradi", "Internetni tezlashtiradi", "Rasm tahrirlaydi"], correct: 1 },
+  { q: "Git asosan nima ish bajaradi?", opts: ["Kod versiyalarini saqlab, orqaga qaytaradi", "Kodni chiroyli ranglarga bo'yaydi", "Internet tezligini oshiradi", "Rasm va suratlarni tahrirlaydi"], correct: 0 },
   { q: "Kodning izoh bilan saqlangan nuqtasi nima deb ataladi?", opts: ["Brauzer", "commit", "Parol", "Domen"], correct: 1 },
-  { q: "git push buyrug'i nima qiladi?", opts: ["Kodni o'chiradi", "Lokal commit'larni GitHub'ga yuboradi", "Yangi rang qo'shadi", "Faylni chop etadi"], correct: 1 },
-  { q: "GitHub asosan nima uchun kerak?", opts: ["O'yin o'ynash", "Kodni bulutda saqlash va jamoa bilan ishlash", "Rasm tahrirlash", "Musiqa tinglash"], correct: 1 },
-  { q: "Git qanday tizim deb ataladi?", opts: ["Versiya nazorati tizimi", "Operatsion tizim", "Antivirus", "Brauzer"], correct: 0 },
+  { q: "git push buyrug'i nima qiladi?", opts: ["Barcha kodni butunlay o'chiradi", "Sahifaga yangi rang qo'shadi", "Lokal commit'larni bulutga yuboradi", "Faylni printerda chop etadi"], correct: 2 },
+  { q: "GitHub asosan nima uchun kerak?", opts: ["Onlayn o'yinlar o'ynash uchun", "Musiqa va video tinglash uchun", "Rasmlarni chiroyli tahrirlash", "Kodni bulutda saqlash va birga ishlash"], correct: 3 },
+  { q: "Git qanday tizim deb ataladi?", opts: ["Versiya nazorati tizimi", "Operatsion tizim (OS)", "Antivirus dasturi", "Internet brauzeri"], correct: 0 },
   { q: "commit'da -m bayrog'i nima uchun?", opts: ["Faylni o'chirish", "Izoh (xabar) yozish", "Rang berish", "Internetga ulanish"], correct: 1 },
-  { q: "To'g'ri commit buyrug'i qaysi?", opts: ["git save 'matn'", "git commit -m \"matn\"", "commit push now", "git upload -m matn"], correct: 1 },
-  { q: "Eski holatga qaytmoqchisiz. Nima yordam beradi?", opts: ["Git tarixidagi oldingi commit", "Kompyuterni o'chirish", "Yangi fayl yaratish", "Brauzerni yangilash"], correct: 0 },
-  { q: "Loyihaning GitHub'dagi joyi nima deb ataladi?", opts: ["Repository (repozitoriy)", "Papka nomi", "Parol", "Domen"], correct: 0 },
-  { q: "Nega loyiha_final_ROST.html kabi ko'p nusxa yomon?", opts: ["Chalkashlik ko'payadi", "Kompyuter tez ishlaydi", "Internet tejaladi", "Kod chiroyli bo'ladi"], correct: 0 },
-  { q: "push qilgandan keyin commit'lar qayerda bo'ladi?", opts: ["Faqat mening kompyuterimda", "GitHub'da (bulutda) ham", "O'chib ketadi", "Qog'ozda"], correct: 1 },
-  { q: "O'yinda commit nimaga to'g'ri keladi?", opts: ["Checkpoint (saqlash nuqtasi)", "O'yindan chiqish", "Ovozni balandlatish", "Yangi o'yin sotib olish"], correct: 0 },
+  { q: "To'g'ri commit buyrug'i qaysi?", opts: ["git save 'matn'", "commit push now", "git commit -m \"matn\"", "git upload -m matn"], correct: 2 },
+  { q: "Eski holatga qaytmoqchisiz. Nima yordam beradi?", opts: ["Brauzer sahifasini yangilash", "Kompyuterni qayta o'chirish", "Butunlay yangi fayl yaratish", "Git tarixidagi oldingi commit"], correct: 3 },
+  { q: "Loyihaning GitHub'dagi joyi nima deb ataladi?", opts: ["Repository (repozitoriy)", "Oddiy fayllar papkasi", "Maxfiy kirish paroli", "Sayt domen manzili"], correct: 0 },
+  { q: "Nega loyiha_final_ROST.html kabi ko'p nusxa yomon?", opts: ["Kompyuter tez ishlaydi", "Chalkashlik ko'payadi", "Internet tejaladi", "Kod chiroyli bo'ladi"], correct: 1 },
+  { q: "push qilgandan keyin commit'lar qayerda bo'ladi?", opts: ["Faqat mening kompyuterimda", "O'chib ketadi", "GitHub'da (bulutda) ham", "Qog'ozda"], correct: 2 },
+  { q: "O'yinda commit nimaga to'g'ri keladi?", opts: ["Yangi o'yin sotib olish", "O'yindan butunlay chiqish", "O'yin ovozini balandlatish", "Checkpoint (saqlash nuqtasi)"], correct: 3 },
 ];
 const quizPts = (elapsedMs) => elapsedMs <= 500 ? 1000 : Math.max(0, Math.round(1000 * (1 - (Math.min(elapsedMs, QUIZ_MS) / QUIZ_MS) / 2)));
 // Bitta o'yinchining barcha javoblaridan yakuniy hisob (hamma klientda bir xil chiqadi)
@@ -1705,6 +2185,36 @@ function QzTimer({ remaining }) {
       <span className="qz-timer-n" style={{ color: col }}>{sec}</span>
     </div>
   );
+}
+
+// 🎆 Arena jonli qatlami — canvas: suzuvchi uchqunlar + "web" chiziqlari + git tokenlari.
+// reduced-motion: umuman ishlamaydi (matchMedia). L1 QzFX bilan bir xil, TOK git-mavzudan.
+function QzFX() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+    const ctx = cv.getContext('2d'); const DPR = Math.min(2, window.devicePixelRatio || 1);
+    let W = 1, H = 1, raf = 0;
+    const size = () => { W = cv.width = Math.max(1, cv.offsetWidth * DPR); H = cv.height = Math.max(1, cv.offsetHeight * DPR); };
+    size(); window.addEventListener('resize', size);
+    const TOK = ['commit', 'push', 'git add', '💾', '📸', 'main', '.git'];
+    const em = [], toks = [];
+    for (let i = 0; i < 26; i++) em.push({ x: Math.random() * W, y: Math.random() * H, z: .3 + Math.random() * .7, ph: Math.random() * 6.28, sw: .3 + Math.random() * .6 });
+    for (let i = 0; i < 9; i++) toks.push({ x: Math.random() * W, y: Math.random() * H, z: .4 + Math.random() * .9, vx: (Math.random() - .5) * .16, t: TOK[i % TOK.length], r: (Math.random() - .5) * .5 });
+    const draw = (tm) => {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of em) { p.y -= (.15 + p.z * .35) * DPR; p.x += Math.sin(tm / 1400 + p.ph) * p.sw * DPR * .35; if (p.y < -12) { p.y = H + 12; p.x = Math.random() * W; } }
+      ctx.lineWidth = 1 * DPR;
+      for (let a = 0; a < em.length; a++) for (let b = a + 1; b < em.length; b++) { const dx = em[a].x - em[b].x, dy = em[a].y - em[b].y, d = Math.sqrt(dx * dx + dy * dy), mx = 95 * DPR; if (d < mx) { ctx.strokeStyle = 'rgba(255,79,40,' + (.055 * (1 - d / mx)) + ')'; ctx.beginPath(); ctx.moveTo(em[a].x, em[a].y); ctx.lineTo(em[b].x, em[b].y); ctx.stroke(); } }
+      for (const p of em) { const s = (1.3 + p.z * 2.2) * DPR, tw = .16 + p.z * .24 + Math.sin(tm / 600 + p.ph) * .08; ctx.fillStyle = 'rgba(245,166,35,' + tw + ')'; ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, 6.29); ctx.fill(); }
+      for (const t of toks) { t.x += t.vx * DPR; t.y -= (.08 + t.z * .12) * DPR; if (t.y < -34) t.y = H + 34; if (t.x < -50) t.x = W + 50; if (t.x > W + 50) t.x = -50; ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.r * .12); ctx.font = '700 ' + ((13 + t.z * 22) * DPR) + 'px "JetBrains Mono",monospace'; ctx.fillStyle = 'rgba(20,17,14,' + (.03 + t.z * .05) + ')'; ctx.textAlign = 'center'; ctx.fillText(t.t, 0, 0); ctx.restore(); }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', size); };
+  }, []);
+  return <canvas ref={ref} className="qz-fx" aria-hidden="true" />;
 }
 
 function QuizArena({ live, onClose, startSolo }) {
@@ -1862,6 +2372,7 @@ function QuizArena({ live, onClose, startSolo }) {
           <span key={i} className="qz-shp" style={{ left: `${s.l}%`, top: `${s.t}%`, fontSize: s.s, color: s.c, animationDuration: `${s.d}s`, animationDelay: `${s.dl}s` }}>{s.ch}</span>
         ))}
       </div>
+      <QzFX />
       <button className="qz-x" onClick={closeArena} aria-label="Yopish">✕</button>
 
       {/* QUTQARUV: jonli dars tugadi — o'quvchi osilib qolmaydi, mashq rejimida davom etadi */}
@@ -1875,9 +2386,9 @@ function QuizArena({ live, onClose, startSolo }) {
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
-          <div className="qz-logo">⚔️</div>
+          <CsWordmark stats={false} />
           <h2 className="qz-h">Mustahkamlash Testi</h2>
-          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
+          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossangiz — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {solo && isStudent && <p className="qz-sub" style={{ color: '#FFC94D' }}>📖 Mashq rejimi — o'z tezligingizda ishlaysiz, natija faqat sizga ko'rinadi.</p>}
           {!solo && (
             <div className="qz-lobby-players">
@@ -1901,14 +2412,14 @@ function QuizArena({ live, onClose, startSolo }) {
               ? <span className="qz-ansn">📨 {answeredN}/{players.length}</span>
               : <span className="qz-ansn">{streakUpTo(qi - 1) >= 2 ? `🔥 x${streakUpTo(qi - 1)}` : ' '}</span>}
           </div>
-          <h2 className="qz-q">{Q.q}</h2>
+          <h2 className="qz-q">{fmtCode(Q.q)}</h2>
           <div className="qz-grid">
             {Q.opts.map((o, i) => {
               const pickedThis = my && my.picked === i;
               return (
                 <button key={i} className={`qz-tile ${my ? (pickedThis ? 'picked' : 'faded') : ''}`} style={{ background: QUIZ_COLORS[i] }} disabled={isMentor || !!my} onClick={() => answer(i)}>
                   <span className="qz-shape">{QUIZ_SHAPES[i]}</span>
-                  <span className="qz-opt">{o}</span>
+                  <span className="qz-opt">{fmtCode(o)}</span>
                   {pickedThis && <span className="qz-pbadge">✔</span>}
                 </button>
               );
@@ -1930,7 +2441,7 @@ function QuizArena({ live, onClose, startSolo }) {
           <div className="qz-top">
             <span className="qz-count">Savol <b>{qi + 1}</b>/{QUIZ_BANK.length} — natija</span>
           </div>
-          <h2 className="qz-q">{Q.q}</h2>
+          <h2 className="qz-q">{fmtCode(Q.q)}</h2>
           <div className="qz-grid">
             {Q.opts.map((o, i) => {
               const win = i === Q.correct;
@@ -1938,7 +2449,7 @@ function QuizArena({ live, onClose, startSolo }) {
               return (
                 <div key={i} className={`qz-tile rv ${win ? 'win' : 'lose'} ${pickedThis ? 'picked' : ''}`} style={{ background: QUIZ_COLORS[i] }}>
                   <span className="qz-shape">{QUIZ_SHAPES[i]}</span>
-                  <span className="qz-opt">{o}</span>
+                  <span className="qz-opt">{fmtCode(o)}</span>
                   <span className="qz-cnt">{win ? '✓ ' : ''}{counts[i]}</span>
                 </div>
               );
@@ -1973,6 +2484,7 @@ function QuizArena({ live, onClose, startSolo }) {
       {phase === 'done' && (
         <div className="qz-view fade-step">
           <Confetti />
+          <div className="qz-brand sm"><QzBolt size={48} /><span className="qz-wm">Code<span className="qz-wm-h">Strike</span></span></div>
           <h2 className="qz-h">🏆 Test yakunlandi!</h2>
           {solo ? (
             <div className="qz-solo-res">
@@ -2022,18 +2534,42 @@ export default function GitLesson({ lang: langProp, onFinished }) {
   const [screen, setScreen] = useState(0);
   const [answers, setAnswers] = useState({});
   const startTimeRef = useRef(Date.now());
+  // 🏅 Nishonlar
+  const earnedRef = useRef(new Set());
+  const [earned, setEarned] = useState(() => new Set());
+  const [achToasts, setAchToasts] = useState([]);
+  const achKeyRef = useRef(0);
+  const earn = useCallback((id) => {
+    if (!ACHIEVEMENTS[id] || earnedRef.current.has(id)) return;
+    earnedRef.current.add(id);
+    setEarned(new Set(earnedRef.current));
+    setAchToasts(t => [...t, { id, k: ++achKeyRef.current }]);
+  }, []);
 
   // ETALON — 1920px (InternetLesson): keng oynada proportsional kattalashadi, <=1920 da z=1
   useEffect(() => {
     const upd = () => { const z = Math.min(1.5, Math.max(1, window.innerWidth / 1920)); document.documentElement.style.setProperty('--lz', String(Math.round(z * 1000) / 1000)); };
     upd(); window.addEventListener('resize', upd); return () => window.removeEventListener('resize', upd);
   }, []);
-  const next = () => setScreen(s => Math.min(s + 1, TOTAL_SCREENS - 1));
-  const prev = () => setScreen(s => Math.max(s - 1, 0));
+  // 🃏 Flashcard jonli darsda FAQAT MENTORGA ko'rinadi (proyektorda jamoaviy takrorlash);
+  // jonli o'quvchidan yashirin — sakrab o'tiladi. Mentor «Erkin qilish» qilgach ochiladi.
+  const FLASH_IDX = SCREEN_META.findIndex(m => m.id === 'sflash');
+  const flashHidden = () => live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
+  const next = () => setScreen(s => {
+    let n = Math.min(s + 1, TOTAL_SCREENS - 1);
+    if (n === FLASH_IDX && flashHidden()) n = Math.min(n + 1, TOTAL_SCREENS - 1);
+    return n;
+  });
+  const prev = () => setScreen(s => {
+    let n = Math.max(s - 1, 0);
+    if (n === FLASH_IDX && flashHidden()) n = Math.max(n - 1, 0);
+    return n;
+  });
   const recordAnswer = (idx, data) => {
     setAnswers(a => ({ ...a, [idx]: data }));
     const _m = SCREEN_META[idx];
     if (_m && _m.scored && _m.scope === 'final' && data && data.correct && live.mode === 'student') live.submitAnswer(idx, _m.id, 0, true, 0);
+    if (_m && ACH_TRIGGERS[_m.id] && data && data.correct) earn(ACH_TRIGGERS[_m.id]); // 🏅 nishon
   };
   const reset = () => { setAnswers({}); setScreen(0); startTimeRef.current = Date.now(); };
 
@@ -2043,6 +2579,23 @@ export default function GitLesson({ lang: langProp, onFinished }) {
   const isStudentLive = live.mode === 'student' && live.status !== 'ended' && live.mentorAlive;
   const locked = isStudentLive && (screen + 1 > live.mentorScreen);
   useEffect(() => { live.reportScreen(screen); }, [screen, live.mode, live.pin]); // eslint-disable-line
+  // 👋 Onboarding — rejim tanlangach bir marta (rolga qarab, localStorage'da eslab qolinadi)
+  const [onboard, setOnboard] = useState(false);
+  const onboardShownRef = useRef(false);
+  const onboardRole = live.mode === 'mentor' ? 'mentor' : 'learner';
+  useEffect(() => {
+    if (live.mode !== 'choosing' && !onboardShownRef.current) {
+      onboardShownRef.current = true;
+      let show = true;
+      try { if (localStorage.getItem('gitOnboarded_' + onboardRole)) show = false; } catch {}
+      if (show) { const t = setTimeout(() => setOnboard(true), 500); return () => clearTimeout(t); } // sahifa chizilib bo'lsin
+    }
+  }, [live.mode, onboardRole]);
+  const closeOnboard = () => { try { localStorage.setItem('gitOnboarded_' + onboardRole, '1'); } catch {} setOnboard(false); };
+  // 🏅 Yakuniy ekranga yetganda: bitiruvchi nishoni
+  useEffect(() => {
+    if (screen === TOTAL_SCREENS - 1) earn('graduate');
+  }, [screen]); // eslint-disable-line
 
   const finishLesson = () => {
     live.endSession();
@@ -2065,7 +2618,7 @@ export default function GitLesson({ lang: langProp, onFinished }) {
     if (typeof onFinished === 'function') onFinished(payload);
   };
 
-  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, Screen15, ScreenPodium, Screen16];
+  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, ScreenGitFlow, Screen15, ScreenPodium, ScreenFlashcards, Screen16];
   const Current = screens[screen];
   return (
     <LangContext.Provider value={lang}>
@@ -2129,7 +2682,7 @@ export default function GitLesson({ lang: langProp, onFinished }) {
         /* === MENTOR === */
         .mentor { display: flex; gap: 12px; align-items: flex-start; }
         .mentor-ava { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: ${T.accentSoft}; box-shadow: 0 4px 12px -4px rgba(${T.shadowBase},0.28); }
-        .mentor-ava img { display: block; width: 100%; height: 100%; object-fit: contain; transform: scale(1.12); }
+        .mentor-ava img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .mentor-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
         .mentor-name { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13px; color: ${T.accent}; letter-spacing: 0.01em; }
         .mentor-msg { background: ${T.paper}; border-radius: 4px 14px 14px 14px; padding: 13px 16px; color: ${T.ink}; box-shadow: 0 6px 18px -6px rgba(${T.shadowBase},0.16); }
@@ -2385,9 +2938,6 @@ export default function GitLesson({ lang: langProp, onFinished }) {
         .card-lbl { display: flex; align-items: center; gap: 8px; font-family: 'Manrope'; font-weight: 700; font-size: 13px; margin-bottom: 11px; }
         .recap { display: flex; flex-direction: column; gap: 8px; list-style: none; } .recap li { display: flex; align-items: flex-start; gap: 10px; font-size: clamp(13px,1.6vw,15px); color: ${T.ink}; animation: fade-in-up 0.4s ease-out forwards; opacity: 0; } .recap .ck { color: ${T.success}; font-weight: 700; flex-shrink: 0; background: none; padding: 0; }
         .hw ul { display: flex; flex-direction: column; gap: 6px; list-style: none; } .hw li { font-size: clamp(13px,1.6vw,15px); color: ${T.ink}; } .hw li b { color: ${T.accent}; } .hw .t { color: ${T.ink2}; } .hw-note { margin: 11px 0 0; font-size: 12px; color: ${T.accent}; font-weight: 600; }
-        .gloss { background: ${T.paper}; border-radius: 12px; box-shadow: 0 6px 16px -6px rgba(${T.shadowBase},0.12); overflow: hidden; }
-        .gloss-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 17px; cursor: pointer; } .gloss-head .lbl { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; } .gloss-toggle { font-size: 18px; color: ${T.ink2}; }
-        .gloss-body { padding: 0 17px 15px; font-size: clamp(12.5px,1.5vw,14px); color: ${T.ink2}; line-height: 1.7; animation: fade-step 0.3s; } .gloss-body b { color: ${T.ink}; }
         /* ============ v16 QO'SHIMCHA CSS ============ */
         /* SCREEN 2 — Hayotdan misol (2-bosqich) */
         .frame-col { display: flex; flex-direction: column; gap: 14px; }
@@ -2503,10 +3053,38 @@ export default function GitLesson({ lang: langProp, onFinished }) {
         .jmini-arr { color: ${T.accent}; font-weight: 700; }
 
         /* ============ GIT/GITHUB DARS CSS ============ */
-        .lvl { display: flex; gap: 5px; }
-        .lvl-cell { flex: 1; height: 40px; border-radius: 8px; background: ${T.paper}; box-shadow: inset 0 0 0 1.5px rgba(167,166,162,0.4); display: flex; align-items: center; justify-content: center; font-size: 19px; transition: all 0.25s; }
-        .lvl-cell.cp { box-shadow: inset 0 0 0 2px ${T.success}; background: ${T.successSoft}; }
-        .lvl-cell.here { box-shadow: inset 0 0 0 2px ${T.accent}; background: ${T.accentSoft}; }
+        /* === 🏗️ MINORA QURUVCHI (Screen2) — sodda vertikal stack (Dizayn sayqallaydi) === */
+        .twr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .twr { display: flex; flex-direction: column-reverse; align-items: center; justify-content: flex-start; gap: 4px; width: 100%; min-height: 200px; padding: 12px 10px; border-radius: 12px; background: ${T.bg}; box-shadow: inset 0 0 0 1.5px rgba(167,166,162,0.28); }
+        .twr-block { position: relative; width: clamp(80px,58%,150px); height: 26px; border-radius: 7px; background: linear-gradient(180deg, #FF8A3D, ${T.accent}); box-shadow: 0 4px 10px -4px rgba(255,79,40,0.5), inset 0 1.5px 0 rgba(255,255,255,0.32); animation: twrPop 0.4s cubic-bezier(.34,1.45,.5,1); will-change: transform; }
+        /* blok qo'shilishi — yuqoridan tushib joylashish spring'i (settle bounce bilan) */
+        @keyframes twrPop { 0% { transform: translateY(-24px) scale(0.6); opacity: 0; } 55% { transform: translateY(2px) scale(1.09); opacity: 1; } 76% { transform: translateY(-1px) scale(0.97); } 100% { transform: none; opacity: 1; } }
+        .twr-block.flag { background: ${T.successSoft}; box-shadow: 0 4px 10px -4px rgba(31,122,77,0.45), inset 0 0 0 2px ${T.success}; }
+        .twr-flag { position: absolute; right: -22px; top: 50%; transform: translateY(-50%); font-size: 16px; }
+        /* ===== 💥 MINORA QULASHI — darsning eng dramatik lahzasi =====
+           1) butun minora beqarorlikdan silkinadi (twrShake), 2) bloklar KETMA-KET qulaydi:
+           tepa avval, pastdagilar keyinroq (--fi stagger) — translateY+rotate+opacity bilan. */
+        .twr.falling { animation: twrShake 0.42s cubic-bezier(.36,.07,.19,.97); transform-origin: bottom center; }
+        @keyframes twrShake { 0%,100% { transform: translateX(0) rotate(0); } 12% { transform: translateX(-6px) rotate(-1deg); } 26% { transform: translateX(6px) rotate(1.2deg); } 40% { transform: translateX(-5px) rotate(-1deg); } 55% { transform: translateX(4px) rotate(.8deg); } 72% { transform: translateX(-2px) rotate(-.4deg); } 86% { transform: translateX(1px); } }
+        .twr.falling .twr-block { animation: twrBlockFall 0.36s cubic-bezier(.55,.08,.9,.35) forwards; animation-delay: calc(var(--fi, 0) * 0.05s); will-change: transform, opacity; }
+        .twr.falling .twr-block:nth-child(odd) { --fr: -19deg; }
+        @keyframes twrBlockFall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 22% { transform: translateY(-5px) rotate(-2deg); opacity: 1; } 100% { transform: translateY(135px) rotate(var(--fr, 17deg)); opacity: 0; } }
+        /* ===== ⏪ QUTQARISH — vaqt-mashinasi tiklashi =====
+           gRewind (blur+siljish) container'da; tiklangan bloklar yengil "yashil nafas" oladi. */
+        .twr.rewinding { animation: gRewind 0.5s ease-out; }
+        .twr.rewinding .twr-block { animation: twrBreathe 0.75s ease-out; }
+        @keyframes twrBreathe { 0% { box-shadow: 0 4px 10px -4px rgba(31,122,77,0), inset 0 1.5px 0 rgba(255,255,255,0.32); } 45% { box-shadow: 0 0 0 4px rgba(31,122,77,0.22), 0 5px 16px -4px rgba(31,122,77,0.5), inset 0 1.5px 0 rgba(255,255,255,0.4); transform: scale(1.03); } 100% { box-shadow: 0 4px 10px -4px rgba(31,122,77,0), inset 0 1.5px 0 rgba(255,255,255,0.32); transform: none; } }
+        /* reduced-motion: dramatik qulash/rewind o'rniga tinch opacity-only variant */
+        @media (prefers-reduced-motion: reduce) {
+          .twr.falling { animation: none; }
+          .twr.falling .twr-block { animation: twrFadeOut 0.3s ease-out forwards; animation-delay: 0; }
+          @keyframes twrFadeOut { to { opacity: 0; } }
+          .twr.rewinding { animation: none; }
+          .twr.rewinding .twr-block { animation: acu-fade 0.35s ease-out; }
+        }
+        .twr-empty { color: ${T.ink3}; font-style: italic; font-size: 13px; padding: 30px 0; text-align: center; }
+        .twr-h { font-family: 'Manrope'; font-weight: 700; font-size: 14px; color: ${T.ink2}; }
+        .twr-h b { color: ${T.accent}; font-size: 16px; }
         .term { background: ${CODE.bg}; border-radius: 12px; padding: 14px 16px; box-shadow: 0 8px 22px -6px rgba(${T.shadowBase},0.2); display: flex; flex-direction: column; gap: 5px; font-family: 'JetBrains Mono', monospace; font-size: clamp(12px,1.6vw,13.5px); line-height: 1.5; overflow-x: auto; }
         .term-row { white-space: pre-wrap; word-break: break-word; }
         .term-prompt { color: ${CODE.str}; } .term-cmd { color: ${CODE.attr}; } .term-out { color: ${CODE.punct}; } .term-err { color: ${CODE.tag}; } .term-ok { color: ${CODE.str}; }
@@ -2534,15 +3112,16 @@ export default function GitLesson({ lang: langProp, onFinished }) {
         .repo-row { display: flex; align-items: center; gap: 10px; padding: 11px 15px; cursor: pointer; transition: background 0.2s; font-family: 'JetBrains Mono'; font-size: 13px; color: ${T.ink2}; }
         .repo-row:hover { background: ${T.bg}; }
         .repo-row.on { background: ${T.accentSoft}; color: ${T.accent}; box-shadow: inset 3px 0 0 ${T.accent}; }
+        /* tap-hint affordance (L1 bilan bir xil): bosilmagan qatorlar "meni bos" deb pulslaydi; ochilgani ✓ */
+        @keyframes tap-hint { 0%, 100% { box-shadow: inset 0 0 0 0 rgba(255,79,40,0); } 50% { box-shadow: inset 0 0 0 2px rgba(255,79,40,0.42); } }
+        .repo-row:not(.on):not(.seen) { animation: tap-hint 1.8s ease-in-out infinite; }
+        .repo-row.seen:not(.on)::after { content: '✓'; margin-left: auto; color: ${T.success}; font-weight: 800; font-size: 12px; }
+        @media (prefers-reduced-motion: reduce) { .repo-row:not(.on):not(.seen) { animation: none; } }
         /* === animatsiya yaxshilashlari (page 2,3,4,8,12) === */
         .jmini-node { animation: jpop 0.45s backwards cubic-bezier(.34,1.5,.5,1); }
         .jmini-arr { animation: jflow 1.8s ease-in-out infinite; }
         @keyframes jpop { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: scale(1); } }
         @keyframes jflow { 0%,100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 1; transform: translateX(2px); } }
-        .lvl-cell.here { animation: lvlHop 0.42s cubic-bezier(.34,1.55,.5,1); }
-        @keyframes lvlHop { 0% { transform: translateY(-9px) scale(0.85); } 55% { transform: translateY(2px) scale(1.12); } 100% { transform: translateY(0) scale(1); } }
-        .lvl-cell.cp { animation: lvlFlag 0.45s cubic-bezier(.34,1.5,.5,1); }
-        @keyframes lvlFlag { 0% { transform: scale(0.5) rotate(-10deg); } 60% { transform: scale(1.2) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
         .gcommit-dot { animation: snapPop 0.5s cubic-bezier(.34,1.5,.5,1); }
         @keyframes snapPop { 0% { transform: scale(0); } 55% { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(255,79,40,0.18); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,79,40,0); } }
         .gtl-node.on .gtl-dot { animation: dotPulse 0.55s cubic-bezier(.34,1.5,.5,1); }
@@ -2647,105 +3226,110 @@ export default function GitLesson({ lang: langProp, onFinished }) {
           .rc-btn { font-size: 13px; padding: 11px 16px; }
         }
 
-        /* === ⚔️ CTA (yakun sahifasida) === */
-        .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #1D1145, #35206B); border-radius: 18px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 14px 36px -14px rgba(29,17,69,0.55); }
+        /* ===== ⚡ CODESTRIKE — CTA (dars ichida) ===== */
+        .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #FFF3EA, #FFE7DC); border: 1px solid #F3D9CC; border-radius: 20px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 16px 40px -18px rgba(255,79,40,0.28); }
         .qz-cta-txt { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
-        .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #fff; }
-        .qz-cta-s { font-family: 'Manrope'; font-weight: 500; font-size: 13px; color: rgba(255,255,255,0.72); }
-        .qz-cta-btn { background: ${T.accent}; color: #fff; border: none; border-radius: 14px; padding: 13px 24px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); transition: transform 0.2s; }
+        .qz-cta-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(16px,2.2vw,20px); color: #121826; }
+        .qz-cta-s { font-family: 'Manrope'; font-weight: 500; font-size: 13px; color: #525A6B; }
+        .qz-cta-btn { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border: none; border-radius: 14px; padding: 13px 24px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 12px 24px -8px rgba(255,79,40,0.6); transition: transform 0.2s; }
         .qz-cta-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); }
-        .qz-cta-btn:disabled { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.55); cursor: default; box-shadow: none; }
+        .qz-cta-btn:disabled { background: #E9E6DF; color: #98A0B4; cursor: default; box-shadow: none; }
         .qz-cta.ready .qz-cta-btn { animation: qz-pulse 1.1s ease-in-out infinite; }
         @keyframes qz-pulse { 0%,100% { transform: scale(1); box-shadow: 0 8px 22px -8px rgba(255,79,40,0.7); } 50% { transform: scale(1.06); box-shadow: 0 10px 30px -6px rgba(255,79,40,0.95); } }
 
-        /* === ⚔️ ARENA — to'liq ekran, tiniq qorong'u muhit === */
-        .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px);
-          background:
-            radial-gradient(120% 85% at 50% -18%, rgba(88,58,200,0.55) 0%, rgba(88,58,200,0) 55%),
-            radial-gradient(70% 60% at 108% 112%, rgba(196,37,126,0.30) 0%, rgba(196,37,126,0) 60%),
-            radial-gradient(55% 45% at -8% 108%, rgba(19,104,206,0.28) 0%, rgba(19,104,206,0) 60%),
-            linear-gradient(168deg, #241560 0%, #170F3D 52%, #0D0826 100%);
-        }
-        .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-        .qz-shp { position: absolute; line-height: 1; user-select: none; animation: qz-drift ease-in-out infinite; text-shadow: 0 0 34px currentColor; will-change: transform; }
+        /* ===== ⚡ ARENA — issiq CoddyCamp muhiti ===== */
+        .qz-arena { position: fixed; inset: 0; z-index: 10500; overflow-y: auto; display: flex; align-items: flex-start; justify-content: center; padding: clamp(18px,4vw,44px) clamp(12px,3vw,32px); background: radial-gradient(60% 45% at 12% 8%, rgba(255,79,40,0.10) 0%, rgba(255,79,40,0) 55%), radial-gradient(58% 48% at 90% 14%, rgba(15,166,214,0.16) 0%, rgba(15,166,214,0) 55%), radial-gradient(60% 50% at 78% 100%, rgba(245,166,35,0.12) 0%, rgba(245,166,35,0) 60%), radial-gradient(80% 48% at 50% -6%, #E9F0FD 0%, rgba(233,240,253,0) 52%), #F0F4FC; }
+        .qz-arena::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: radial-gradient(rgba(30,44,80,0.05) 1.1px, transparent 1.2px); background-size: 24px 24px; -webkit-mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); mask-image: radial-gradient(120% 90% at 50% 20%, #000 40%, transparent 82%); }
+        .qz-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .qz-shp { position: absolute; line-height: 1; user-select: none; font-family: 'JetBrains Mono', monospace; font-weight: 700; animation: qz-drift ease-in-out infinite; will-change: transform; }
         @keyframes qz-drift { 0%,100% { transform: translate(0,0) rotate(-7deg) scale(1); } 50% { transform: translate(22px,-28px) rotate(9deg) scale(1.07); } }
+        .qz-fx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
         @media (prefers-reduced-motion: reduce) { .qz-shp { animation: none; } }
-        .qz-x { position: fixed; top: 14px; right: 16px; z-index: 10600; width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,0.12); color: #fff; font-size: 16px; cursor: pointer; transition: background 0.2s; }
-        .qz-x:hover { background: rgba(255,255,255,0.25); }
-        .qz-view { position: relative; z-index: 1; width: 100%; max-width: 780px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
-        .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; filter: drop-shadow(0 8px 24px rgba(255,79,40,0.5)); }
-        .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(24px,4.4vw,40px); color: #fff; margin: 0; text-align: center; letter-spacing: -0.02em; }
-        .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: rgba(255,255,255,0.75); margin: 0; text-align: center; max-width: 560px; line-height: 1.55; }
-        .qz-dimtxt { color: rgba(255,255,255,0.5); font-family: 'Manrope'; font-size: 14px; font-style: italic; }
+        .qz-x { position: fixed; top: 14px; right: 16px; z-index: 10600; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #DDE4F1; background: #fff; color: #525A6B; font-size: 16px; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(30,44,80,0.4); transition: transform 0.25s, color 0.2s; }
+        .qz-x:hover { color: #121826; transform: rotate(90deg); }
+        .qz-view { position: relative; z-index: 1; width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,2.4vw,22px); margin: auto; }
+        .qz-brand { display: flex; align-items: center; gap: 12px; }
+        .qz-brand.sm { gap: 9px; }
+        .qz-bolt { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
+        .qz-wm { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,5vw,46px); letter-spacing: -0.03em; color: #121826; line-height: 1; }
+        .qz-wm-h { color: #FF4F28; }
+        .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; }
+        .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(22px,4vw,36px); color: #121826; margin: 0; text-align: center; letter-spacing: -0.02em; }
+        .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: #525A6B; margin: 0; text-align: center; max-width: 540px; line-height: 1.55; font-weight: 500; }
+        .qz-sub b { color: #121826; }
+        .qz-dimtxt { color: #98A0B4; font-family: 'Manrope'; font-size: 14px; font-style: italic; }
         .qz-lobby-players { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 640px; }
-        .qz-pchip { background: rgba(255,255,255,0.12); color: #fff; font-family: 'Manrope'; font-weight: 700; font-size: 14px; border-radius: 99px; padding: 7px 16px; animation: qz-pop 0.4s cubic-bezier(.34,1.5,.4,1); }
-        .qz-pchip.me { background: ${T.accent}; }
+        .qz-pchip { background: #fff; border: 1.5px solid #DDE4F1; color: #121826; font-family: 'Manrope'; font-weight: 700; font-size: 14px; border-radius: 99px; padding: 7px 16px; box-shadow: 0 5px 12px -8px rgba(30,44,80,0.3); animation: qz-pop 0.4s cubic-bezier(.34,1.5,.4,1); }
+        .qz-pchip.me { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border-color: transparent; }
         @keyframes qz-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .qz-btn { background: ${T.accent}; color: #fff; border: none; border-radius: 14px; padding: 13px 26px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 10px 26px -8px rgba(255,79,40,0.65); transition: transform 0.18s; }
+        .qz-btn { background: linear-gradient(170deg,#FF8A3D,#FF4F28); color: #fff; border: none; border-radius: 14px; padding: 13px 26px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 14px 26px -10px rgba(255,79,40,0.6), inset 0 2px 0 rgba(255,255,255,0.3); transition: transform 0.18s; }
         .qz-btn:hover:not(:disabled) { transform: translateY(-2px); }
-        .qz-btn:disabled { opacity: 0.45; cursor: default; }
-        .qz-btn.big { font-size: clamp(16px,2.2vw,19px); padding: clamp(14px,2vw,17px) clamp(30px,4vw,44px); }
-        .qz-btn.ghost { background: rgba(255,255,255,0.12); box-shadow: none; }
-        .qz-waitmsg { margin: 0; font-family: 'Manrope'; font-weight: 600; font-size: 14.5px; color: #2BD97C; text-align: center; }
-        .qz-qview { max-width: 860px; }
+        .qz-btn:disabled { opacity: 0.5; cursor: default; }
+        .qz-btn.big { font-size: clamp(16px,2.2vw,19px); padding: clamp(15px,2vw,18px) clamp(32px,4vw,46px); }
+        .qz-btn.ghost { background: #fff; color: #121826; border: 1.5px solid #DDE4F1; box-shadow: 0 6px 16px -10px rgba(30,44,80,0.4); }
+        .qz-waitmsg { margin: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #12A968; text-align: center; }
+        .qz-qview { max-width: 880px; }
         .qz-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .qz-count { font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: rgba(255,255,255,0.75); }
-        .qz-count b { color: #fff; font-size: 1.25em; }
-        .qz-ansn { font-family: 'Manrope'; font-weight: 700; font-size: clamp(13px,1.8vw,16px); color: #FFC94D; min-width: 64px; text-align: right; }
+        .qz-count { font-family: 'Manrope'; font-weight: 600; font-size: clamp(13px,1.8vw,16px); color: #525A6B; }
+        .qz-count b { color: #121826; font-size: 1.25em; }
+        .qz-ansn { font-family: 'Manrope'; font-weight: 800; font-size: clamp(13px,1.8vw,16px); color: #FF4F28; min-width: 64px; text-align: right; }
         .qz-timer { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
         .qz-timer-n { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Manrope'; font-weight: 800; font-size: 20px; }
         .qz-timer.urgent { animation: qz-shake 0.5s ease-in-out infinite; }
         @keyframes qz-shake { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-        .qz-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(19px,3.2vw,28px); color: #fff; margin: 0; text-align: center; line-height: 1.35; background: rgba(255,255,255,0.07); border-radius: 18px; padding: clamp(16px,2.6vw,24px) clamp(18px,3vw,30px); width: 100%; }
-        .qz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(10px,1.6vw,14px); width: 100%; }
-        @media (max-width: 560px) { .qz-grid { grid-template-columns: 1fr; } }
-        .qz-tile { position: relative; display: flex; align-items: center; gap: 12px; border: none; border-radius: 16px; padding: clamp(15px,2.4vw,22px) clamp(14px,2.2vw,20px); cursor: pointer; text-align: left; min-height: 64px; box-shadow: 0 10px 26px -10px rgba(0,0,0,0.55); transition: transform 0.16s, opacity 0.3s, box-shadow 0.16s; }
-        .qz-tile:hover:not(:disabled):not(.rv) { transform: translateY(-3px) scale(1.015); box-shadow: 0 16px 34px -10px rgba(0,0,0,0.6); }
+        .qz-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(19px,3.2vw,28px); color: #121826; margin: 0; text-align: center; line-height: 1.35; background: #fff; border: 1px solid #DDE4F1; border-radius: 20px; padding: clamp(18px,2.8vw,28px) clamp(18px,3vw,30px); width: 100%; box-shadow: 0 14px 34px -20px rgba(30,44,80,0.4); text-wrap: balance; }
+        .qz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(11px,1.6vw,15px); width: 100%; }
+        @media (max-width: 560px) { .qz-grid { grid-template-columns: 1fr; } .qz-wm { font-size: clamp(24px,7vw,34px); } }
+        .qz-tile { position: relative; display: flex; align-items: center; gap: 14px; border: none; border-radius: 18px; padding: clamp(15px,2.4vw,22px) clamp(14px,2.2vw,20px); cursor: pointer; text-align: left; min-height: 66px; color: #fff; overflow: hidden; box-shadow: 0 14px 26px -14px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.32), inset 0 -4px 0 rgba(0,0,0,0.16); transition: transform 0.14s, opacity 0.3s, box-shadow 0.14s, filter 0.2s; }
+        .qz-tile:hover:not(:disabled):not(.rv) { transform: translateY(-3px); box-shadow: 0 20px 34px -14px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -4px 0 rgba(0,0,0,0.18); }
+        .qz-tile:active:not(:disabled):not(.rv) { transform: translateY(2px) scale(0.985); }
         .qz-tile:disabled { cursor: default; }
-        .qz-shape { font-size: clamp(17px,2.4vw,22px); color: rgba(255,255,255,0.9); flex-shrink: 0; }
-        .qz-opt { flex: 1; font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #fff; line-height: 1.3; }
-        .qz-tile.faded { opacity: 0.28; }
-        .qz-tile.picked { outline: 3px solid #fff; animation: qz-pop 0.3s; }
-        .qz-pbadge { position: absolute; top: -9px; right: -7px; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: #17103B; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-        .qz-tile.rv.win { outline: 4px solid #2BD97C; box-shadow: 0 0 34px rgba(43,217,124,0.55); animation: qz-pop 0.4s; }
-        .qz-tile.rv.lose { opacity: 0.3; }
-        .qz-cnt { font-family: 'Manrope'; font-weight: 800; font-size: clamp(15px,2.2vw,19px); color: #fff; background: rgba(0,0,0,0.28); border-radius: 99px; padding: 4px 13px; flex-shrink: 0; }
+        .qz-shape { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,0.22); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; font-size: clamp(16px,2.2vw,20px); color: #fff; flex-shrink: 0; }
+        .qz-opt { flex: 1; font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(14px,2vw,17px); color: #fff; line-height: 1.3; letter-spacing: -0.01em; }
+        .qz-tile.faded { filter: saturate(0.5); opacity: 0.4; }
+        .qz-tile.picked { outline: 3px solid #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.4), 0 14px 26px -12px rgba(0,0,0,0.4); animation: qz-pop 0.3s; }
+        .qz-pbadge { position: absolute; top: -9px; right: -7px; width: 27px; height: 27px; border-radius: 50%; background: #fff; color: #12A968; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 12px rgba(0,0,0,0.28); }
+        .qz-tile.rv.win { outline: 4px solid #fff; box-shadow: 0 0 0 5px rgba(18,169,104,0.35), 0 0 44px rgba(18,169,104,0.45), 0 14px 30px -12px rgba(0,0,0,0.4); animation: qz-pop 0.4s; }
+        .qz-tile.rv.lose { filter: saturate(0.45); opacity: 0.4; }
+        .qz-cnt { font-family: 'Manrope'; font-weight: 800; font-size: clamp(15px,2.2vw,19px); color: #fff; background: rgba(0,0,0,0.22); border-radius: 99px; padding: 4px 13px; flex-shrink: 0; margin-left: auto; font-variant-numeric: tabular-nums; }
         .qz-mrow { display: flex; align-items: center; gap: 14px; }
-        .qz-allin { font-family: 'Manrope'; font-weight: 700; font-size: 15px; color: #2BD97C; animation: qz-pop 0.4s; }
+        .qz-allin { font-family: 'Manrope'; font-weight: 700; font-size: 15px; color: #12A968; animation: qz-pop 0.4s; }
         .qz-res { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: center; border-radius: 16px; padding: 14px 26px; animation: qz-pop 0.45s cubic-bezier(.34,1.5,.4,1); }
-        .qz-res.good { background: rgba(43,217,124,0.16); outline: 1.5px solid rgba(43,217,124,0.5); }
-        .qz-res.bad { background: rgba(255,90,90,0.14); outline: 1.5px solid rgba(255,90,90,0.4); }
-        .qz-res-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,4.4vw,40px); color: #2BD97C; line-height: 1; }
-        .qz-res-t { font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #fff; }
-        .qz-res-rank { font-family: 'Manrope'; font-weight: 600; font-size: 13.5px; color: rgba(255,255,255,0.7); width: 100%; text-align: center; }
-        .qz-board { width: 100%; max-width: 480px; background: rgba(255,255,255,0.07); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }
+        .qz-res.good { background: rgba(18,169,104,0.12); outline: 1.5px solid rgba(18,169,104,0.4); }
+        .qz-res.bad { background: rgba(226,72,72,0.1); outline: 1.5px solid rgba(226,72,72,0.35); }
+        .qz-res-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,4.4vw,40px); color: #12A968; line-height: 1; font-variant-numeric: tabular-nums; }
+        .qz-res-t { font-family: 'Manrope'; font-weight: 700; font-size: clamp(14px,2vw,17px); color: #121826; }
+        .qz-res-rank { font-family: 'Manrope'; font-weight: 600; font-size: 13.5px; color: #525A6B; width: 100%; text-align: center; }
+        .qz-board { width: 100%; max-width: 480px; background: #fff; border: 1px solid #DDE4F1; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 16px 36px -22px rgba(30,44,80,0.45); }
         .qz-board.wide { max-width: 640px; max-height: 260px; overflow: auto; }
-        .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FFC94D; margin-bottom: 3px; }
-        .qz-brow { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); }
-        .qz-brow.me { background: rgba(255,79,40,0.3); outline: 1.5px solid rgba(255,79,40,0.6); }
-        .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.55); min-width: 20px; }
-        .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FFC94D; }
-        .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: rgba(255,255,255,0.6); }
-        .qz-bpts { font-family: 'Manrope'; font-weight: 800; font-size: 15px; color: #FFC94D; min-width: 52px; text-align: right; }
+        .qz-board-h { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; letter-spacing: 0.1em; color: #FF4F28; margin-bottom: 3px; text-transform: uppercase; }
+        .qz-brow { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 11px; background: #E6ECF8; }
+        .qz-brow.me { background: linear-gradient(90deg,rgba(18,169,104,0.20),rgba(18,169,104,0.05)); outline: 1.5px solid rgba(18,169,104,0.5); }
+        .qz-brank { font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; color: #fff; background: #98A0B4; border-radius: 8px; min-width: 23px; height: 23px; display: flex; align-items: center; justify-content: center; }
+        .qz-brow:first-of-type .qz-brank { background: #FFCE3D; color: #121826; }
+        .qz-brow.me .qz-brank { background: #12A968; }
+        .qz-bname { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14.5px; color: #121826; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-bstreak { font-family: 'Manrope'; font-weight: 700; font-size: 12px; color: #FF8A3D; }
+        .qz-bok { font-family: 'Manrope'; font-weight: 600; font-size: 12.5px; color: #525A6B; }
+        .qz-bpts { font-family: 'Manrope'; font-weight: 800; font-size: 15px; color: #FF4F28; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
         .qz-pod { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px,2.4vw,24px); padding-top: 18px; }
         .qz-pod-col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: clamp(92px,24vw,170px); }
         .qz-crown { position: absolute; top: -30px; font-size: 28px; animation: qz-float-sm 2s ease-in-out infinite; }
         @keyframes qz-float-sm { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        .qz-pod-medal { font-size: clamp(30px,5vw,46px); line-height: 1; }
-        .qz-pod-name { font-family: 'Manrope'; font-weight: 800; font-size: clamp(14px,2vw,18px); color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .qz-pod-pts { font-family: 'Manrope'; font-weight: 600; font-size: clamp(11px,1.5vw,13px); color: rgba(255,255,255,0.72); }
-        .qz-pod-bar { width: 100%; border-radius: 12px 12px 0 0; animation: qz-rise 0.9s cubic-bezier(.3,1.2,.4,1); transform-origin: bottom; }
+        .qz-pod-medal { font-size: clamp(30px,5vw,46px); line-height: 1; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.16)); }
+        .qz-pod-name { font-family: 'Manrope'; font-weight: 800; font-size: clamp(14px,2vw,18px); color: #121826; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-pod-pts { font-family: 'Manrope'; font-weight: 600; font-size: clamp(11px,1.5vw,13px); color: #525A6B; font-variant-numeric: tabular-nums; }
+        .qz-pod-bar { width: 100%; border-radius: 14px 14px 0 0; box-shadow: inset 0 2px 0 rgba(255,255,255,0.45); animation: qz-rise 0.9s cubic-bezier(.3,1.2,.4,1); transform-origin: bottom; }
         @keyframes qz-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-        .qz-pod-col.p1 .qz-pod-bar { height: clamp(90px,14vw,150px); background: linear-gradient(180deg, #FFD34D, #E8A13A); box-shadow: 0 0 44px rgba(255,211,77,0.4); }
-        .qz-pod-col.p2 .qz-pod-bar { height: clamp(62px,10vw,104px); background: linear-gradient(180deg, #D8DCE8, #9AA2B8); }
-        .qz-pod-col.p3 .qz-pod-bar { height: clamp(44px,7vw,74px); background: linear-gradient(180deg, #D89A5C, #A9682F); }
-        .qz-pod-col.me .qz-pod-name { color: #FFC94D; }
-        .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: rgba(255,255,255,0.85); }
-        .qz-mypl b { color: #FFC94D; }
+        .qz-pod-col.p1 .qz-pod-bar { height: clamp(96px,14vw,156px); background: linear-gradient(180deg, #FFCE3D, #F5A623); box-shadow: inset 0 2px 0 rgba(255,255,255,0.5), 0 0 40px rgba(245,166,35,0.35); }
+        .qz-pod-col.p2 .qz-pod-bar { height: clamp(66px,10vw,110px); background: linear-gradient(180deg, #D6D9E0, #A2A8B4); }
+        .qz-pod-col.p3 .qz-pod-bar { height: clamp(48px,7vw,82px); background: linear-gradient(180deg, #EDB183, #CB8149); }
+        .qz-pod-col.me .qz-pod-name { color: #12A968; }
+        .qz-mypl { margin: 0; font-family: 'Manrope'; font-size: 15px; color: #525A6B; }
+        .qz-mypl b { color: #12A968; }
         .qz-solo-res { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-        .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FFC94D; text-shadow: 0 8px 34px rgba(255,201,77,0.4); }
-        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18); border-radius: 16px; padding: 10px 16px; color: #fff; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; backdrop-filter: blur(6px); }
+        .qz-solo-pts { font-family: 'Manrope'; font-weight: 800; font-size: clamp(52px,9vw,84px); line-height: 1; color: #FF4F28; text-shadow: 0 8px 30px rgba(255,79,40,0.3); font-variant-numeric: tabular-nums; }
+        .qz-endnote { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10600; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 94vw; background: rgba(255,255,255,0.92); border: 1px solid #DDE4F1; border-radius: 16px; padding: 10px 16px; color: #121826; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 13.5px; box-shadow: 0 12px 30px -14px rgba(30,44,80,0.4); backdrop-filter: blur(6px); }
 
         /* === 🏆 PODIUM / STATISTIKA SAHIFASI === */
         .pod-stage { display: flex; align-items: flex-end; justify-content: center; gap: clamp(10px,2vw,20px); padding-top: 8px; }
@@ -2757,12 +3341,12 @@ export default function GitLesson({ lang: langProp, onFinished }) {
         .pod-1 .pod-bar { height: clamp(74px,11vw,120px); }
         .pod-2 .pod-bar { height: clamp(52px,8vw,86px); background: linear-gradient(180deg, ${T.ink2}, ${T.ink3}); }
         .pod-3 .pod-bar { height: clamp(38px,6vw,62px); background: linear-gradient(180deg, #C98A3D, #DDA55C); }
-        .pod-col.me .pod-name { color: ${T.accent}; }
+        .pod-col.me .pod-name { color: ${T.success}; }
         .pod-my { margin: 0; text-align: center; font-family: 'Manrope'; font-size: 14px; color: ${T.ink2}; }
-        .pod-my b { color: ${T.accent}; }
+        .pod-my b { color: ${T.success}; }
         .pod-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow: auto; }
         .pod-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(${T.shadowBase},0.04); }
-        .pod-row.me { background: ${T.accentSoft}; outline: 1.5px solid ${T.accent}55; }
+        .pod-row.me { background: ${T.successSoft}; outline: 1.5px solid ${T.success}66; }
         .pod-rank { min-width: 22px; font-size: 12px; font-weight: 700; color: ${T.ink3}; }
         .pod-row-name { flex: 1; min-width: 0; font-family: 'Manrope'; font-weight: 700; font-size: 14px; color: ${T.ink}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pod-row-dots { display: flex; gap: 4px; }
@@ -2794,18 +3378,236 @@ export default function GitLesson({ lang: langProp, onFinished }) {
         .option-wait { background: ${T.blueSoft} !important; color: ${T.blue} !important; box-shadow: inset 0 0 0 2px ${T.blue}, 0 8px 22px -8px rgba(1,154,203,0.3) !important; }
         /* frame-wait (feedback kutish) */
         .frame-wait { background: ${T.blueSoft}; border-left: 4px solid ${T.blue}; border-radius: 12px; padding: clamp(14px,2.5vw,20px); box-shadow: 0 6px 16px -8px rgba(1,154,203,0.22); }
+
+        /* === 🧲 DRAG&DROP (reusable) === */
+        .sk-buildbox { display: flex; flex-direction: column; animation: sk-swapin 0.5s cubic-bezier(.34,1.3,.4,1); }
+        @keyframes sk-swapin { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
+        .dd { display: flex; flex-direction: column; gap: 13px; }
+        .dd-slots { display: flex; flex-direction: column; gap: 9px; }
+        .dd-slot { display: flex; align-items: center; gap: 12px; min-height: 56px; border-radius: 14px; border: 2px dashed ${T.ink3}66; background: ${T.paper}; padding: 8px 12px; transition: border-color .18s, background .18s; }
+        .dd-slot.filled { border-style: solid; border-color: ${T.line}; }
+        .dd-slot.ok { border-color: ${T.success}; background: ${T.successSoft}; }
+        .dd-slot.bad { border-color: #E24848; background: #FBE9E9; animation: dd-shake .4s; }
+        @keyframes dd-shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        .dd-slotn { width: 26px; height: 26px; border-radius: 8px; background: ${T.bg}; color: ${T.ink3}; font-weight: 800; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .dd-slot.ok .dd-slotn { background: ${T.success}; color: #fff; }
+        .dd-hint { color: ${T.ink3}; font-style: italic; font-size: 13px; }
+        .dd-pool { display: flex; flex-wrap: wrap; gap: 9px; min-height: 48px; padding: 10px; border-radius: 14px; background: ${T.bg}; }
+        .dd-pool-empty { color: ${T.ink3}; font-size: 12.5px; font-style: italic; align-self: center; }
+        .dd-chip { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(13px,1.7vw,15px); color: #fff; background: linear-gradient(170deg, #FF8A3D, ${T.accent}); border: none; border-radius: 11px; padding: 11px 15px; cursor: grab; touch-action: none; box-shadow: 0 8px 16px -8px rgba(255,79,40,.6), inset 0 2px 0 rgba(255,255,255,.3); transition: transform .12s; user-select: none; }
+        .dd-chip:hover { transform: translateY(-2px); }
+        .dd-chip:active { cursor: grabbing; }
+        .dd-slots, .dd-pool { position: relative; }
+        .dd-pool { z-index: 1; }
+        .dd-done { font-weight: 700; color: ${T.success}; font-size: 14.5px; }
+        .dd-wrong { font-weight: 700; color: #E24848; font-size: 13.5px; }
+
+        /* === 🃏 FLASHCARDS (reusable, 3D flip) === */
+        .fc-center { display: flex; justify-content: center; padding-top: 4px; }
+        .fc { display: flex; flex-direction: column; gap: 11px; max-width: 480px; width: 100%; }
+        .fc-top { display: flex; justify-content: space-between; align-items: center; }
+        .fc-pill { display: inline-flex; align-items: center; gap: 5px; font-family: 'Manrope'; font-weight: 800; font-size: 12.5px; border-radius: 99px; padding: 5px 13px; animation: fc-pill-pop 0.35s cubic-bezier(.34,1.5,.4,1); }
+        .fc-pill b { font-size: 1.15em; font-variant-numeric: tabular-nums; }
+        .fc-pill.learn { background: ${T.accentSoft}; color: ${T.accent}; border: 1.5px solid ${T.accent}44; }
+        .fc-pill.knew { background: ${T.successSoft}; color: ${T.success}; border: 1.5px solid ${T.success}44; }
+        @keyframes fc-pill-pop { 40% { transform: scale(1.16); } }
+        .fc-bar { height: 7px; background: ${T.line}; border-radius: 99px; overflow: hidden; }
+        .fc-bar-fill { display: block; height: 100%; background: linear-gradient(90deg, #FF8A3D, ${T.accent}); border-radius: 99px; transition: width .4s cubic-bezier(.34,1.2,.4,1); }
+        .fc-cardwrap { perspective: 1200px; position: relative; }
+        .fc-cardwrap::before, .fc-cardwrap::after { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-radius: 20px; background: ${T.paper}; border: 2px solid ${T.line}; z-index: -1; }
+        .fc-cardwrap::before { transform: translateY(7px) scale(0.965); opacity: 0.7; }
+        .fc-cardwrap::after { transform: translateY(15px) scale(0.93); opacity: 0.4; }
+        .fc-fly { position: relative; animation: fc-in 0.3s ease; }
+        @keyframes fc-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+        .fc-fly.out-knew { animation: fc-out-knew 0.42s ease forwards; }
+        .fc-fly.out-again { animation: fc-out-again 0.42s ease forwards; }
+        @keyframes fc-out-knew { 30% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(70%) rotate(5deg); opacity: 0; } }
+        @keyframes fc-out-again { 30% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(-70%) rotate(-5deg); opacity: 0; } }
+        .fc-fly.out-knew::after, .fc-fly.out-again::after { position: absolute; top: 50%; left: 50%; z-index: 6; width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #fff; pointer-events: none; animation: fc-stamp 0.3s cubic-bezier(.34,1.6,.4,1); transform: translate(-50%, -50%); }
+        .fc-fly.out-knew::after { content: '✓'; background: ${T.success}; box-shadow: 0 10px 26px -8px ${T.success}; }
+        .fc-fly.out-again::after { content: '✗'; background: ${T.accent}; box-shadow: 0 10px 26px -8px ${T.accent}; }
+        @keyframes fc-stamp { from { transform: translate(-50%, -50%) scale(0); } }
+        .fc-card { position: relative; height: clamp(160px,26vw,188px); cursor: pointer; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.4,0,.2,1); }
+        .fc-card.flip { transform: rotateY(180deg); }
+        .fc-card:not(.flip):hover { transform: translateY(-3px); }
+        .fc-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 22px; text-align: center; }
+        .fc-front { background: ${T.paper}; border: 2px solid ${T.line}; box-shadow: 0 14px 34px -18px rgba(${T.shadowBase},0.4); }
+        .fc-back { background: linear-gradient(160deg, #FF8A3D, ${T.accent}); color: #fff; transform: rotateY(180deg); box-shadow: 0 16px 36px -16px rgba(255,79,40,0.6); }
+        .fc-q { font-family: 'Manrope'; font-weight: 800; font-size: clamp(18px,2.8vw,23px); color: ${T.ink}; line-height: 1.3; text-wrap: balance; }
+        .fc-cue { font-family: 'Manrope'; font-size: 13px; color: ${T.ink3}; }
+        .fc-tap { color: ${T.accent}; font-weight: 700; }
+        .fc-tag { font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: clamp(30px,6vw,46px); letter-spacing: -0.02em; }
+        .fc-note { font-family: 'Manrope'; font-size: 14px; opacity: 0.92; }
+        .fc-actions { display: flex; gap: 10px; }
+        .fc-btn { flex: 1; padding: 13px; border-radius: 13px; font-family: 'Manrope'; font-weight: 800; font-size: 15px; cursor: pointer; border: none; transition: transform .15s; }
+        .fc-btn:hover { transform: translateY(-2px); }
+        .fc-btn.knew { background: ${T.success}; color: #fff; box-shadow: 0 10px 22px -10px ${T.success}; }
+        .fc-btn.again { background: ${T.paper}; border: 2px solid ${T.accent}66; color: ${T.accent}; }
+        .fc-btn.again:hover { border-color: ${T.accent}; background: ${T.accentSoft}; }
+        .fc-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
+        .fc-btn.ghost { background: ${T.paper}; border: 1.5px solid ${T.line}; color: ${T.ink}; flex: none; align-self: center; padding: 11px 22px; }
+        .fc-hint { margin: 0; text-align: center; color: ${T.ink3}; font-style: italic; font-size: 13px; }
+        .fc-done { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; background: ${T.successSoft}; border-radius: 18px; padding: 22px; max-width: 480px; }
+        .fc-done-emoji { font-size: 40px; }
+        .fc-done-h { font-family: 'Manrope'; font-weight: 800; font-size: 20px; color: ${T.success}; margin: 0; }
+        .fc-done-s { font-family: 'Manrope'; color: ${T.ink2}; margin: 0 0 8px; font-size: 14px; }
+
+        /* === 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI === */
+        .acu-overlay { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;
+          background: radial-gradient(circle at 50% 42%, rgba(20,14,6,0.34) 0%, rgba(10,8,14,0.72) 62%, rgba(8,6,12,0.86) 100%);
+          animation: acu-bg-in 0.35s ease-out, acu-bg-out 0.55s ease-in 3.45s forwards; }
+        @keyframes acu-bg-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes acu-bg-out { to { opacity: 0; } }
+        .acu-rays { position: absolute; top: 50%; left: 50%; width: 170vmax; height: 170vmax; transform: translate(-50%,-50%); pointer-events: none;
+          background: repeating-conic-gradient(from 0deg, rgba(255,201,77,0.16) 0deg 7deg, transparent 7deg 20deg);
+          -webkit-mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%); mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%);
+          animation: acu-spin 16s linear infinite, acu-fade 0.6s ease-out; }
+        @keyframes acu-spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes acu-fade { from { opacity: 0; } to { opacity: 1; } }
+        .acu-glow { position: absolute; top: 42%; left: 50%; width: 78vmin; height: 78vmin; transform: translate(-50%,-50%); pointer-events: none; filter: blur(4px);
+          background: radial-gradient(circle, rgba(255,224,150,0.62) 0%, rgba(255,150,60,0.30) 38%, rgba(255,120,40,0) 68%);
+          animation: acu-glow-pulse 2.2s ease-in-out infinite, acu-fade 0.5s ease-out; }
+        @keyframes acu-glow-pulse { 0%,100% { opacity: 0.85; transform: translate(-50%,-50%) scale(1); } 50% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } }
+        .acu-ring { position: absolute; top: 42%; left: 50%; width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(255,240,200,0.85); transform: translate(-50%,-50%) scale(0.3); pointer-events: none; animation: acu-shock 1s cubic-bezier(.2,.7,.3,1) forwards; }
+        .acu-ring.d2 { border-color: rgba(255,180,90,0.6); animation-delay: 0.22s; }
+        @keyframes acu-shock { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0.9; } 100% { transform: translate(-50%,-50%) scale(6.5); opacity: 0; } }
+        .acu-stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,3vw,22px); animation: acu-bg-in 0.3s ease-out; }
+        .acu-medal-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+        .acu-medal { position: relative; width: clamp(112px,26vw,152px); height: clamp(112px,26vw,152px); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(54px,13vw,74px); overflow: hidden;
+          background: radial-gradient(circle at 38% 30%, #FFF0BE 0%, #FFD35A 42%, #F5A623 72%, #E4870C 100%);
+          box-shadow: 0 0 70px 12px rgba(255,201,77,0.55), 0 22px 54px -12px rgba(0,0,0,0.55), inset 0 -9px 18px rgba(140,70,0,0.28), inset 0 7px 14px rgba(255,255,255,0.6);
+          animation: acu-medal-pop 0.7s cubic-bezier(.28,1.5,.4,1) both, acu-float 2.6s ease-in-out 0.7s infinite; }
+        @keyframes acu-medal-pop { 0% { transform: scale(0) rotate(-40deg); } 55% { transform: scale(1.18) rotate(10deg); } 75% { transform: scale(0.94) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
+        @keyframes acu-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+        .acu-shine { position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-18deg); animation: acu-shine-sweep 1.1s ease 0.5s 2; }
+        @keyframes acu-shine-sweep { to { left: 130%; } }
+        .acu-spark { position: absolute; top: 50%; left: 50%; font-size: clamp(14px,2.6vw,20px); color: #FFE9A8; text-shadow: 0 0 8px rgba(255,201,77,0.9); pointer-events: none; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; animation: acu-spark-burst 1s ease-out both; }
+        @keyframes acu-spark-burst { 0% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(clamp(-130px,-24vw,-96px)) scale(1); opacity: 0; } }
+        .acu-txt { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+        .acu-eyebrow { font-family: 'Manrope', sans-serif; font-weight: 900; font-size: clamp(12px,1.8vw,14px); letter-spacing: 0.2em; text-transform: uppercase; color: #FFD35A; text-shadow: 0 2px 12px rgba(0,0,0,0.5); animation: acu-rise 0.5s ease-out 0.35s both; }
+        .acu-name { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: clamp(26px,5.5vw,42px); color: #fff; line-height: 1.1; text-shadow: 0 3px 22px rgba(0,0,0,0.55); animation: acu-rise 0.55s cubic-bezier(.3,1.2,.4,1) 0.45s both; }
+        .acu-desc { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: clamp(13px,2vw,16px); color: rgba(255,255,255,0.82); max-width: 30ch; line-height: 1.5; animation: acu-rise 0.5s ease-out 0.6s both; }
+        @keyframes acu-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .acu-tap { font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-top: 4px; animation: acu-rise 0.5s ease-out 1.1s both, acu-blink 1.6s ease-in-out 1.6s infinite; }
+        @keyframes acu-blink { 0%,100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+        @media (prefers-reduced-motion: reduce) { .acu-rays, .acu-medal, .acu-glow, .acu-tap { animation-iteration-count: 1 !important; } .acu-rays { animation: acu-fade 0.4s both !important; } }
+        .ach-coll { display: flex; flex-direction: column; gap: 10px; }
+        .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
+        .ach-badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-radius: 14px; padding: 14px 10px; transition: transform 0.15s; }
+        .ach-badge.got { background: linear-gradient(160deg, ${T.accentSoft}, #FFF3EC); border: 1.5px solid ${T.accent}55; }
+        .ach-badge.got:hover { transform: translateY(-3px); }
+        .ach-badge.locked { background: ${T.bg}; border: 1.5px dashed ${T.line}; opacity: 0.75; }
+        .ach-badge-ic { font-size: 30px; line-height: 1; }
+        .ach-badge.locked .ach-badge-ic { filter: grayscale(1) opacity(0.55); font-size: 22px; }
+        .ach-badge-name { font-family: 'Manrope'; font-weight: 800; font-size: 13px; color: ${T.ink}; }
+        .ach-badge.locked .ach-badge-name { color: ${T.ink3}; }
+        .ach-badge-desc { font-family: 'Manrope'; font-size: 10.5px; color: ${T.ink2}; line-height: 1.3; }
+        .ach-cnt-wrap { position: relative; }
+        .ach-counter { display: inline-flex; align-items: center; gap: 4px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-radius: 99px; padding: 5px 11px 5px 9px; font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink2}; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .ach-counter.has { border-color: ${T.accent}66; }
+        .ach-counter:hover { border-color: ${T.accent}; box-shadow: 0 6px 16px -8px rgba(255,79,40,0.4); }
+        .ach-counter b { color: ${T.accent}; font-size: 14px; font-variant-numeric: tabular-nums; }
+        .ach-cnt-tot { color: ${T.ink3}; font-size: 11.5px; }
+        .ach-cnt-ic { font-size: 14px; }
+        .ach-counter.bump { animation: ach-bump 0.8s cubic-bezier(.34,1.6,.4,1); }
+        @keyframes ach-bump { 0% { transform: scale(1); } 30% { transform: scale(1.35) rotate(-6deg); box-shadow: 0 0 0 6px rgba(255,79,40,0.18); } 60% { transform: scale(0.96) rotate(3deg); } 100% { transform: scale(1) rotate(0); box-shadow: 0 0 0 0 rgba(255,79,40,0); } }
+        .ach-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 200; width: 222px; background: ${T.paper}; border: 1px solid ${T.line}; border-radius: 14px; padding: 10px; box-shadow: 0 18px 44px -14px rgba(${T.shadowBase},0.4); display: flex; flex-direction: column; gap: 3px; animation: fade-step 0.22s ease; }
+        .ach-pop-h { font-family: 'Manrope'; font-weight: 800; font-size: 12px; color: ${T.accent}; padding: 2px 6px 6px; }
+        .ach-pop-row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 9px; }
+        .ach-pop-row.got { background: ${T.accentSoft}66; }
+        .ach-pop-ic { font-size: 17px; width: 20px; text-align: center; }
+        .ach-pop-row:not(.got) .ach-pop-ic { filter: grayscale(1) opacity(0.5); font-size: 13px; }
+        .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
+        .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
+
+        /* === Jonli panel (LiveBadge) — xira turadi, ustiga borilganda tiniqlashadi (kontentni to'smaydi) === */
+        .live-badge { opacity: 0.4; transition: opacity 0.25s ease, box-shadow 0.25s ease; }
+        .live-badge:hover, .live-badge:focus-within { opacity: 1; box-shadow: 0 8px 24px -6px rgba(58,53,48,0.32) !important; }
+        @media (hover: none) { .live-badge { opacity: 0.62; } }
+
+        /* === 👋 ONBOARDING — coach-mark spotlight tur === */
+        .tg-root { position: fixed; inset: 0; z-index: 10300; animation: fade-step 0.2s ease-out; }
+        .tg-dim { position: absolute; inset: 0; background: rgba(10,8,14,0.6); }
+        .tg-hole { position: absolute; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10,8,14,0.6), 0 0 0 3px #fff, 0 0 26px 5px rgba(255,201,77,0.55); pointer-events: none; transition: top 0.35s cubic-bezier(.4,0,.2,1), left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1), height 0.35s cubic-bezier(.4,0,.2,1); }
+        .tg-call { position: absolute; z-index: 2; background: ${T.paper}; border-radius: 16px; padding: 14px 16px 12px; box-shadow: 0 22px 54px -16px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px; animation: tg-pop 0.25s ease-out; transition: top 0.3s cubic-bezier(.4,0,.2,1), left 0.3s cubic-bezier(.4,0,.2,1); }
+        @keyframes tg-pop { from { opacity: 0; } }
+        .tg-head { display: flex; align-items: center; gap: 8px; }
+        .tg-ic { font-size: 20px; line-height: 1; }
+        .tg-h { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 15px; color: ${T.ink}; flex: 1; }
+        .tg-count { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; color: #fff; background: ${T.accent}; border-radius: 99px; padding: 2px 8px; }
+        .tg-body { font-family: 'Manrope', sans-serif; font-size: 14px; line-height: 1.5; color: ${T.ink2}; margin: 0; }
+        .tg-body b { color: ${T.ink}; }
+        .tg-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+        .tg-skip { background: none; border: none; color: ${T.ink3}; font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 6px 2px; }
+        .tg-skip:hover { color: ${T.accent}; }
+        .tg-navr { display: flex; align-items: center; gap: 8px; }
+        .tg-btn { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 11px; padding: 9px 16px; cursor: pointer; transition: all 0.16s; }
+        .tg-btn.go { background: linear-gradient(135deg,${T.accent},#FF8A3D); color: #fff; box-shadow: 0 8px 20px -6px rgba(255,79,40,0.55); }
+        .tg-btn.go:hover { transform: translateY(-1px); }
+        .tg-btn.ghost { background: ${T.bg}; color: ${T.ink2}; padding: 9px 12px; }
+        .tg-btn.ghost:hover { color: ${T.ink}; }
+
+        /* ===== ⚡ CODESTRIKE — yorqin wordmark (3D + glint) ===== */
+        .cs-cta { flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: clamp(8px,1.2vw,12px); position: relative; padding: clamp(14px,2vw,20px) clamp(16px,2.6vw,28px); background: radial-gradient(130% 130% at 50% 0%, #FFF2EA 0%, #FFE3D3 58%, #FFD4C0 100%); }
+        .cs-cta::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(58% 74% at 50% 34%, rgba(255,95,30,0.20), transparent 72%); pointer-events: none; animation: cs-bg-breathe 3.4s ease-in-out infinite; }
+        @keyframes cs-bg-breathe { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+        .cs-hero { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: clamp(6px,1vw,11px); text-align: center; width: 100%; }
+        .cs-clickable { cursor: pointer; user-select: none; transition: transform .18s cubic-bezier(.2,1,.3,1); outline: none; }
+        .cs-clickable:hover { transform: scale(1.04); }
+        .cs-clickable:active { transform: scale(.985); }
+        .cs-clickable:focus-visible .cs-word { outline: 2px dashed rgba(255,79,40,.6); outline-offset: 12px; border-radius: 10px; }
+        .cs-off { opacity: .62; filter: saturate(.55); }
+        .cs-boltrow { animation: cs-bolt-bob 2.2s ease-in-out infinite; margin-bottom: 2px; }
+        @keyframes cs-bolt-bob { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-7px) rotate(6deg); } }
+        .cs-word { position: relative; display: inline-block; font-family: 'Manrope','Manrope Fallback',sans-serif; font-weight: 900;
+          font-size: clamp(38px,7.4vw,82px); letter-spacing: .012em; line-height: 1;
+          background: linear-gradient(178deg,#FF9A4D 0%,#FF6A2C 40%,#FF4F28 68%,#EA360F 100%);
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+          transform-origin: center; animation: cs-throb 2.6s ease-in-out infinite; }
+        .cs-word::before { content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; pointer-events: none;
+          background: linear-gradient(100deg, transparent 34%, rgba(255,255,255,.92) 48%, rgba(255,255,255,.35) 54%, transparent 66%); background-size: 260% 100%;
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+          animation: cs-glint 3.4s cubic-bezier(.6,0,.4,1) infinite; }
+        @keyframes cs-throb { 0%,100% { transform: scale(1); filter: drop-shadow(0 2px 0 #C42F0E) drop-shadow(0 7px 16px rgba(226,58,22,.42)); }
+          50% { transform: scale(1.07); filter: drop-shadow(0 2px 0 #C42F0E) drop-shadow(0 12px 34px rgba(255,79,40,.8)); } }
+        @keyframes cs-glint { 0% { background-position: 135% 0; } 60%,100% { background-position: -55% 0; } }
+        .cs-clickable:hover .cs-word { animation-duration: 1.5s; }
+        .cs-chips { display: flex; gap: clamp(8px,1.3vw,13px); flex-wrap: wrap; justify-content: center; }
+        .cs-chip { display: inline-flex; align-items: baseline; gap: 5px; font-family: 'Manrope'; font-weight: 800; font-size: clamp(12px,1.55vw,15px); color: #9A3E1A;
+          background: #fff; border: 1.5px solid rgba(255,79,40,.42); padding: 6px 15px; border-radius: 999px; box-shadow: 0 5px 16px -7px rgba(255,79,40,.5);
+          animation: cs-chip-pop .5s cubic-bezier(.2,1.4,.4,1) both, cs-chip-glow 2.4s ease-in-out infinite; }
+        .cs-chip b { font-size: clamp(16px,2.1vw,21px); font-weight: 900; color: #FF4F28; }
+        .cs-chip:nth-child(2) { animation-delay: .09s, .35s; }
+        .cs-chip:nth-child(3) { animation-delay: .18s, .7s; }
+        @keyframes cs-chip-pop { from { transform: scale(.4) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+        @keyframes cs-chip-glow { 0%,100% { box-shadow: 0 5px 16px -7px rgba(255,79,40,.5); border-color: rgba(255,79,40,.42); } 50% { box-shadow: 0 8px 26px -5px rgba(255,79,40,.85); border-color: rgba(255,79,40,.8); } }
+        .cs-enter { font-family: 'Manrope'; font-weight: 900; font-size: clamp(13px,1.8vw,17px); color: #E23A16; letter-spacing: .01em; animation: cs-enter-pulse 1.3s ease-in-out infinite; }
+        .cs-enter.wait { color: #98A0B4; animation: none; }
+        @keyframes cs-enter-pulse { 0%,100% { opacity: .72; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(2px) scale(1.03); } }
+        @media (prefers-reduced-motion: reduce) { .cs-word, .cs-word::before, .cs-chip, .cs-enter, .cs-boltrow, .cs-cta::before { animation: none !important; } }
+        @media (max-width: 560px) { .cs-word { font-size: clamp(34px,11vw,58px); } }
+        .qz-bolt { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
+
+        /* kod atamasi chipi — savol/variant/izohlarda oddiy matndan ajralib turadi */
+        .qcode { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.92em; background: rgba(20,17,14,0.08); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+        .qz-tile .qcode { background: rgba(255,255,255,0.25); color: #fff; }
       `}</style>
       <LiveGateCtx.Provider value={{ locked, live }}>
+        <AchCtx.Provider value={earned}>
         <div className="lesson-root">
           {live.mode === 'choosing' ? (
             <LiveGate live={live} title="1-Modul" />
           ) : (
             <>
-              <Current screen={screen} storedAnswer={answers[screen]} answers={answers} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
+              <Current screen={screen} storedAnswer={answers[screen]} answers={answers} achievements={earned} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
+              <AchToasts toasts={achToasts} onDone={(k) => setAchToasts(t => t.filter(x => x.k !== k))} />
               <LiveBadge live={live} total={TOTAL_SCREENS} />
+              {onboard && <TourGuide role={onboardRole} onClose={closeOnboard} />}
             </>
           )}
         </div>
+        </AchCtx.Provider>
       </LiveGateCtx.Provider>
     </LangContext.Provider>
   );

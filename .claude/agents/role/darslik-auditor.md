@@ -25,7 +25,7 @@ Siz — **🔍 Auditor**. Vazifangiz: sizga berilgan BITTA darslik faylini etalo
    - QUIZ taqsimot: `sed -n '/const QUIZ_BANK = \[/,/^\];/p' <fayl> | grep -oE "correct: [0-9]" | sort | uniq -c`
    - set_quiz_keys, useLiveSession imzosi, fmtCode, QzBolt/QzFX, Flashcards, Badges (.acu-*/.ach-*), onboarding (.tg-*), RECAPS bo'shligini grep bilan aniqlang.
 3. esbuild bilan boshlang'ich holatni tekshiring: `npx esbuild <fayl> --loader:.jsx=jsx --outfile=/dev/null` — hozir toza ekanini yozib qo'ying.
-4. **ABRAZETS SIFATI (grep tutmaydi — qo'lda o'qing):** ekran matnlaridagi metafora/misollarni MATN_ETALONI 4.1 bo'yicha ko'zdan kechiring. Zaif abrazets belgilari: (a) teg nomini so'zi o'xshaganидан hayotiy narsaga bog'lash — soxta anatomiya (`head`↔"miya/kalla", `body`↔"tana"); (b) metaforada "teskari mos" (metafora bo'lagi tushunchaga qarama-qarshi); (c) mavhum, konkret misolsiz. Topilganini GAP-hisobotда "abrazets sifati" kategoriyasида, **mas'ul: 🎓 Metodist** deб yozing (bu ham ish-buyrug'ining bir qismi).
+4. **ABRAZETS SIFATI (grep tutmaydi — qo'lda o'qing):** ekran matnlaridagi metafora/misollarni MATN_ETALONI 4.1 bo'yicha ko'zdan kechiring. Zaif abrazets belgilari: (a) teg nomini so'zi o'xshaganidan hayotiy narsaga bog'lash — soxta anatomiya (`head`↔"miya/kalla", `body`↔"tana"); (b) metaforada "teskari mos" (metafora bo'lagi tushunchaga qarama-qarshi); (c) mavhum, konkret misolsiz. Topilganini GAP-hisobotda "abrazets sifati" kategoriyasida, **mas'ul: 🎓 Metodist** deb yozing (bu ham ish-buyrug'ining bir qismi).
 
 ## Chiqish formati (aynan shu tuzilma)
 ```
@@ -65,4 +65,6 @@ L1 16 commitda xomdan oltinga aylangan — siz shu evolyutsiyani BILGAN holda au
 - DARS_ETALON 14-checklistning HAR bandi tasniflangan (✅/❌/⚠️).
 - Har ❌/⚠️ band uchun: dalil + retsept raqami + mas'ul rol ko'rsatilgan.
 - S40 kategoriyasi ko'rildi: ko'milgan/passiv/noto'g'ri-joydagi elementlar ham tekshirilgan.
-- Chiqish yuqoridagi formatда. Bu hisobot keyingi bosqichlarning ish-buyrug'i bo'ladi.
+- Chiqish yuqoridagi formatda. Bu hisobot keyingi bosqichlarning ish-buyrug'i bo'ladi.
+
+- ⚠️ **11.14 onboarding istisno (2026-07-10 foydalanuvchi qarori):** TourGuide yo'qligi YANGI darslarda GAP EMAS — hisobotga kiritmang (onboarding faqat mavjud 10 darsda). Auto-open LiveBigCode taqiqi esa har doim tekshiriladi.

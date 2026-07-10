@@ -1161,8 +1161,7 @@ function LiveGate({ live, title = 'Jonli dars' }) {
 function LiveBadge({ live, total }) {
   const [bigOpen, setBigOpen] = useState(false);
   const [nPlayers, setNPlayers] = useState(null);
-  const shownRef = useRef(false);
-  useEffect(() => { if (live.mode === 'mentor' && live.pin && !live.ended && !shownRef.current) { shownRef.current = true; setBigOpen(true); } }, [live.mode, live.pin, live.ended]);
+  // Katta PIN ekrani AVTOMATIK ochilmaydi — faqat 📺 tugma bilan ochiladi.
   // Mentor: qo'shilgan o'quvchilar soni (har 6s yangilanadi)
   useEffect(() => {
     if (live.mode !== 'mentor' || !live.pin || live.ended) return;
@@ -1175,10 +1174,10 @@ function LiveBadge({ live, total }) {
     return () => { on = false; clearTimeout(t); };
   }, [live.mode, live.pin, live.ended]);
   if (live.mode === 'mentor') {
-    if (live.ended) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
+    if (live.ended) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> 🔓 O'quvchilar erkin qilindi</div>;
     return (<>
       {bigOpen && <LiveBigCode pin={live.pin} onClose={() => setBigOpen(false)} />}
-      <div style={_liveBadgeS}>
+      <div data-tour="live" className="live-badge" style={_liveBadgeS}>
         <span style={_liveDot(LT.success)} /> Kod: <b style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{fmtPin(live.pin)}</b>
         {nPlayers !== null && <span style={{ color: LT.ink2 }}>👥 {nPlayers}</span>}
         <button onClick={() => setBigOpen(true)} title="Kodni katta ko'rsatish" style={{ marginLeft: 6, background: LT.ink, color: '#fff', border: 'none', borderRadius: 99, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>📺 Ko'rsatish</button>
@@ -1187,10 +1186,10 @@ function LiveBadge({ live, total }) {
     </>);
   }
   if (live.mode === 'student') {
-    if (live.status === 'ended') return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
-    if (!live.mentorAlive) return <div style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
-    if (!live.connected) return <div style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
-    return <div style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
+    if (live.status === 'ended') return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 🔓 Erkin rejim — o'zingiz davom eting</div>;
+    if (!live.mentorAlive) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.ink3)} /> ⚠️ Mentor uzildi — erkin rejim</div>;
+    if (!live.connected) return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot('#FFD380')} /> 🔄 Qayta ulanmoqda…</div>;
+    return <div data-tour="live" className="live-badge" style={_liveBadgeS}><span style={_liveDot(LT.success)} /> 👨‍🏫 Mentor: {Math.min(live.mentorScreen + 1, total)} / {total}{live.nickname && <span style={{ color: LT.ink3 }}>· {live.nickname}</span>}</div>;
   }
   return null;
 }
@@ -1372,12 +1371,12 @@ function AchCounter() {
   }, [count]);
   return (
     <div className="ach-cnt-wrap">
-      <button className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Nishonlar" title="Nishonlaringiz">
+      <button data-tour="ach" className={`ach-counter ${bump ? 'bump' : ''} ${count > 0 ? 'has' : ''}`} onClick={() => setOpen(o => !o)} aria-label="Badges" title="Badges">
         <span className="ach-cnt-ic">🏅</span><b>{count}</b><span className="ach-cnt-tot">/{total}</span>
       </button>
       {open && (
         <div className="ach-pop" onMouseLeave={() => setOpen(false)}>
-          <div className="ach-pop-h">🏅 Nishonlar — {count}/{total}</div>
+          <div className="ach-pop-h">🏅 Badges — {count}/{total}</div>
           {Object.entries(ACHIEVEMENTS).map(([id, a]) => { const got = !!(earned && earned.has(id)); return (
             <div key={id} className={`ach-pop-row ${got ? 'got' : ''}`}><span className="ach-pop-ic">{got ? a.icon : '🔒'}</span><span className="ach-pop-nm">{a.name}</span></div>
           ); })}
@@ -1413,7 +1412,7 @@ const Stage = ({ children, eyebrow, screen, totalScreens = TOTAL_SCREENS, navCon
     <MentorCtx.Provider value={{ enabled: collapseOn, collapsed: mCollapsed, setCollapsed }}>
       <div className="stage">
         <div className="stage-header" style={{ paddingLeft: padH, paddingRight: padH }}>
-          <div className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
+          <div data-tour="progress" className="progress-track"><div className="progress-bar" style={{ width: `${((screen + 1) / totalScreens) * 100}%` }} /></div>
           <div className="chrome">
             <div className="chrome-left eyebrow"><span className="dot" /><span>{eyebrow}</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -1435,7 +1434,7 @@ const NavNext = ({ disabled, label = 'Davom etish', onClick, optionalLive }) => 
   const locked = !!(gate && gate.locked);
   const live = gate && gate.live;
   const freeRide = !!(optionalLive && live && live.mode === 'student' && live.status !== 'ended' && live.mentorAlive);
-  return <button className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
+  return <button data-tour="next" className="btn-white-accent" disabled={(freeRide ? false : disabled) || locked} onClick={onClick} title={locked ? 'Mentor hali bu sahifaga o\'tmadi' : undefined} style={{ padding: 'clamp(11px,1.6vw,13px) clamp(22px,2.6vw,30px)', fontSize: 'clamp(13px,1.5vw,15px)', marginLeft: 'auto' }}>{locked ? '⏳ Mentorni kuting' : (freeRide && disabled ? 'Davom etish' : label)}</button>;
 };
 
 const FeedbackBlock = ({ show, isCorrect, neutral, children }) => {
@@ -1912,7 +1911,7 @@ const Mentor = ({ children }) => {
   const collapsed = enabled && ctx.collapsed;
   const expand = (e) => { e.stopPropagation(); if (ctx.setCollapsed) ctx.setCollapsed(false); };
   return (
-    <div className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
+    <div data-tour="mentor" className={`mentor fade-up ${enabled ? 'mentor-mob' : ''} ${collapsed ? 'is-collapsed' : ''}`} onClick={collapsed ? expand : undefined} role={collapsed ? 'button' : undefined}>
       <div className="mentor-ava" aria-hidden="true"><img src={MENTOR_IMG} alt="" /></div>
       <div className="mentor-col">
         <span className="mentor-name">Mentor{collapsed && <span className="mentor-cue"> · ko'rsatmani ochish ▾</span>}</span>
@@ -2698,7 +2697,7 @@ const ScreenPodium = ({ screen, answers, onNext, onPrev }) => {
 };
 
 // ===== ⚡ CODESTRIKE (CoddyCamp jonli test arenasi) =====
-const QUIZ_MS = 20000;
+const QUIZ_MS = 15000;
 const QUIZ_BASE_IDX = 100;
 const QUIZ_COLORS = ['#FF5A2C', '#0FA6D6', '#F5A623', '#22A05C']; // CodeStrike brend palitrasi: coral · ocean · sun · leaf
 const QUIZ_SHAPES = ['▲', '◆', '●', '■'];
@@ -2768,6 +2767,28 @@ const QzBolt = ({ size = 72 }) => (
     <circle cx="76" cy="24" r="3.5" fill="#FFD9A8" /><circle cx="22" cy="72" r="2.6" fill="#FFD9A8" /><circle cx="80" cy="66" r="2.2" fill="#FFD9A8" />
   </svg>
 );
+
+// Yorqin 3D «CODESTRIKE» wordmark (glint + chiplar) — quiz-intro va lobby'da qayta ishlatiladi
+const CsWordmark = ({ onClick, disabled, hint, stats = true, bolt = true }) => {
+  const clickable = !!onClick && !disabled;
+  return (
+    <div
+      className={`cs-hero ${clickable ? 'cs-clickable' : ''} ${disabled ? 'cs-off' : ''}`}
+      {...(clickable ? { role: 'button', tabIndex: 0, onClick, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } } : {})}
+    >
+      {bolt && <div className="cs-boltrow"><QzBolt size={48} /></div>}
+      <div className="cs-word" data-text="CODESTRIKE" aria-label="CodeStrike">CODESTRIKE</div>
+      {stats && (
+        <div className="cs-chips">
+          <span className="cs-chip"><b>{QUIZ_BANK.length}</b> savol</span>
+          <span className="cs-chip"><b>{QUIZ_MS / 1000}</b> soniya</span>
+          <span className="cs-chip">🏆 podium</span>
+        </div>
+      )}
+      {hint && <span className={`cs-enter ${disabled ? 'wait' : ''}`}>{hint}</span>}
+    </div>
+  );
+};
 
 // Jonli fon: suzuvchi uchqunlar + «web» chiziqlari + kod tokenlari (canvas)
 function QzFX() {
@@ -2967,8 +2988,8 @@ function QuizArena({ live, onClose, startSolo }) {
       {/* ===== LOBBY ===== */}
       {phase === 'lobby' && (
         <div className="qz-view fade-step">
-          <div className="qz-brand"><QzBolt size={74} /><span className="qz-wm">Code<span className="qz-wm-h">Strike</span></span></div>
-          <p className="qz-sub">{QUIZ_BANK.length} savol · har biriga {QUIZ_MS / 1000} soniya · tezroq to'g'ri bossang — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
+          <CsWordmark />
+          <p className="qz-sub">Tezroq to'g'ri bossangiz — ko'proq ball. Ketma-ket to'g'ri javoblar 🔥 bonus beradi!</p>
           {solo && isStudent && <p className="qz-sub" style={{ color: '#FFC94D' }}>📖 Mashq rejimi — o'z tezligingizda ishlaysiz, natija faqat sizga ko'rinadi.</p>}
           {!solo && (
             <div className="qz-lobby-players">
@@ -3256,25 +3277,109 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
 
 // ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
 const ACHIEVEMENTS = {
-  struktura: { icon: '🧱', name: 'Sahifa quruvchi',        desc: "Sahifani header, main, footer bo'limlariga ajratdingiz" },
-  forma:     { icon: '📮', name: 'Birinchi forma',         desc: "Formani to'ldirib yubordingiz" },
-  debugger:  { icon: '🐞', name: 'Xato ovchisi',           desc: 'DevTools bilan buzuq kodni topib tuzatdingiz' },
-  graduate:  { icon: '🏆', name: 'HTML qahramoni',         desc: "Ikkinchi HTML darsini to'liq yakunladingiz" },
+  struktura: { icon: '🧱', name: 'Room by Room!', desc: "Sahifani header, main, footer bo'limlariga ajratdingiz" },
+  forma:     { icon: '📮', name: 'Sent It!',      desc: "Formani to'ldirib yubordingiz" },
+  debugger:  { icon: '🐞', name: 'Nice Catch!',   desc: 'DevTools bilan buzuq kodni topib tuzatdingiz' },
+  graduate:  { icon: '🏆', name: 'Level Up!',     desc: "Ikkinchi HTML darsini to'liq yakunladingiz" },
 };
 // Ekran id → nishon (recordAnswer'da avtomatik beriladi)
 const ACH_TRIGGERS = { s5: 'struktura', s7: 'forma', s14: 'debugger' };
-function AchToastItem({ ach, onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 3600); return () => clearTimeout(t); }, []); // eslint-disable-line
+// 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI — yorqin nurlar, medal portlashi, uchqunlar, zarba to'lqini
+function AchCelebrate({ ach, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 4000); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
-    <div className="ach-toast" onClick={onDone} role="status">
-      <span className="ach-toast-shine" />
-      <span className="ach-toast-ic">{ach.icon}</span>
-      <div className="ach-toast-txt"><span className="ach-toast-lbl">🏅 Yangi nishon!</span><span className="ach-toast-name">{ach.name}</span></div>
+    <div className="acu-overlay" onClick={onDone} role="status" aria-label={`Yangi nishon: ${ach.name}`}>
+      <div className="acu-rays" aria-hidden="true" />
+      <div className="acu-glow" aria-hidden="true" />
+      <div className="acu-ring" aria-hidden="true" />
+      <div className="acu-ring d2" aria-hidden="true" />
+      <div className="acu-stage">
+        <div className="acu-medal-wrap">
+          <div className="acu-medal">{ach.icon}<span className="acu-shine" /></div>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span key={i} className="acu-spark" style={{ '--a': `${i * (360 / 14)}deg`, animationDelay: `${0.18 + (i % 5) * 0.05}s` }}>✦</span>
+          ))}
+        </div>
+        <div className="acu-txt">
+          <span className="acu-eyebrow">🏅 Nishon ochildi!</span>
+          <span className="acu-name">{ach.name}</span>
+          {ach.desc && <span className="acu-desc">{ach.desc}</span>}
+        </div>
+        <span className="acu-tap">bosib davom eting</span>
+      </div>
     </div>
   );
 }
+// Navbatda bittasi ko'rsatiladi (to'liq-ekran bayram) — tugagach keyingisi chiqadi
 function AchToasts({ toasts, onDone }) {
-  return <div className="ach-toasts" aria-live="polite">{toasts.map(t => { const a = ACHIEVEMENTS[t.id]; return a ? <AchToastItem key={t.k} ach={a} onDone={() => onDone(t.k)} /> : null; })}</div>;
+  const t = toasts[0];
+  const a = t && ACHIEVEMENTS[t.id];
+  if (!a) return null;
+  return <AchCelebrate key={t.k} ach={a} onDone={() => onDone(t.k)} />;
+}
+
+// ===== 👋 ONBOARDING — real "coach-mark" turi: har qadamda haqiqiy tugmaga spotlight + so'z (rolga qarab, bir marta) =====
+const TOUR = {
+  learner: [
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Oldinga o\'tish', body: <>Tayyor bo'lsangiz, <b>«Davom etish»</b> bilan keyingi qadamga o'tasiz. Yonidagi <b>«Orqaga»</b> bilan qaytasiz.</> },
+    { sel: '[data-tour="mentor"]', ic: '🧑‍🏫', h: 'Mentor yordami', body: <>Har ekranda mentor nima qilishni tushuntiradi — avval uni <b>o'qing</b>, keyin bajaring.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: 'Progress chizig\'i', body: <>Bu chiziq dars <b>qancha qolganini</b> ko'rsatadi — to'lgani sari yakunlaysiz.</> },
+    { sel: '[data-tour="ach"]', ic: '🏅', h: 'Nishonlaringiz', body: <>Vazifalarni bajarib, shu yerda <b>nishon</b> yig'asiz. Bosib ro'yxatini ko'rasiz.</> },
+  ],
+  mentor: [
+    { sel: '[data-tour="live"]', ic: '🔢', h: 'Qo\'shilish kodi', body: <>O'quvchilar shu <b>PIN kod</b> bilan qo'shiladi. Kim qo'shilganini shu yerda ko'rasiz.</> },
+    { sel: '[data-tour="next"]', ic: '▶', h: 'Siz boshqarasiz', body: <><b>«Davom etish»</b> bosganingizda, barcha o'quvchilar birga oldinga o'tadi.</> },
+    { sel: '[data-tour="progress"]', ic: '📊', h: 'Progress chizig\'i', body: <>Dars qaysi bosqichda ekanini shu chiziq ko'rsatadi.</> },
+  ],
+};
+function TourGuide({ role, onClose }) {
+  const steps = TOUR[role] || TOUR.learner;
+  const [i, setI] = useState(0);
+  const [rect, setRect] = useState(null);
+  const step = steps[i];
+  const last = i === steps.length - 1;
+  useEffect(() => {
+    const el = typeof document !== 'undefined' && document.querySelector(step.sel);
+    if (!el) { setRect(null); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    const measure = () => { const r = el.getBoundingClientRect(); setRect({ top: r.top, left: r.left, width: r.width, height: r.height, bottom: r.bottom }); };
+    const raf = requestAnimationFrame(() => { measure(); });
+    const t = setTimeout(measure, 90);
+    window.addEventListener('resize', measure);
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); else if (e.key === 'ArrowRight') setI(p => Math.min(p + 1, steps.length - 1)); else if (e.key === 'ArrowLeft') setI(p => Math.max(p - 1, 0)); };
+    window.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); window.removeEventListener('resize', measure); window.removeEventListener('keydown', onKey); };
+  }, [i, step.sel, steps.length, onClose]);
+  const next = () => last ? onClose() : setI(i + 1);
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1000;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const CW = Math.min(300, vw - 24);
+  let callStyle = { top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: CW };
+  if (rect) {
+    const below = rect.bottom + 168 < vh;
+    const cx = Math.min(Math.max(rect.left + rect.width / 2, CW / 2 + 12), vw - CW / 2 - 12);
+    callStyle = below
+      ? { top: rect.bottom + 16, left: cx, transform: 'translateX(-50%)', width: CW }
+      : { top: Math.max(12, rect.top - 16), left: cx, transform: 'translate(-50%,-100%)', width: CW };
+  }
+  return (
+    <div className="tg-root">
+      {rect
+        ? <div className="tg-hole" style={{ top: rect.top - 7, left: rect.left - 7, width: rect.width + 14, height: rect.height + 14 }} />
+        : <div className="tg-dim" />}
+      <div className="tg-call" style={callStyle}>
+        <div className="tg-head"><span className="tg-ic">{step.ic}</span><span className="tg-h">{step.h}</span><span className="tg-count">{i + 1}/{steps.length}</span></div>
+        <p className="tg-body">{step.body}</p>
+        <div className="tg-nav">
+          <button className="tg-skip" onClick={onClose}>O'tkazib yuborish</button>
+          <div className="tg-navr">
+            {i > 0 && <button className="tg-btn ghost" onClick={() => setI(i - 1)} aria-label="Oldingi">←</button>}
+            <button className="tg-btn go" onClick={next}>{last ? 'Boshladik!' : 'Keyingisi →'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
@@ -3311,6 +3416,19 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
   useEffect(() => {
     if (screen === TOTAL_SCREENS - 1) earn('graduate');
   }, [screen]); // eslint-disable-line
+  // 👋 Onboarding turi (coach-mark) — rejim tanlangach bir marta (rolga qarab, localStorage'da eslab qolinadi)
+  const [onboard, setOnboard] = useState(false);
+  const onboardShownRef = useRef(false);
+  const onboardRole = live.mode === 'mentor' ? 'mentor' : 'learner';
+  useEffect(() => {
+    if (live.mode !== 'choosing' && !onboardShownRef.current) {
+      onboardShownRef.current = true;
+      let show = true;
+      try { if (localStorage.getItem('html2Onboarded_' + onboardRole)) show = false; } catch {}
+      if (show) { const t = setTimeout(() => setOnboard(true), 500); return () => clearTimeout(t); } // sahifa chizilib bo'lsin
+    }
+  }, [live.mode, onboardRole]);
+  const closeOnboard = () => { try { localStorage.setItem('html2Onboarded_' + onboardRole, '1'); } catch {} setOnboard(false); };
 
   // 🃏 Flashcard jonli darsda FAQAT MENTORGA ko'rinadi (proyektorda jamoaviy
   // takrorlash uchun); jonli o'quvchidan yashirin — sakrab o'tiladi. Mentor darsni
@@ -3999,17 +4117,48 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .fc-done-s { font-family: 'Manrope'; color: ${T.ink2}; margin: 0 0 8px; font-size: 14px; }
 
         /* === 🏅 ACHIEVEMENTS === */
-        .ach-toasts { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-        .ach-toast { position: relative; overflow: hidden; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 12px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-left: 4px solid ${T.accent}; border-radius: 15px; padding: 11px 18px 11px 13px; box-shadow: 0 16px 40px -12px rgba(${T.shadowBase},0.4); animation: ach-in 0.5s cubic-bezier(.34,1.4,.4,1), ach-out 0.4s ease 3.2s forwards; min-width: 236px; }
-        @keyframes ach-in { from { opacity: 0; transform: translateY(-26px) scale(0.9); } to { opacity: 1; transform: none; } }
-        @keyframes ach-out { to { opacity: 0; transform: translateY(-16px) scale(0.96); } }
-        .ach-toast-ic { font-size: 30px; line-height: 1; flex-shrink: 0; animation: ach-pop 0.6s cubic-bezier(.34,1.6,.4,1) 0.1s both; }
-        @keyframes ach-pop { 0% { transform: scale(0) rotate(-25deg); } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
-        .ach-toast-txt { display: flex; flex-direction: column; gap: 1px; }
-        .ach-toast-lbl { font-family: 'Manrope'; font-weight: 800; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.accent}; }
-        .ach-toast-name { font-family: 'Manrope'; font-weight: 800; font-size: 15.5px; color: ${T.ink}; }
-        .ach-toast-shine { position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-18deg); animation: ach-shine 1.1s ease 0.35s; }
-        @keyframes ach-shine { to { left: 130%; } }
+        .acu-overlay { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;
+          background: radial-gradient(circle at 50% 42%, rgba(20,14,6,0.34) 0%, rgba(10,8,14,0.72) 62%, rgba(8,6,12,0.86) 100%);
+          animation: acu-bg-in 0.35s ease-out, acu-bg-out 0.55s ease-in 3.45s forwards; }
+        @keyframes acu-bg-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes acu-bg-out { to { opacity: 0; } }
+        /* Aylanuvchi nur burjlari (butun ekran) */
+        .acu-rays { position: absolute; top: 50%; left: 50%; width: 170vmax; height: 170vmax; transform: translate(-50%,-50%); pointer-events: none;
+          background: repeating-conic-gradient(from 0deg, rgba(255,201,77,0.16) 0deg 7deg, transparent 7deg 20deg);
+          -webkit-mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%); mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%);
+          animation: acu-spin 16s linear infinite, acu-fade 0.6s ease-out; }
+        @keyframes acu-spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes acu-fade { from { opacity: 0; } to { opacity: 1; } }
+        /* Markaziy yorug'lik */
+        .acu-glow { position: absolute; top: 42%; left: 50%; width: 78vmin; height: 78vmin; transform: translate(-50%,-50%); pointer-events: none; filter: blur(4px);
+          background: radial-gradient(circle, rgba(255,224,150,0.62) 0%, rgba(255,150,60,0.30) 38%, rgba(255,120,40,0) 68%);
+          animation: acu-glow-pulse 2.2s ease-in-out infinite, acu-fade 0.5s ease-out; }
+        @keyframes acu-glow-pulse { 0%,100% { opacity: 0.85; transform: translate(-50%,-50%) scale(1); } 50% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } }
+        /* Zarba to'lqini (halqa) */
+        .acu-ring { position: absolute; top: 42%; left: 50%; width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(255,240,200,0.85); transform: translate(-50%,-50%) scale(0.3); pointer-events: none; animation: acu-shock 1s cubic-bezier(.2,.7,.3,1) forwards; }
+        .acu-ring.d2 { border-color: rgba(255,180,90,0.6); animation-delay: 0.22s; }
+        @keyframes acu-shock { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0.9; } 100% { transform: translate(-50%,-50%) scale(6.5); opacity: 0; } }
+        /* Sahna (medal + matn) */
+        .acu-stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,3vw,22px); animation: acu-bg-in 0.3s ease-out; }
+        .acu-medal-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+        .acu-medal { position: relative; width: clamp(112px,26vw,152px); height: clamp(112px,26vw,152px); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(54px,13vw,74px); overflow: hidden;
+          background: radial-gradient(circle at 38% 30%, #FFF0BE 0%, #FFD35A 42%, #F5A623 72%, #E4870C 100%);
+          box-shadow: 0 0 70px 12px rgba(255,201,77,0.55), 0 22px 54px -12px rgba(0,0,0,0.55), inset 0 -9px 18px rgba(140,70,0,0.28), inset 0 7px 14px rgba(255,255,255,0.6);
+          animation: acu-medal-pop 0.7s cubic-bezier(.28,1.5,.4,1) both, acu-float 2.6s ease-in-out 0.7s infinite; }
+        @keyframes acu-medal-pop { 0% { transform: scale(0) rotate(-40deg); } 55% { transform: scale(1.18) rotate(10deg); } 75% { transform: scale(0.94) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
+        @keyframes acu-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+        .acu-shine { position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-18deg); animation: acu-shine-sweep 1.1s ease 0.5s 2; }
+        @keyframes acu-shine-sweep { to { left: 130%; } }
+        .acu-spark { position: absolute; top: 50%; left: 50%; font-size: clamp(14px,2.6vw,20px); color: #FFE9A8; text-shadow: 0 0 8px rgba(255,201,77,0.9); pointer-events: none; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; animation: acu-spark-burst 1s ease-out both; }
+        @keyframes acu-spark-burst { 0% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(clamp(-130px,-24vw,-96px)) scale(1); opacity: 0; } }
+        .acu-txt { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+        .acu-eyebrow { font-family: 'Manrope', sans-serif; font-weight: 900; font-size: clamp(12px,1.8vw,14px); letter-spacing: 0.2em; text-transform: uppercase; color: #FFD35A; text-shadow: 0 2px 12px rgba(0,0,0,0.5); animation: acu-rise 0.5s ease-out 0.35s both; }
+        .acu-name { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: clamp(26px,5.5vw,42px); color: #fff; line-height: 1.1; text-shadow: 0 3px 22px rgba(0,0,0,0.55); animation: acu-rise 0.55s cubic-bezier(.3,1.2,.4,1) 0.45s both; }
+        .acu-desc { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: clamp(13px,2vw,16px); color: rgba(255,255,255,0.82); max-width: 30ch; line-height: 1.5; animation: acu-rise 0.5s ease-out 0.6s both; }
+        @keyframes acu-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .acu-tap { font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-top: 4px; animation: acu-rise 0.5s ease-out 1.1s both, acu-blink 1.6s ease-in-out 1.6s infinite; }
+        @keyframes acu-blink { 0%,100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+        @media (prefers-reduced-motion: reduce) { .acu-rays, .acu-medal, .acu-glow, .acu-tap { animation-iteration-count: 1 !important; } .acu-rays { animation: acu-fade 0.4s both !important; } }
         .ach-coll { display: flex; flex-direction: column; gap: 10px; }
         .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -4041,6 +4190,33 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .ach-pop-nm { font-family: 'Manrope'; font-weight: 700; font-size: 13px; color: ${T.ink}; }
         .ach-pop-row:not(.got) .ach-pop-nm { color: ${T.ink3}; }
 
+        /* === 👋 ONBOARDING — coach-mark spotlight tur === */
+        .tg-root { position: fixed; inset: 0; z-index: 10300; animation: fade-step 0.2s ease-out; }
+        .tg-dim { position: absolute; inset: 0; background: rgba(10,8,14,0.6); }
+        .tg-hole { position: absolute; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10,8,14,0.6), 0 0 0 3px #fff, 0 0 26px 5px rgba(255,201,77,0.55); pointer-events: none; transition: top 0.35s cubic-bezier(.4,0,.2,1), left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1), height 0.35s cubic-bezier(.4,0,.2,1); }
+        .tg-call { position: absolute; z-index: 2; background: ${T.paper}; border-radius: 16px; padding: 14px 16px 12px; box-shadow: 0 22px 54px -16px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px; animation: tg-pop 0.25s ease-out; transition: top 0.3s cubic-bezier(.4,0,.2,1), left 0.3s cubic-bezier(.4,0,.2,1); }
+        @keyframes tg-pop { from { opacity: 0; } }
+        .tg-head { display: flex; align-items: center; gap: 8px; }
+        .tg-ic { font-size: 20px; line-height: 1; }
+        .tg-h { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 15px; color: ${T.ink}; flex: 1; }
+        .tg-count { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 700; color: #fff; background: ${T.accent}; border-radius: 99px; padding: 2px 8px; }
+        .tg-body { font-family: 'Manrope', sans-serif; font-size: 14px; line-height: 1.5; color: ${T.ink2}; margin: 0; }
+        .tg-body b { color: ${T.ink}; }
+        .tg-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+        .tg-skip { background: none; border: none; color: ${T.ink3}; font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 6px 2px; }
+        .tg-skip:hover { color: ${T.accent}; }
+        .tg-navr { display: flex; align-items: center; gap: 8px; }
+        .tg-btn { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 13.5px; border: none; border-radius: 11px; padding: 9px 16px; cursor: pointer; transition: all 0.16s; }
+        .tg-btn.go { background: linear-gradient(135deg,${T.accent},#FF8A3D); color: #fff; box-shadow: 0 8px 20px -6px rgba(255,79,40,0.55); }
+        .tg-btn.go:hover { transform: translateY(-1px); }
+        .tg-btn.ghost { background: ${T.bg}; color: ${T.ink2}; padding: 9px 12px; }
+        .tg-btn.ghost:hover { color: ${T.ink}; }
+
+        /* === Jonli panel (LiveBadge) — xira turadi, ustiga borilganda tiniqlashadi (kontentni to'smaydi) === */
+        .live-badge { opacity: 0.4; transition: opacity 0.25s ease, box-shadow 0.25s ease; }
+        .live-badge:hover, .live-badge:focus-within { opacity: 1; box-shadow: 0 8px 24px -6px rgba(58,53,48,0.32) !important; }
+        @media (hover: none) { .live-badge { opacity: 0.62; } }
+
         /* ===== ⚡ CODESTRIKE — CTA (dars ichida) ===== */
         .qz-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #FFF3EA, #FFE7DC); border: 1px solid #F3D9CC; border-radius: 20px; padding: clamp(16px,2.4vw,22px) clamp(18px,2.6vw,26px); box-shadow: 0 16px 40px -18px rgba(255,79,40,0.28); }
         .qz-cta-txt { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 3px; }
@@ -4067,6 +4243,42 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .qz-bolt { filter: drop-shadow(0 8px 18px rgba(255,79,40,0.32)); }
         .qz-wm { font-family: 'Manrope'; font-weight: 800; font-size: clamp(28px,5vw,46px); letter-spacing: -0.03em; color: #121826; line-height: 1; }
         .qz-wm-h { color: #FF4F28; }
+        /* ===== ⚡ CODESTRIKE — yorqin wordmark (3D + glint) ===== */
+        .cs-hero { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: clamp(6px,1vw,11px); text-align: center; width: 100%; }
+        .cs-clickable { cursor: pointer; user-select: none; transition: transform .18s cubic-bezier(.2,1,.3,1); outline: none; }
+        .cs-clickable:hover { transform: scale(1.04); }
+        .cs-clickable:active { transform: scale(.985); }
+        .cs-clickable:focus-visible .cs-word { outline: 2px dashed rgba(255,79,40,.6); outline-offset: 12px; border-radius: 10px; }
+        .cs-off { opacity: .62; filter: saturate(.55); }
+        .cs-boltrow { animation: cs-bolt-bob 2.2s ease-in-out infinite; margin-bottom: 2px; }
+        @keyframes cs-bolt-bob { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-7px) rotate(6deg); } }
+        .cs-word { position: relative; display: inline-block; font-family: 'Manrope','Manrope Fallback',sans-serif; font-weight: 900;
+          font-size: clamp(38px,7.4vw,82px); letter-spacing: .012em; line-height: 1;
+          background: linear-gradient(178deg,#FF9A4D 0%,#FF6A2C 40%,#FF4F28 68%,#EA360F 100%);
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+          transform-origin: center; animation: cs-throb 2.6s ease-in-out infinite; }
+        .cs-word::before { content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; pointer-events: none;
+          background: linear-gradient(100deg, transparent 34%, rgba(255,255,255,.92) 48%, rgba(255,255,255,.35) 54%, transparent 66%); background-size: 260% 100%;
+          -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+          animation: cs-glint 3.4s cubic-bezier(.6,0,.4,1) infinite; }
+        @keyframes cs-throb { 0%,100% { transform: scale(1); filter: drop-shadow(0 2px 0 #C42F0E) drop-shadow(0 7px 16px rgba(226,58,22,.42)); }
+          50% { transform: scale(1.07); filter: drop-shadow(0 2px 0 #C42F0E) drop-shadow(0 12px 34px rgba(255,79,40,.8)); } }
+        @keyframes cs-glint { 0% { background-position: 135% 0; } 60%,100% { background-position: -55% 0; } }
+        .cs-clickable:hover .cs-word { animation-duration: 1.5s; }
+        .cs-chips { display: flex; gap: clamp(8px,1.3vw,13px); flex-wrap: wrap; justify-content: center; }
+        .cs-chip { display: inline-flex; align-items: baseline; gap: 5px; font-family: 'Manrope'; font-weight: 800; font-size: clamp(12px,1.55vw,15px); color: #9A3E1A;
+          background: #fff; border: 1.5px solid rgba(255,79,40,.42); padding: 6px 15px; border-radius: 999px; box-shadow: 0 5px 16px -7px rgba(255,79,40,.5);
+          animation: cs-chip-pop .5s cubic-bezier(.2,1.4,.4,1) both, cs-chip-glow 2.4s ease-in-out infinite; }
+        .cs-chip b { font-size: clamp(16px,2.1vw,21px); font-weight: 900; color: #FF4F28; }
+        .cs-chip:nth-child(2) { animation-delay: .09s, .35s; }
+        .cs-chip:nth-child(3) { animation-delay: .18s, .7s; }
+        @keyframes cs-chip-pop { from { transform: scale(.4) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+        @keyframes cs-chip-glow { 0%,100% { box-shadow: 0 5px 16px -7px rgba(255,79,40,.5); border-color: rgba(255,79,40,.42); } 50% { box-shadow: 0 8px 26px -5px rgba(255,79,40,.85); border-color: rgba(255,79,40,.8); } }
+        .cs-enter { font-family: 'Manrope'; font-weight: 900; font-size: clamp(13px,1.8vw,17px); color: #E23A16; letter-spacing: .01em; animation: cs-enter-pulse 1.3s ease-in-out infinite; }
+        .cs-enter.wait { color: #98A0B4; animation: none; }
+        @keyframes cs-enter-pulse { 0%,100% { opacity: .72; transform: translateY(0) scale(1); } 50% { opacity: 1; transform: translateY(2px) scale(1.03); } }
+        @media (prefers-reduced-motion: reduce) { .cs-word, .cs-word::before, .cs-chip, .cs-enter, .cs-boltrow { animation: none !important; } }
+        @media (max-width: 560px) { .cs-word { font-size: clamp(34px,11vw,58px); } }
         .qz-logo { font-size: clamp(44px,8vw,72px); line-height: 1; }
         .qz-h { font-family: 'Manrope'; font-weight: 800; font-size: clamp(22px,4vw,36px); color: #121826; margin: 0; text-align: center; letter-spacing: -0.02em; }
         .qz-sub { font-family: 'Manrope'; font-size: clamp(13px,1.9vw,16px); color: #525A6B; margin: 0; text-align: center; max-width: 540px; line-height: 1.55; font-weight: 500; }
@@ -4206,6 +4418,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
               <Current screen={screen} storedAnswer={answers[screen]} answers={answers} achievements={earned} onAnswer={recordAnswer} onNext={next} onPrev={prev} onReset={reset} onFinish={finishLesson} />
               <AchToasts toasts={achToasts} onDone={(k) => setAchToasts(t => t.filter(x => x.k !== k))} />
               <LiveBadge live={live} total={TOTAL_SCREENS} />
+              {onboard && <TourGuide role={onboardRole} onClose={closeOnboard} />}
             </>
           )}
         </div>
