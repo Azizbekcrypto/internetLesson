@@ -33,6 +33,11 @@ proj = os.environ.get('CLAUDE_PROJECT_DIR') or os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 path = os.path.join(proj, 'pipeline-live.js')
 
+# ── B: fayl-qulf — parallel launch'larda read-modify-write yo'qolmasin ──
+import fcntl
+_lock = open(path + '.lock', 'w')
+fcntl.flock(_lock, fcntl.LOCK_EX)  # jarayon tugaguncha ushlab turiladi
+
 # ── eski holatni o'qish (v2 bo'lmasa toza boshlaymiz) ──
 state = {}
 try:
@@ -98,16 +103,15 @@ else:
     m = re.search(r'([A-Za-z][A-Za-z0-9_]*\.jsx)', ti.get('prompt') or '')
     lesson = m.group(1) if m else (state.get('activeLesson') or '')
     key = f"{lesson or '?'}:{ri}"
-    # FON-AGENT: async ishga tushirishda PostToolUse darhol keladi ("Async agent launched")
-    # — bu TUGASH emas! running saqlanadi, D belgilanmaydi.
+    # FON-AGENT (A-tuzatish 2026-07-11): run_in_background=true bilan ishga tushgan
+    # agentda PostToolUse = faqat "launched" kvitansiyasi, TUGASH EMAS. Haqiqiy tugash
+    # hook'ka umuman kelmaydi (asosiy agent qo'lda belgilaydi). Shu sabab bunday
+    # PostToolUse'da D belgilanmaydi, running saqlanadi. Matn-qidiruv ishonchsiz chiqdi
+    # (tool_response'da 'Async agent launched' bo'lmasligi mumkin) — endi tool_input belgisi.
     if event == 'PostToolUse':
         resp = json.dumps(data.get('tool_response') or '')
-        if 'Async agent launched' in resp:
-            state['epoch'] = now
-            state['updated'] = time.strftime('%H:%M')
-            with open(path, 'w') as f:
-                f.write('window.PIPELINE_LIVE=' + json.dumps(state, ensure_ascii=False) + ';\n')
-            sys.exit(0)
+        if ti.get('run_in_background') or 'Async agent launched' in resp:
+            sys.exit(0)  # holatga tegmaymiz — PreToolUse allaqachon A/running yozgan
     if event == 'PreToolUse':
         state['running'][key] = {'role': ri, 'agent': sub, 'lesson': lesson, 'since': now}
         set_stage(lesson, ri, 'A')

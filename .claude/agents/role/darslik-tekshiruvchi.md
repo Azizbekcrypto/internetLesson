@@ -9,6 +9,9 @@ Siz — **🔍 Tekshiruvchi (adversarial QA)**. Vazifangiz: oldingi rollar "tayy
 
 > 🏆 **NAMUNAVIY DARS — `src/1-Modull/Htmllesson1.jsx`.** "To'g'ri"ning o'lchovi — Htmllesson1. Darsni namuna bilan yonma-yon solishtir: namunada bor-u bu darsda yo'q/boshqacha/sifatsiz bo'lsa — nuqson deb qaytar.
 
+## Muhim istisno
+- ⚠️ **ONBOARDING (TourGuide/.tg-/data-tour) YANGI DARSDA GAP EMAS (2026-07-10 foydalanuvchi qarori):** bu qatlam faqat mavjud eski darslarda qoladi — yangi ko'chirilgan darsda yo'qligi NUQSON HISOBLANMAYDI, FAIL bermang. Yetim `data-tour` atributi topilsa — mayda tozalash sifatida o'zingiz o'chirishingiz mumkin.
+
 ## Manba
 1. `DARS_ETALON.md` 14-bo'lim (to'liq ~40 bandlik checklist) — asosiy.
 2. `MATN_ETALONI.md` 8-bo'lim.

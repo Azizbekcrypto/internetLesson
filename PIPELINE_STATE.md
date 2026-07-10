@@ -21,12 +21,12 @@
 | 3 | `DeployLesson.jsx` | ✅ v18 (2026-07-10) | To'liq pipeline + «UCHIRISH MARKAZI» idea + QA 2-aylanish · GATE 3 (foydalanuvchi vakolati bilan) · jonli-sinov qo'lda · UNCOMMITTED |
 | 4 | `PmLesson2.jsx` | ✅ v18 (2026-07-10) | GATE 3 foydalanuvchi IMZOLADI · «Sinov mijozi» idea · jonli-sinov qo'lda kutilmoqda · UNCOMMITTED |
 | 5 | `PmLesson3.jsx` | ✅ v18 (2026-07-10) | To'liq pipeline + «Demo Day investori» idea + QA 2-aylanish · GATE 3 (foydalanuvchi vakolati) · jonli-sinov qo'lda · UNCOMMITTED |
-| 6 | `JsIntroLesson.jsx` | ⬜ | 2-Modull |
-| 7 | `JsVarsLesson.jsx` | ⬜ | idea? "yorliqli quti/idish"; apostrof 52 |
-| 8 | `JsConditionsLesson.jsx` | ⬜ | idea? "ayri yo'l / svetofor" |
-| 9 | `JsLoopsLesson.jsx` | ⬜ | idea? "konveyer / yugurish dorasi" |
-| 10 | `JsFunctionsLesson.jsx` | ⬜ | idea? "retsept / tugmali mashina" |
-| 11 | `PeanStackLesson.jsx` | ⬜ | QUIZ_BANK=15 (→12?) |
+| 6 | `JsIntroLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 19 ekran (s14+s15 birlashgan), BAJARBOT; jonli-sinov kutilmoqda |
+| 7 | `JsVarsLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, OMBORCHI stellaj; jonli-sinov kutilmoqda |
+| 8 | `JsConditionsLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 21 ekran, turniket+ScreenElseWrite; jonli-sinov kutilmoqda |
+| 9 | `JsLoopsLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, SIKL ZAVODI 5 joyda; jonli-sinov kutilmoqda |
+| 10 | `JsFunctionsLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, retsept-mashina+3-bosqich praktika; jonli-sinov kutilmoqda |
+| 11 | `PeanStackLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, restoran+DragDropOrder; jonli-sinov kutilmoqda |
 | 12 | `PmLesson4.jsx` | ⬜ | |
 | 13 | `PmLesson5.jsx` | ⬜ | kirill 2 |
 | 14 | `PmLesson6.jsx` | ⬜ | kirill 1 |
