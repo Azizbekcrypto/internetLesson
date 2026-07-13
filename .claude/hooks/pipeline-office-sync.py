@@ -105,12 +105,15 @@ else:
     key = f"{lesson or '?'}:{ri}"
     # FON-AGENT (A-tuzatish 2026-07-11): run_in_background=true bilan ishga tushgan
     # agentda PostToolUse = faqat "launched" kvitansiyasi, TUGASH EMAS. Haqiqiy tugash
-    # hook'ka umuman kelmaydi (asosiy agent qo'lda belgilaydi). Shu sabab bunday
-    # PostToolUse'da D belgilanmaydi, running saqlanadi. Matn-qidiruv ishonchsiz chiqdi
-    # (tool_response'da 'Async agent launched' bo'lmasligi mumkin) — endi tool_input belgisi.
+    # hook'ka umuman kelmaydi (asosiy agent office-mark.py bilan qo'lda belgilaydi).
+    # B-tuzatish (2026-07-11): fon-launch'da tool_response hookka BO'SH keladi —
+    # bo'sh javob ham kvitansiya. run_in_background bermay (default fon) ishga
+    # tushirilganda ham shu holat. Faqat TO'LIQ natija matni kelgandagina D.
     if event == 'PostToolUse':
-        resp = json.dumps(data.get('tool_response') or '')
-        if ti.get('run_in_background') or 'Async agent launched' in resp:
+        tr = data.get('tool_response')
+        resp = json.dumps(tr or '')
+        if (not tr or ti.get('run_in_background')
+                or 'Async agent launched' in resp or 'agentId' in resp):
             sys.exit(0)  # holatga tegmaymiz — PreToolUse allaqachon A/running yozgan
     if event == 'PreToolUse':
         state['running'][key] = {'role': ri, 'agent': sub, 'lesson': lesson, 'since': now}

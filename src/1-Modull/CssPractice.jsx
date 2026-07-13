@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, createContext, useCont
 
 
 
-import mentorImg from '../../assets/common/mentor.png';
+import mentorImg from '../assets/common/mentor.png';
 
 // ============================================================
 // CSS PRAKTIKA — PLATFORM STANDARD v15/v16  (v2 — noldan qayta qurilgan)

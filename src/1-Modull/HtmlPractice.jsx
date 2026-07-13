@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
-import mentorImg from '../../assets/common/mentor.png';
+import mentorImg from '../assets/common/mentor.png';
 
 // ============================================================
 // HTML PRAKTIKA — PLATFORM STANDARD v15/v16

@@ -1,0 +1,24 @@
+const { JSDOM } = require('jsdom');
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'https://example.com', pretendToBeVisual: true });
+global.window = dom.window;
+global.document = dom.window.document;
+global.navigator = dom.window.navigator;
+global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+global.HTMLElement = dom.window.HTMLElement;
+global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+global.cancelAnimationFrame = (id) => clearTimeout(id);
+global.fetch = async () => ({ ok: true, json: async () => ({}) });
+global.window.fetch = global.fetch;
+const React = require('react');
+const { createRoot } = require('react-dom/client');
+const mod = require('/home/kali/Desktop/InternetLesson/.smoketmp/gha-bundle.cjs');
+const Lesson = mod.default;
+const root = createRoot(document.getElementById('root'));
+root.render(React.createElement(Lesson, { lang: 'uz' }));
+setTimeout(() => {
+  const eyebrow = document.querySelector('.eyebrow');
+  console.log('eyebrow:', eyebrow ? eyebrow.textContent : 'NONE');
+  const buttons = Array.from(document.querySelectorAll('button')).map(b => ({text: (b.textContent||'').trim().slice(0,40), disabled: b.disabled, cls: b.className}));
+  console.log(JSON.stringify(buttons, null, 1));
+  process.exit(0);
+}, 150);

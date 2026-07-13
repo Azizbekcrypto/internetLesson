@@ -27,9 +27,9 @@
 | 9 | `JsLoopsLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, SIKL ZAVODI 5 joyda; jonli-sinov kutilmoqda |
 | 10 | `JsFunctionsLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, retsept-mashina+3-bosqich praktika; jonli-sinov kutilmoqda |
 | 11 | `PeanStackLesson.jsx` | ✅ Etalon v18 (2026-07-11) | JS-6 · 20 ekran, restoran+DragDropOrder; jonli-sinov kutilmoqda |
-| 12 | `PmLesson4.jsx` | ⬜ | |
-| 13 | `PmLesson5.jsx` | ⬜ | kirill 2 |
-| 14 | `PmLesson6.jsx` | ⬜ | kirill 1 |
+| 12 | `PmLesson4.jsx` | ✅ Etalon v18 (2026-07-11) | Partiya 3 · avtopilot · «DORIXONA» · Verifikator IMZOLADI (20/20 SSR + jsdom 0 xato) · runtime-xato sababi (lokal mentor.png importi) bartaraf · jonli-sinov qo'lda kutilmoqda · UNCOMMITTED |
+| 13 | `PmLesson5.jsx` | ✅ Etalon v18 (2026-07-11) | Partiya 3 · to'liq avtopilot · Verifikator IMZOLADI (render+vite toza, 20=20) · jonli-sinov qo'lda kutilmoqda · UNCOMMITTED |
+| 14 | `PmLesson6.jsx` | ✅ Etalon v18 (2026-07-11) | Partiya 3 · avtopilot · «JONLI EFIR» · Verifikator IMZOLADI (2-urinish: useAudio stub regressiyasi tuzatilib, 5/5 ekran SSR OK, vite toza) · jonli-sinov qo'lda kutilmoqda · UNCOMMITTED |
 | 15 | `PracticeLesson1.jsx` | ⬜ | |
 | 16 | `PracticeLesson2.jsx` | ⬜ | kirill 1 |
 | 17 | `PracticeLesson3.jsx` | ⬜ | |
@@ -39,3 +39,95 @@
 
 > **idea? ustunidagi taklif** — Ijodkor uchun boshlang'ich uchqun (majburiy emas; Ijodkor o'zi yaxshiroq topsa — erkin).
 > **Maxsus (alohida hal qilinadi):** `CssPractice.jsx`, `HtmlPractice.jsx` — jonli infra yo'q.
+
+## 3-Modull — React frontend (14 dars, v16 → v18 ko'chirish; reja 2026-07-11)
+> JONLI PRAKTIKA spetsi: mentor shartni ochadi → o'quvchi VS Code'da bajaradi → «✅ Bajardim» → mentor aylanib tekshiradi → mentor o'tsa o'quvchida ham «Davom etish» yonadi. Audio YO'Q (stub). mentorImg importi → URL-const (runtime-xato sinfi).
+
+| # | Dars | Bosqich | Partiya |
+|---|---|---|---|
+| 1 | `ReactIntroLesson.jsx` | 🚦 FOYDALANUVCHI IMZOSI kutilmoqda | **P0 ETALON-DARS** · 9/9 bosqich ✅ · Verifikator IMZOLADI (2026-07-11: vite toza, 16/16 SSR, jsdom OK) · App.jsx'ga ulandi (m3-01) · jonli-sinov qo'lda · UNCOMMITTED |
+| 2 | `ReactFirstComponentLesson.jsx` | ✅ Etalon v18 (2026-07-11) | P1 · Verifikator IMZOLADI (vite toza, SSR 18/18, jsdom 0) · App.jsx m3-02 · jonli-sinov qo'lda · UNCOMMITTED |
+| 3 | `ReactPropsReuseLesson.jsx` | ✅ Etalon v18 (2026-07-12) | P1 · «FABRIKA» · Tekshiruvchi 1 qaytarish → Metodist-fix → Verifikator IMZOLADI (21/21 SSR, jsdom 0, optionalLive 15) · App.jsx m3-04 · jonli-sinov qo'lda · UNCOMMITTED |
+| 4 | `ReactStateEffectLesson.jsx` | ✅ Etalon v18 (2026-07-11) | P1 · «LIKE MASHINASI» · Verifikator IMZOLADI · App.jsx m3-03 · jonli-sinov qo'lda · UNCOMMITTED |
+| 5 | `ReactCrudPracticeLesson.jsx` | ✅ Etalon v18 (2026-07-11) | P1 · «AKVARIUM» · Verifikator IMZOLADI · App.jsx m3-05 · jonli-sinov qo'lda · UNCOMMITTED |
+| 6 | `ReactRouterPracticeLesson.jsx` | ✅ Etalon v18 (2026-07-11) | P1 · «WARP» · Verifikator IMZOLADI (SSR 15/15, jsdom 0) · App.jsx m3-06 · jonli-sinov qo'lda · UNCOMMITTED |
+| 7 | `ReactBuildSiteLesson.jsx` | ✅ Etalon v18 (2026-07-12) | P2 · «QURAR-BOT USTAXONASI» · 9/9 rol · Verifikator IMZOLADI (20/20 SSR, jsdom 0, vite toza) · jonli-sinov qo'lda · UNCOMMITTED |
+| 8 | `ReactApiGetLesson.jsx` | ✅ Etalon v18 (2026-07-12) | P2 · «OFITSIANT SAFARI» · 9/9 rol · Verifikator IMZOLADI (20/20 SSR, jsdom 0, vite toza) · jonli-sinov qo'lda · UNCOMMITTED |
+| 9 | `ReactApiPostLesson.jsx` | ✅ Etalon v18 (2026-07-12) | P2 · «YUK JO'NATISH PULTI» · 9/9 rol · Tekshiruvchi Screen16 optionalLive leak tuzatdi · Verifikator IMZOLADI (23/23 SSR, jsdom 0, vite toza) · jonli-sinov qo'lda · UNCOMMITTED |
+| 10 | `ReactProjectDayLesson.jsx` | ✅ Etalon v18 (2026-07-12) | P2 · «Topshirish akti» · 9/9 rol · Verifikator IMZOLADI (23/23 SSR, jsdom 0, vite toza) · jonli-sinov qo'lda · UNCOMMITTED |
+
+> **3-MODULL TO'LIQ YOPILDI (2026-07-12):** 10/10 dars Etalon v18 + App.jsx'da (m3-01..m3-10: Intro, FirstComponent, StateEffect, PropsReuse, Crud, Router, ApiGet, ApiPost, ProjectDay, BuildSite) + umumiy vite build toza. Jonli-sinov va commit — foydalanuvchida.
+| 11-14 | `PmLesson7-10.jsx` | ➖ | REJADAN CHIQARILDI (2026-07-11, foydalanuvchi qarori — PM darslar qilinmaydi) |
+
+> **Practice1-4 (2-Modull) — TO'XTATILGAN:** foydalanuvchi kompilyator-savolni o'zi o'ylab javob beradi.
+
+## 4-Modull — Backend/Fullstack (15 dars, v16 → v18; foydalanuvchi ruxsati 2026-07-12: «3-Modull tugagach avtomatik, 4-5 talik partiyalarda»)
+> 3-Modull P2 to'liq imzolangach M4-P1 avtomatik boshlanadi. Xuddi shu 9-rolli pipeline + 3-Modull spetsifikasi (audio stub, MENTOR_IMG URL, jonli praktika mentor-gate).
+
+| Partiya | Darslar | Holat |
+|---|---|---|
+| M4-P1 (5) | ✅ **TO'LIQ IMZOLANDI (2026-07-12)**: DataIntro «DATA-LINK» · DbSqlNosql «QADOQXONA» · NodeServer «DO'KON OCHIQ!» · Routing «SO'ROV POCHTASI» · PostgresCrud «MENEJER NAVBATI» — App.jsx m4-01..05, vite toza, jonli-sinov qo'lda, UNCOMMITTED | ✅ |
+| M4-P2 (6) | ✅ **TO'LIQ IMZOLANDI (2026-07-12)**: ApiPostman «POSTACHI-SINOVCHI STOLI» · AuthEnv «QO'RIQCHI SMENASI» · BackendCrudPractice «ROL PASPORTI» · FullstackConnectPractice «KO'PRIK QURISH» · FullstackFeedback «USTUVORLIK DOSKASI» · FullstackProjectDay «STOYANKA OCHILISH AKTI» (capstone) — App.jsx m4-06..11, vite build toza, jonli-sinov qo'lda, UNCOMMITTED | ✅ |
+
+> **4-MODULL YOPILDI (2026-07-12):** 11/11 dars Etalon v18 (M4-P1 5 + M4-P2 6), App.jsx `m4-01..m4-11`, umumiy vite build toza, 6 dars dist'da tasdiqlandi. Jonli-sinov va commit — foydalanuvchida.
+>
+> **M4-P2 to'liq 9-rolli pipeline o'tdi** (Auditor·Ijodkor·Quruvchi·Dizayn·Animatsiya·Jonli·Metodist·Tekshiruvchi·Verifikator). Tekshiruvchi 5/6 darsni QAYTARDI — hammasi tuzatilib qayta tasdiqlandi.
+
+### 🔴 M4-P2'da topilgan 4 TIZIMLI BUG (batafsil: AVTOPILOT_CHECKPOINT.md)
+1. **Arena javob-naqshi** — 11 darsning 9 tasida `correct` ketma-ketligi mexanik edi (`012301230123` yoki `000111222333`). Bola savolni o'qimay ball to'plab, reyting jadvalini buzardi. **11/11 tuzatildi** (skript: matn o'zgarmaydi, faqat pozitsiya).
+2. **`practice: -1` sentineli yo'q** (7 darsda) — server «Bajardim» bosgan o'quvchini `correct=false` deb yozardi. **7/7 tuzatildi.**
+3. **`optionalLive` yetishmasligi** (3 darsda) — jonli darsda mentor oldinga o'tsa, o'quvchi qulflanib sinfdan orqada qolardi. **Tuzatildi** (3→10-12).
+4. **Nishonlar tekinga berilardi** (3 darsda) — `ACH_TRIGGERS` xato qilish imkoni bo'lmagan ekranlarga bog'langan. **Tuzatildi** (scored testlarga ko'chirildi).
+
+⬜ **OCHIQ QARZ:** (a) 5 darsda audio matni yo'q (foydalanuvchi keyinga qoldirdi — ovoz stub, bugungi ishga ta'siri nol); (b) M4-P1'da `.live-badge` xiralik va `tap-hint` affordance tekshirilmagan.
+| ~~M4-P3 PM~~ | ~~PmLesson11-14~~ | ➖ REJADAN CHIQARILDI (2026-07-12, foydalanuvchi: «PM darslaridan boshqalarni») |
+
+## 4a-Modull — NestJS arxitektura (3 dars, v16 → v18; foydalanuvchi TO'LIQ AVTOPILOT ruxsati 2026-07-12)
+> Ofisda **5-qavat «4a — NestJS arxitektura»** sifatida ko'rinadi (pipeline-state.js `module:5`).
+> Bitta parallel partiya — 3 dars birdan, har biri o'z zanjirida, to'liq 9-rolli pipeline.
+> Modul-ichi etalon: `src/4-Modull/DataIntroLesson.jsx` (praktika uchun: `BackendCrudPracticeLesson.jsx`).
+
+| # | Dars | Ekran | Bosqich |
+|---|---|---|---|
+| 1 | `NestArchAliveLesson.jsx` | 22 | 🔵 7 Tekshiruvchi |
+| 2 | `NestArchResourceLesson.jsx` | 22 | 🔵 3 Dizayn |
+| 3 | `NestArchPracticeLesson.jsx` | 23 | ✅ **IMZOLANDI (2026-07-12)** — Verifikator: esbuild toza · SSR 26/26 · jsdom 0 xato · brauzerda arena o'ynaldi **+968 ball** (0 EMAS), podium 4/4 · vite build exit=0 |
+| ➖ | `PmLesson15.jsx` | ~18 | REJADAN TASHQARI (PM darsi — foydalanuvchi qarori) |
+
+### Metafora (foydalanuvchi qarori 2026-07-12: RESTORAN qoladi, 3 darsda izchil)
+Restoran=NestJS ilova · bo'lim=Module · ofitsiant/sotuvchi=Controller · oshpaz=Service · anketa=DTO · javon chizmasi=Entity · **OMBOR=faqat PostgreSQL** · 📦omborchi=Repository · retsept kitobi=BaseService (ASBOB) · 🪧KIRISH TAXTASI=AppModule.imports (yozilmagan bo'lim=404) · 🛡️ESHIK QO'RIQCHISI=Guard · nazoratchi=**faqat** ValidationPipe · YORLIQ=@ManyToOne · 🍽️bir xil lagan=successRes. ⛔ «domen», «skelet» (anatomiya) = TAQIQ.
+
+## 4b-Modull — Test va sifat (2 dars, v16 → v18; ofis 6-qavat 🧪)
+| # | Dars | Bosqich |
+|---|---|---|
+| 1 | `JestUnitTestLesson.jsx` | 🔵 2 Quruvchi — «JESTBOT + ETALON KARTOCHKASI» |
+| 2 | `EdgeCasesTestLesson.jsx` | 🔵 2 Quruvchi — «SHUMTAKA» (−5 kitob buyurib qaytim so'raydigan mijoz) |
+| ➖ | `PmLesson16.jsx` | REJADAN TASHQARI (PM) |
+
+**Metafora:** funksiya = MASHINA (kirish→chiqish) + **JESTBOT** (robot-sinovchi) + **ETALON KARTOCHKASI** (`expect(...).toBe(...)`). Yadro-saboq: Jestbot O'ZI to'g'rini bilmaydi — faqat sizning etaloningiz bilan solishtiradi; `expect` yo'q → doim yashil = **YOLG'ON TEST**. 2-darsda SHUMTAKA keladi (edge case), `guard` HECH QACHON «qo'riqchi» deb atalmaydi (4-Modulda band).
+**Umumiy qonun (4 soxta joyning yechimi):** javob yorliqda TURMAYDI; xato bosilganda «Noto'g'ri» emas — **DALIL** qaytadi (mashinaning chiqishi yoki terminalning haqiqiy FAIL izi). Hakam = `JestRun`, mentor emas.
+
+## 4c-Modull — CI/CD va pipeline (5 dars, v16 → v18; ofis 7-qavat 🔄)
+| # | Dars | Bosqich |
+|---|---|---|
+| 1 | `CiCdIntroLesson.jsx` (kirish — metafora manbai) | 🔵 0 Auditor |
+| 2 | `GithubActionsLesson.jsx` | 🔵 0 Auditor |
+| 3 | `FullPipelineProjectLesson.jsx` (praktika) | 🔵 0 Auditor |
+| 4 | `AiPipelineProjectLesson.jsx` | 🔵 0 Auditor |
+| 5 | `FullProPipelineLesson.jsx` (capstone) | 🔵 0 Auditor |
+| ➖ | `PmLesson17.jsx`, `PmLesson18.jsx` | REJADAN TASHQARI (PM) |
+
+**Boshlang'ich tashxis (dasturiy):** 5/5 darsda `placeCorrect` mina · 5/5 build blokeri (`mentor.png`) · jonli infra 0% · GithubActions va FullPipelineProject'da `code-input` (5 iz).
+
+### 🔴 Har modulda TAKRORLANAYOTGAN kasallik (4-Modul → 4a → 4b → 4c)
+1. **`placeCorrect()`** — display-indeks serverga yuboriladi, kalit `correctIdx` → **podium/arena 0 0 0 0**. Har darsda birinchi ish: O'CHIRISH.
+2. **Build blokeri** — `import mentorImg from '../../assets/...'` (yo'l noto'g'ri) → vite darsni yuklay olmaydi. → `MENTOR_IMG` URL-const.
+3. **SOXTA CHALLENGE / SOXTA FINAL** — javob yorliqda (`❌/✅`), tooltipda, `// ?` markerida yoki placeholder ichida OSHKOR; final ekranda `correct: true` QATTIQ yozilgan → hamma to'liq ball oladi.
+4. **8.3 + 8.4** — `correctIdx` hammasi 0 (javob doim «A») + to'g'ri javob eng uzun variant → bola savolni o'qimay topadi.
+5. **Nishon TEKINGA** — `ACH_TRIGGERS` exploration/toggle/«Bajardim» ekraniga bog'langan.
+
+**Boshlang'ich tashxis (2026-07-12, dasturiy tekshirilgan):**
+- 3/3 dars **v16** — jonli-ball infratuzilmasi UMUMAN YO'Q: `INLINE_KEYS`=0, `QUIZ_BANK`=0, `set_quiz_keys`=0, `useLiveSession`=0, `ScreenLivePractice`=0, `practice: -1`=0. Ya'ni podium/arena hozir 0 0 0 0 beradi.
+- 4/4 fayl `import mentorImg from '../../assets/common/mentor.png'` qiladi — **bu papka mavjud emas** → **esbuild 4/4 xato**. Bu ma'lum runtime-xato sinfi → `MENTOR_IMG` URL-const.
+- App.jsx'ga ulanmagan (0 havola). Yakunda `MODULES[4]` (m4a-01..03) bo'lib qo'shiladi.
+- M4-P2'ning 4 tizimli bug'i (javob-naqshi · practice:-1 · optionalLive · tekin nishonlar) har rol promptiga oldindan kiritildi.

@@ -1,0 +1,21 @@
+const { JSDOM } = require('jsdom');
+const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'https://example.com', pretendToBeVisual: true });
+global.window = dom.window;
+global.document = dom.window.document;
+global.navigator = dom.window.navigator;
+global.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+global.HTMLElement = dom.window.HTMLElement;
+global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+global.cancelAnimationFrame = (id) => clearTimeout(id);
+global.fetch = async () => ({ ok: true, json: async () => ({}) });
+global.window.fetch = global.fetch;
+const React = require('react');
+const { createRoot } = require('react-dom/client');
+const mod = require('/home/kali/Desktop/InternetLesson/.smoketmp/gha-bundle.cjs');
+const Lesson = mod.default;
+const root = createRoot(document.getElementById('root'));
+root.render(React.createElement(Lesson, { lang: 'uz' }));
+setTimeout(() => {
+  console.log(document.getElementById('root').innerHTML.slice(0, 4000));
+  process.exit(0);
+}, 150);
