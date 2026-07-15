@@ -1143,8 +1143,6 @@ function LiveGate({ live, title = 'Jonli dars' }) {
 function LiveBadge({ live, total }) {
   const [bigOpen, setBigOpen] = useState(false);
   const [nPlayers, setNPlayers] = useState(null);
-  const shownRef = useRef(false);
-  useEffect(() => { if (live.mode === 'mentor' && live.pin && !live.ended && !shownRef.current) { shownRef.current = true; setBigOpen(true); } }, [live.mode, live.pin, live.ended]);
   // Mentor: qo'shilgan o'quvchilar soni (har 6s yangilanadi)
   useEffect(() => {
     if (live.mode !== 'mentor' || !live.pin || live.ended) return;
@@ -1283,6 +1281,7 @@ const SCREEN_META = [
   { id: 's1',  type: 'rule',        template: 'custom',   scored: false, scope: null },
   { id: 's2',  type: 'exploration', template: 'custom',   scored: false, scope: null },
   { id: 's3',  type: 'exploration', template: 'custom',   scored: false, scope: null },
+  { id: 's3b', type: 'exploration', template: 'custom',   scored: false, scope: null },
   { id: 's4',  type: 'test',        template: 'MCScreen', scored: true,  scope: 'module-mikro' },
   { id: 's5',  type: 'exploration', template: 'custom',   scored: false, scope: null },
   { id: 's5b', type: 'test',        template: 'MCScreen', scored: true,  scope: 'module-mikro' },
@@ -1423,8 +1422,8 @@ const RcFlow = ({ items, sep = '→' }) => (
 );
 // RECAPS — har scored test uchun «Qayta tushuntirish» kartalari (kalit = ekran indeksi)
 const RECAPS = {
-  // idx 4 — s4: «color nima deb ataladi?» (nazariya: CSS sintaksisi — selektor/xususiyat/qiymat)
-  4: {
+  // idx 5 — s4: «color nima deb ataladi?» (nazariya: CSS sintaksisi — selektor/xususiyat/qiymat)
+  5: {
     title: 'CSS qoidasining 3 qismi', cards: [
       { ic: '🎯', h: 'Selektor — kimni bezaymiz',
         body: <>CSS qoidasi <b>selektor</b> bilan boshlanadi — qaysi elementni bezashni aytadi: <b className="mono">h1</b>, <b className="mono">p</b>. Undan keyin <b className="mono">{'{ }'}</b> qavs ichida bezaklar yoziladi.</>,
@@ -1439,8 +1438,8 @@ const RECAPS = {
         ask: "`color: red;` da qaysi qism qiymat?" },
     ]
   },
-  // idx 6 — s5b: «Matn rangini qaysi xususiyat?» (nazariya: color va background-color)
-  6: {
+  // idx 7 — s5b: «Matn rangini qaysi xususiyat?» (nazariya: color va background-color)
+  7: {
     title: 'Ranglar: color va background', cards: [
       { ic: '🖋️', h: 'color — matn (harflar) rangi',
         body: <><b className="mono">color</b> — matnning, ya'ni harflarning rangini o'zgartiradi. Masalan <b className="mono">color: red</b> — harflar qizil bo'ladi.</>,
@@ -1454,8 +1453,8 @@ const RECAPS = {
         vis: <RcFlow items={['red', '#FF4D26', 'rgb(...)']} sep="·" /> },
     ]
   },
-  // idx 10 — s9: «Shrift o'lchamini qaysi xususiyat?» (nazariya: font-size/family/weight)
-  10: {
+  // idx 11 — s9: «Shrift o'lchamini qaysi xususiyat?» (nazariya: font-size/family/weight)
+  11: {
     title: 'Shrift xususiyatlari', cards: [
       { ic: '📏', h: "font-size — o'lcham",
         body: <><b className="mono">font-size</b> — harflarning <b>kattaligini</b> belgilaydi, masalan <b className="mono">font-size: 24px</b>. Raqam qancha katta — harf shuncha yirik.</>,
@@ -1469,8 +1468,8 @@ const RECAPS = {
         vis: <RcFlow items={['size — kattalik', 'family — tur', 'weight — qalinlik']} sep="·" /> },
     ]
   },
-  // idx 13 — s12: «Ichki bo'shliq qaysi xususiyat?» (nazariya: padding va margin)
-  13: {
+  // idx 14 — s12: «Ichki bo'shliq qaysi xususiyat?» (nazariya: padding va margin)
+  14: {
     title: "Bo'shliqlar: padding va margin", cards: [
       { ic: '📦', h: "padding — ICHKI bo'shliq",
         body: <><b className="mono">padding</b> — kontent bilan elementning cheti orasidagi <b>ichki</b> bo'shliq. Quti ICHIDAGI havo — matn devorga yopishmaydi.</>,
@@ -2105,6 +2104,61 @@ const Screen3 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   );
 };
 
+// ===== SCREEN 3b — CSS'ni HTML'ga ulash: inline / internal / external =====
+const CSS_WAYS = {
+  inline: {
+    label: 'Inline', where: 'Teg ichida', tag: 'style="..."',
+    code: '<h1 style="color: red;">Salom!</h1>',
+    role: <>Uslub to'g'ridan-to'g'ri tegning <b>style</b> atributi ichida yoziladi. Eng tez usul — lekin har teg uchun qaytadan yozish kerak, shuning uchun kam ishlatiladi.</>,
+  },
+  internal: {
+    label: 'Internal', where: 'Sahifa ichida', tag: '<style> … </style>',
+    code: '<style>\n  h1 { color: red; }\n</style>',
+    role: <>Uslub HTML sahifaning ichida, <b>{'<style>'}</b> tegi orasida yoziladi. Bitta sahifa uchun qulay — kod va bezak bir joyda turadi.</>,
+  },
+  external: {
+    label: 'External ⭐', where: 'Alohida .css fayl', tag: 'style.css + <link>',
+    code: '/* style.css */\nh1 { color: red; }',
+    role: <>Uslub alohida <b>.css</b> faylda yoziladi, HTML unga <b>{'<link>'}</b> bilan ulanadi. Eng toza va professional usul — bitta fayl bir nechta sahifani bezaydi.</>,
+  },
+};
+const Screen3b = ({ screen, onNext, onPrev }) => {
+  const audio = useAudio([{ id: 's3b', text: `Bitta savol: bu CSS kod qayerda yashaydi? Uch usul bor. Inline — to'g'ridan-to'g'ri tegning ichida. Internal — sahifadagi style tegi orasida. External — alohida css faylda, HTML unga link bilan ulanadi. Uchala usul ham bir xil natija beradi. Har birini bosib ko'ring.`, trigger: 'on_mount', waits_for: null }]);
+  const [active, setActive] = useState('inline');
+  const [seen, setSeen] = useState(() => new Set(['inline']));
+  const explored = seen.size === 3;
+  const tap = (k) => { setActive(k); setSeen(prev => { const n = new Set(prev); n.add(k); return n; }); };
+  const w = CSS_WAYS[active];
+  return (
+    <Stage eyebrow="CSS qayerda yashaydi" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext optionalLive disabled={!explored} label={explored ? "Davom etish" : `${seen.size}/3 usul ko'rilgan`} onClick={onNext} /></>}>
+      <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
+        <div className="head"><h2 className="title h-title fade-up"> CSS kodi <span className="italic" style={{ color: T.accent }}>qayerga</span> yoziladi?</h2></div>
+        <Mentor>CSS'ni HTML'ga ulashning <b style={{ color: T.ink }}>3 usuli</b> bor: <b style={{ color: T.ink }}>inline</b> (teg ichida), <b style={{ color: T.ink }}>internal</b> (sahifada), <b style={{ color: T.ink }}>external</b> (alohida fayl). Har birini bosib ko'ring.</Mentor>
+        <div className="split">
+          <div className="col">
+            <div className="csslegend fade-up delay-2">
+              {['inline', 'internal', 'external'].map(k => (
+                <span key={k} className={`csstab ${seen.has(k) ? 'seen' : ''} ${active === k ? 'on' : ''}`} onClick={() => tap(k)}>{seen.has(k) ? '✓' : '•'} {CSS_WAYS[k].label}</span>
+              ))}
+            </div>
+            <pre className="code-box fade-step" key={active} style={{ fontSize: 'clamp(13px,2vw,16px)', lineHeight: 1.7 }}>{w.code}</pre>
+            <div className="sk-info fade-step" key={active + '-r'}><span className="sk-tagbig"><span className="sk-wordbadge">{w.label}</span> <span className="mono small" style={{ color: T.ink3 }}>{w.where}</span></span><p className="body" style={{ color: T.ink, margin: '11px 0 0' }}>{w.role}</p></div>
+          </div>
+          <div className="col">
+            <div className="flow-label">natija (uchalasi bir xil)</div>
+            <Preview title="natija.html" minH={130}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}>
+              <h1 style={{ fontFamily: 'Georgia, serif', fontSize: 'clamp(26px,4.5vw,36px)', color: 'red', margin: 0 }}>Salom! 👋</h1>
+            </div></Preview>
+            {explored
+              ? (<div className="frame-success fade-step"><p className="body" style={{ margin: 0, color: T.ink }}>✓ Uchala usul ham <b>bir xil</b> natija beradi. Eng ko'p ishlatiladigani — <b>external</b> (alohida <span className="mono">.css</span> fayl): toza va qayta ishlatiladi.</p></div>)
+              : (<div className="frame-soft"><p className="body" style={{ margin: 0, color: T.ink }}><b>Eslatma:</b> kod qayerda yozilishidan qat'i nazar, CSS qoidasi shakli bir xil — <span className="mono">selektor {'{'} xususiyat: qiymat; {'}'}</span>.</p></div>)}
+          </div>
+        </div>
+      </div>
+    </Stage>
+  );
+};
+
 // ===== SCREEN 4 — TEST (sintaksis) =====
 const Screen4 = (props) => (
   <QuestionScreen {...props} scope="module-mikro" eyebrow="Mashq · 1-savol"
@@ -2448,7 +2502,7 @@ const Screen14 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
 };
 // ===== SCREEN 15 — YAKUNIY (qo'lda CSS yozish) =====
 const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
-  const audio = useAudio([{ id: 's15', text: `Oxirgi qadam — o'zingiz yozasiz. h1 sarlavhani qizil qiling: to'liq CSS qoidasini yozing — selektor, qavs, xususiyat, qiymat va nuqta-vergul. Pastdagi yordamchi tugmalarni bosib, qism-qism ham yig'ishingiz mumkin.`, trigger: 'on_mount', waits_for: { type: 'typed_ok' } }]);
+  const audio = useAudio([{ id: 's15', text: `Oxirgi qadam — o'zingiz yozasiz. h1 sarlavhani qizil qiling: to'liq CSS qoidasini yozing — selektor, qavs, xususiyat, qiymat va nuqta-vergul. Hammasini o'zingiz tering; pastdagi ro'yxat qaysi qadam bajarilganini ko'rsatib turadi.`, trigger: 'on_mount', waits_for: { type: 'typed_ok' } }]);
   const [value, setValue] = useState(storedAnswer?.picked || '');
   const [passed, setPassed] = useState(!!storedAnswer?.correct);
   const hasSel = /h1/i.test(value);
@@ -2461,8 +2515,6 @@ const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
   const hasVal = !!colorVal;
   const hasSemi = value.includes(';');
   const valid = hasSel && hasBrace && hasProp && hasVal && hasSemi;
-  const HELP = [{ l: 'h1', t: 'h1 ' }, { l: '{', t: '{ ' }, { l: 'color:', t: 'color: ' }, { l: 'red', t: 'red' }, { l: ';', t: '; ' }, { l: '}', t: '}' }];
-  const insert = (t) => { if (passed) return; setValue(prev => prev + t); };
   useEffect(() => {
     if (valid && !passed) {
       setPassed(true);
@@ -2475,11 +2527,11 @@ const Screen15 = ({ screen, storedAnswer, onAnswer, onNext, onPrev }) => {
     <Stage eyebrow="Yakuniy · amaliy" screen={screen} audioState={audio} navContent={<><NavBack onPrev={onPrev} /><NavNext disabled={!passed} label={passed ? "Davom etish" : "CSS qoidasini yozing"} onClick={onNext} /></>}>
       <div className="screen" style={{ gap: 'clamp(10px,1.6vw,16px)' }}>
         <div className="head"><h2 className="title h-title fade-up">Oxirgi qadam: <span className="italic" style={{ color: T.accent }}>o'zingiz</span> CSS yozing.</h2></div>
-        <Mentor>h1 sarlavhani <b style={{ color: T.ink }}>qizil</b> qiling. To'liq qoidani yozing: <span className="mono">h1 {'{'} color: red; {'}'}</span>. Pastdagi tugmalarni bosib qism-qism ham yig'sangiz bo'ladi.</Mentor>
+        <Mentor>h1 sarlavhani <b style={{ color: T.ink }}>qizil</b> qiling. To'liq qoidani <b style={{ color: T.ink }}>o'zingiz</b> yozing: <span className="mono">h1 {'{'} color: red; {'}'}</span>.</Mentor>
         <div className="split">
           <div className="col">
             <input className="fade-up delay-2" value={value} onChange={e => setValue(e.target.value)} placeholder="h1 { color: red; }" spellCheck={false} autoCapitalize="off" autoCorrect="off" style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 16, padding: '14px 16px', borderRadius: 12, border: 'none', background: T.paper, color: T.ink, outline: 'none', transition: 'box-shadow 0.2s', boxShadow: valid ? `0 0 0 2px ${T.success}, 0 8px 20px -8px rgba(${T.shadowBase},0.2)` : `0 4px 14px -6px rgba(${T.shadowBase},0.16)` }} />
-            <div className="fade-up delay-2"><p className="flow-label" style={{ margin: '0 0 6px' }}>yordamchi — bosib qo'shing</p><div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>{HELP.map(h => (<button key={h.l} className="gchip" disabled={passed} onClick={() => insert(h.t)} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{h.l}</button>))}{value && !passed && <button className="gchip" onClick={() => setValue('')}>↺ Tozalash</button>}</div></div>
+            {value && !passed && <div className="fade-up delay-2"><button className="gchip" onClick={() => setValue('')}>↺ Tozalash</button></div>}
             <div className="fade-up delay-2" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               <span className="tagpill" style={{ opacity: hasSel ? 1 : 0.4 }}>{hasSel ? '✓' : '1'} h1</span>
               <span className="tagpill" style={{ opacity: hasBrace ? 1 : 0.4 }}>{hasBrace ? '✓' : '2'} {'{ }'}</span>
@@ -2642,7 +2694,7 @@ const Screen16 = ({ screen, answers, achievements, onReset, onPrev, onFinish }) 
 
 // ============================================================ LESSON ROOT — ({ lang, onFinished })
 // Podium yorliqlari (scored indeks -> qisqa nom)
-const Q_LABELS = { 4: "Xususiyat (property)", 6: "color — matn rangi", 10: "font-size", 13: "padding — ichki bo'shliq", 16: "CSS qoidasi yozish (yakuniy)" };
+const Q_LABELS = { 5: "Xususiyat (property)", 7: "color — matn rangi", 11: "font-size", 14: "padding — ichki bo'shliq", 17: "CSS qoidasi yozish (yakuniy)" };
 
 const Confetti = () => {
   const COLORS = [T.accent, T.success, T.blue, '#FFD380', '#FF7755', '#7DD181'];
@@ -3248,25 +3300,45 @@ function QuizArena({ live, onClose, startSolo }) {
 
 // ===== 🏅 ACHIEVEMENTS (nishonlar) — dars davomidagi real bosqichlar uchun =====
 const ACHIEVEMENTS = {
-  rang:      { icon: '🎨', name: 'Rang ustasi',    desc: "Matn va fon ranglarini o'zgartirdingiz" },
-  bezak:     { icon: '🖌️', name: 'Kartani bezadingiz', desc: "Elementni CSS bilan chiroyli qildingiz" },
-  debugger:  { icon: '🐞', name: 'Xato ovchisi',   desc: 'Buzuq CSS kodini topib tuzatdingiz' },
-  graduate:  { icon: '🏆', name: 'CSS qahramoni',  desc: "CSS 1-darsini to'liq yakunladingiz" },
+  rang:      { icon: '🎨', name: 'Painted It!', desc: "Matn va fon ranglarini o'zgartirdingiz" },
+  bezak:     { icon: '🖌️', name: 'Styled It!',  desc: "Elementni CSS bilan chiroyli qildingiz" },
+  debugger:  { icon: '🐞', name: 'Nice Catch!', desc: 'Buzuq CSS kodini topib tuzatdingiz' },
+  graduate:  { icon: '🏆', name: 'Level Up!',   desc: "CSS 1-darsini to'liq yakunladingiz" },
 };
 // Ekran id → nishon (recordAnswer'da avtomatik beriladi)
 const ACH_TRIGGERS = { s5: 'rang', s13: 'bezak', s14: 'debugger' };
-function AchToastItem({ ach, onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 3600); return () => clearTimeout(t); }, []); // eslint-disable-line
+// 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI — yorqin nurlar, medal portlashi, uchqunlar, zarba to'lqini
+function AchCelebrate({ ach, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 4000); return () => clearTimeout(t); }, []); // eslint-disable-line
   return (
-    <div className="ach-toast" onClick={onDone} role="status">
-      <span className="ach-toast-shine" />
-      <span className="ach-toast-ic">{ach.icon}</span>
-      <div className="ach-toast-txt"><span className="ach-toast-lbl">🏅 Yangi nishon!</span><span className="ach-toast-name">{ach.name}</span></div>
+    <div className="acu-overlay" onClick={onDone} role="status" aria-label={`Yangi nishon: ${ach.name}`}>
+      <div className="acu-rays" aria-hidden="true" />
+      <div className="acu-glow" aria-hidden="true" />
+      <div className="acu-ring" aria-hidden="true" />
+      <div className="acu-ring d2" aria-hidden="true" />
+      <div className="acu-stage">
+        <div className="acu-medal-wrap">
+          <div className="acu-medal">{ach.icon}<span className="acu-shine" /></div>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <span key={i} className="acu-spark" style={{ '--a': `${i * (360 / 14)}deg`, animationDelay: `${0.18 + (i % 5) * 0.05}s` }}>✦</span>
+          ))}
+        </div>
+        <div className="acu-txt">
+          <span className="acu-eyebrow">🏅 Nishon ochildi!</span>
+          <span className="acu-name">{ach.name}</span>
+          {ach.desc && <span className="acu-desc">{ach.desc}</span>}
+        </div>
+        <span className="acu-tap">bosib davom eting</span>
+      </div>
     </div>
   );
 }
+// Navbatda bittasi ko'rsatiladi (to'liq-ekran bayram) — tugagach keyingisi chiqadi
 function AchToasts({ toasts, onDone }) {
-  return <div className="ach-toasts" aria-live="polite">{toasts.map(t => { const a = ACHIEVEMENTS[t.id]; return a ? <AchToastItem key={t.k} ach={a} onDone={() => onDone(t.k)} /> : null; })}</div>;
+  const t = toasts[0];
+  const a = t && ACHIEVEMENTS[t.id];
+  if (!a) return null;
+  return <AchCelebrate key={t.k} ach={a} onDone={() => onDone(t.k)} />;
 }
 
 function MentorPracticeOverlay({ entry, live, onClose }) {
@@ -3379,9 +3451,9 @@ const TASK_BOX = {
 };
 // Praktika handoff: shu ekran indeksidan KEYIN ochiladi (7=Rang formatlari · 9=Qalinlik · 12=margin)
 const PRACTICE_AFTER = {
-  7:  { task: TASK_COLOR, starter: '' },
-  9:  { task: TASK_TEXT,  starter: '' },
-  12: { task: TASK_BOX,   starter: '' },
+  8:  { task: TASK_COLOR, starter: '' },
+  10: { task: TASK_TEXT,  starter: '' },
+  13: { task: TASK_BOX,   starter: '' },
 };
 
 export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
@@ -3467,7 +3539,7 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
     if (typeof onFinished === 'function') onFinished(payload);
   };
 
-  const screens = [Screen0, Screen1, Screen2, Screen3, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, Screen15, ScreenPodium, ScreenFlashcards, Screen16];
+  const screens = [Screen0, Screen1, Screen2, Screen3, Screen3b, Screen4, Screen5, Screen5b, Screen6, Screen7, Screen8, Screen9, Screen10, Screen11, Screen12, Screen13, Screen14, Screen15, ScreenPodium, ScreenFlashcards, Screen16];
   const Current = screens[screen];
   return (
     <LangContext.Provider value={lang}>
@@ -4342,18 +4414,49 @@ export default function HtmlLesson({ lang: langProp, onFinished, onPractice }) {
         .fc-done-emoji { font-size: 40px; }
         .fc-done-h { font-family: 'Manrope'; font-weight: 800; font-size: 20px; color: ${T.success}; margin: 0; }
         .fc-done-s { font-family: 'Manrope'; color: ${T.ink2}; margin: 0 0 8px; font-size: 14px; }
-        /* === 🏅 ACHIEVEMENTS === */
-        .ach-toasts { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 11000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-        .ach-toast { position: relative; overflow: hidden; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 12px; background: ${T.paper}; border: 1.5px solid ${T.line}; border-left: 4px solid ${T.accent}; border-radius: 15px; padding: 11px 18px 11px 13px; box-shadow: 0 16px 40px -12px rgba(${T.shadowBase},0.4); animation: ach-in 0.5s cubic-bezier(.34,1.4,.4,1), ach-out 0.4s ease 3.2s forwards; min-width: 236px; }
-        @keyframes ach-in { from { opacity: 0; transform: translateY(-26px) scale(0.9); } to { opacity: 1; transform: none; } }
-        @keyframes ach-out { to { opacity: 0; transform: translateY(-16px) scale(0.96); } }
-        .ach-toast-ic { font-size: 30px; line-height: 1; flex-shrink: 0; animation: ach-pop 0.6s cubic-bezier(.34,1.6,.4,1) 0.1s both; }
-        @keyframes ach-pop { 0% { transform: scale(0) rotate(-25deg); } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
-        .ach-toast-txt { display: flex; flex-direction: column; gap: 1px; }
-        .ach-toast-lbl { font-family: 'Manrope'; font-weight: 800; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: ${T.accent}; }
-        .ach-toast-name { font-family: 'Manrope'; font-weight: 800; font-size: 15.5px; color: ${T.ink}; }
-        .ach-toast-shine { position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-18deg); animation: ach-shine 1.1s ease 0.35s; }
-        @keyframes ach-shine { to { left: 130%; } }
+        /* ===== 🏅 O'YIN USLUBIDAGI TO'LIQ-EKRAN NISHON BAYRAMI ===== */
+        .acu-overlay { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer;
+          background: radial-gradient(circle at 50% 42%, rgba(20,14,6,0.34) 0%, rgba(10,8,14,0.72) 62%, rgba(8,6,12,0.86) 100%);
+          animation: acu-bg-in 0.35s ease-out, acu-bg-out 0.55s ease-in 3.45s forwards; }
+        @keyframes acu-bg-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes acu-bg-out { to { opacity: 0; } }
+        /* Aylanuvchi nur burjlari (butun ekran) */
+        .acu-rays { position: absolute; top: 50%; left: 50%; width: 170vmax; height: 170vmax; transform: translate(-50%,-50%); pointer-events: none;
+          background: repeating-conic-gradient(from 0deg, rgba(255,201,77,0.16) 0deg 7deg, transparent 7deg 20deg);
+          -webkit-mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%); mask-image: radial-gradient(circle, #000 8%, rgba(0,0,0,0.55) 30%, transparent 62%);
+          animation: acu-spin 16s linear infinite, acu-fade 0.6s ease-out; }
+        @keyframes acu-spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+        @keyframes acu-fade { from { opacity: 0; } to { opacity: 1; } }
+        /* Markaziy yorug'lik */
+        .acu-glow { position: absolute; top: 42%; left: 50%; width: 78vmin; height: 78vmin; transform: translate(-50%,-50%); pointer-events: none; filter: blur(4px);
+          background: radial-gradient(circle, rgba(255,224,150,0.62) 0%, rgba(255,150,60,0.30) 38%, rgba(255,120,40,0) 68%);
+          animation: acu-glow-pulse 2.2s ease-in-out infinite, acu-fade 0.5s ease-out; }
+        @keyframes acu-glow-pulse { 0%,100% { opacity: 0.85; transform: translate(-50%,-50%) scale(1); } 50% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } }
+        /* Zarba to'lqini (halqa) */
+        .acu-ring { position: absolute; top: 42%; left: 50%; width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(255,240,200,0.85); transform: translate(-50%,-50%) scale(0.3); pointer-events: none; animation: acu-shock 1s cubic-bezier(.2,.7,.3,1) forwards; }
+        .acu-ring.d2 { border-color: rgba(255,180,90,0.6); animation-delay: 0.22s; }
+        @keyframes acu-shock { 0% { transform: translate(-50%,-50%) scale(0.3); opacity: 0.9; } 100% { transform: translate(-50%,-50%) scale(6.5); opacity: 0; } }
+        /* Sahna (medal + matn) */
+        .acu-stage { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: clamp(14px,3vw,22px); animation: acu-bg-in 0.3s ease-out; }
+        .acu-medal-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+        .acu-medal { position: relative; width: clamp(112px,26vw,152px); height: clamp(112px,26vw,152px); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: clamp(54px,13vw,74px); overflow: hidden;
+          background: radial-gradient(circle at 38% 30%, #FFF0BE 0%, #FFD35A 42%, #F5A623 72%, #E4870C 100%);
+          box-shadow: 0 0 70px 12px rgba(255,201,77,0.55), 0 22px 54px -12px rgba(0,0,0,0.55), inset 0 -9px 18px rgba(140,70,0,0.28), inset 0 7px 14px rgba(255,255,255,0.6);
+          animation: acu-medal-pop 0.7s cubic-bezier(.28,1.5,.4,1) both, acu-float 2.6s ease-in-out 0.7s infinite; }
+        @keyframes acu-medal-pop { 0% { transform: scale(0) rotate(-40deg); } 55% { transform: scale(1.18) rotate(10deg); } 75% { transform: scale(0.94) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
+        @keyframes acu-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+        .acu-shine { position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; background: linear-gradient(100deg, transparent, rgba(255,255,255,0.75), transparent); transform: skewX(-18deg); animation: acu-shine-sweep 1.1s ease 0.5s 2; }
+        @keyframes acu-shine-sweep { to { left: 130%; } }
+        .acu-spark { position: absolute; top: 50%; left: 50%; font-size: clamp(14px,2.6vw,20px); color: #FFE9A8; text-shadow: 0 0 8px rgba(255,201,77,0.9); pointer-events: none; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; animation: acu-spark-burst 1s ease-out both; }
+        @keyframes acu-spark-burst { 0% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(0) scale(0); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(-50%,-50%) rotate(var(--a)) translateY(clamp(-130px,-24vw,-96px)) scale(1); opacity: 0; } }
+        .acu-txt { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+        .acu-eyebrow { font-family: 'Manrope', sans-serif; font-weight: 900; font-size: clamp(12px,1.8vw,14px); letter-spacing: 0.2em; text-transform: uppercase; color: #FFD35A; text-shadow: 0 2px 12px rgba(0,0,0,0.5); animation: acu-rise 0.5s ease-out 0.35s both; }
+        .acu-name { font-family: 'Source Serif 4', Georgia, serif; font-weight: 700; font-size: clamp(26px,5.5vw,42px); color: #fff; line-height: 1.1; text-shadow: 0 3px 22px rgba(0,0,0,0.55); animation: acu-rise 0.55s cubic-bezier(.3,1.2,.4,1) 0.45s both; }
+        .acu-desc { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: clamp(13px,2vw,16px); color: rgba(255,255,255,0.82); max-width: 30ch; line-height: 1.5; animation: acu-rise 0.5s ease-out 0.6s both; }
+        @keyframes acu-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .acu-tap { font-family: 'Manrope', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: rgba(255,255,255,0.5); margin-top: 4px; animation: acu-rise 0.5s ease-out 1.1s both, acu-blink 1.6s ease-in-out 1.6s infinite; }
+        @keyframes acu-blink { 0%,100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+        @media (prefers-reduced-motion: reduce) { .acu-rays, .acu-medal, .acu-glow, .acu-tap { animation-iteration-count: 1 !important; } .acu-rays { animation: acu-fade 0.4s both !important; } }
         .ach-coll { display: flex; flex-direction: column; gap: 10px; }
         .ach-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         @media (max-width: 560px) { .ach-grid { grid-template-columns: repeat(2, 1fr); } }
