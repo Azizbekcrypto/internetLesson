@@ -40,7 +40,7 @@ const PmLesson6 = L(() => import('./2-Modull/PmLesson6.jsx'))
 
 // ---- 3-Modul
 const ReactIntroLesson = L(() => import('./3-Modull/ReactIntroLesson.jsx'))
-const PmLesson7 = L(() => import('./3-Modull/PmLesson7.jsx'))
+const PmUserStoryLesson = L(() => import('./pm/PmUserStoryLesson.jsx')) // PM pipeline P0 (eski PmLesson7 o'rnida)
 const ReactFirstComponentLesson = L(() => import('./3-Modull/ReactFirstComponentLesson.jsx'))
 const ReactStateEffectLesson = L(() => import('./3-Modull/ReactStateEffectLesson.jsx'))
 const PmLesson8 = L(() => import('./3-Modull/PmLesson8.jsx'))
@@ -121,6 +121,8 @@ const FullSystemProjectLesson = L(() => import('./6-Modull/FullSystemProjectLess
 const PmLesson25 = L(() => import('./6-Modull/PmLesson25.jsx'))
 
 // ---- 7-Modul
+const PmJtbdLesson = L(() => import('./pm/PmJtbdLesson.jsx')) // PM pipeline P1 (eski PmLesson27 o'rnida)
+const PmMetricsLesson = L(() => import('./pm/PmMetricsLesson.jsx')) // PM pipeline P1 (M8-D1)
 const PmLesson26 = L(() => import('./7-Modull/PmLesson26.jsx'))
 const PmLesson27 = L(() => import('./7-Modull/PmLesson27.jsx'))
 const PmLesson28 = L(() => import('./7-Modull/PmLesson28.jsx'))
@@ -185,7 +187,7 @@ const MODULES = [
     idea: 'Komponent = feature. User Story koddan OLDIN yoziladi.',
     lessons: [
       { key: 'm3-01', n: 1,  type: 'Kod',     emoji: '⚛️', title: 'React nima va nima uchun?',      sub: 'komponent, Virtual DOM, React Native', comp: ReactIntroLesson },
-      { key: 'm3-02', n: 2,  type: 'PM',      emoji: '📝', title: 'User Story: kim va nima uchun?', sub: '"Men [kim] sifatida..." — JTBD', comp: PmLesson7 },
+      { key: 'm3-02', n: 2,  type: 'PM',      emoji: '📝', title: 'User Story: kim va nima uchun?', sub: '"Men [kim] sifatida..." — JTBD', comp: PmUserStoryLesson },
       { key: 'm3-03', n: 3,  type: 'Kod',     emoji: '🧱', title: 'Birinchi komponent',             sub: 'Vite, JSX, props, loyiha strukturasi', comp: ReactFirstComponentLesson },
       { key: 'm3-04', n: 4,  type: 'Kod',     emoji: '💗', title: 'State va Effect',                sub: 'useState + useEffect, lifecycle', comp: ReactStateEffectLesson },
       { key: 'm3-05', n: 5,  type: 'PM',      emoji: '⚖️', title: 'Komponent = feature: prioritet', sub: 'Impact vs Effort matritsasi', comp: PmLesson8 },
@@ -305,7 +307,7 @@ const MODULES = [
     idea: 'Real odam uchun birinchi mahsulot. Foydalanuvchi Demo Day\'da hozir bo\'ladi.',
     lessons: [
       { key: 'm7-01', n: 1,  type: 'PM',      emoji: '🎯', title: 'Mahsulot vs loyiha',        sub: 'nega ko\'p loyiha hech kimga kerak emas', comp: PmLesson26 },
-      { key: 'm7-02', n: 2,  type: 'PM',      emoji: '🔨', title: 'Jobs-to-be-Done',           sub: 'odam drel emas — teshik sotib oladi', comp: PmLesson27 },
+      { key: 'm7-02', n: 2,  type: 'PM',      emoji: '🔨', title: 'Jobs-to-be-Done',           sub: 'odam drel emas — teshik sotib oladi', comp: PmJtbdLesson },
       { key: 'm7-03', n: 3,  type: 'PM',      emoji: '🔍', title: 'Muammoni qanday izlash',    sub: 'kuzatish, og\'riq, frustratsiya', comp: PmLesson28 },
       { key: 'm7-04', n: 4,  type: 'PM',      emoji: '❓', title: 'Custdev: savol berish',     sub: 'Mom Test — taqiqlangan savollar', comp: PmLesson29 },
       { key: 'm7-05', n: 5,  type: 'PM',      emoji: '🎙️', title: 'Custdev: 5 real intervyu',  sub: 'potensial foydalanuvchilar bilan', comp: PmLesson30 },
@@ -320,6 +322,27 @@ const MODULES = [
       { key: 'm7-14', n: 14, type: 'PM',      emoji: '🎤', title: 'Pitch: muammo → yechim → foydalanuvchi', sub: 'real foydalanuvchi hikoyasi bilan' },
       { key: 'm7-15', n: 15, type: 'Rezerv',  emoji: '📅', title: 'Zaxira dars',               sub: 'yetib olish / sayqallash' },
       { key: 'm7-16', n: 16, type: 'Demo',    emoji: '🎤', title: 'Demo Day',                  sub: 'real foydalanuvchi zalda hozir bo\'ladi' },
+    ],
+  },
+  {
+    id: '8', slug: 'm8', title: 'Gipotezani qanday tekshirish', period: 'oy 10.5–12', stage: 2,
+    idea: 'Ishga tushirish — final emas, boshlanish. Ma\'lumot keyingi qarorlarni boshqaradi.',
+    lessons: [
+      { key: 'm8-01', n: 1,  type: 'PM',      emoji: '📈', title: 'Metrika nima',              sub: 'DAU, retention, churn, North Star', comp: PmMetricsLesson },
+      { key: 'm8-02', n: 2,  type: 'PM',      emoji: '🎯', title: 'OKR: maqsad → metrika → eksperiment', sub: 'o\'lchanadigan maqsadlar' },
+      { key: 'm8-03', n: 3,  type: 'Kod',     emoji: '📊', title: 'Analitika amalda',          sub: 'Plausible/Umami: voronka, hodisalar' },
+      { key: 'm8-04', n: 4,  type: 'PM',      emoji: '🧪', title: 'A/B test: gipotezani tekshirish', sub: 'gipoteza, auditoriya bo\'linishi, natija' },
+      { key: 'm8-05', n: 5,  type: 'Kod',     emoji: '🔐', title: 'Kiberxavfsizlik asoslari',  sub: 'parol, 2FA, SQL injection, XSS' },
+      { key: 'm8-06', n: 6,  type: 'PM',      emoji: '🛡️', title: 'Xavfsizlik = ishonch',      sub: 'privacy as a feature' },
+      { key: 'm8-07', n: 7,  type: 'Kod',     emoji: '🌐', title: 'Production deploy',         sub: 'domen, SSL, uptime-monitoring' },
+      { key: 'm8-08', n: 8,  type: 'Proyekt', emoji: '🚧', title: 'Loyiha kuni: apgreyd',      sub: 'eng yaxshi loyihani prodga tayyorlash' },
+      { key: 'm8-09', n: 9,  type: 'Proyekt', emoji: '⬆️', title: 'Prod-apgreyd — 1',          sub: 'modul 4/5/7 loyihasini ko\'tarish' },
+      { key: 'm8-10', n: 10, type: 'Proyekt', emoji: '🏁', title: 'Prod-apgreyd — 2',          sub: 'final code review' },
+      { key: 'm8-11', n: 11, type: 'PM',      emoji: '🛤️', title: 'Yillik himoya: bir yillik yo\'l', sub: 'bo\'ldi → bo\'ladi → keyin nima' },
+      { key: 'm8-12', n: 12, type: 'PM',      emoji: '🎭', title: 'Demo Day 4 repetitsiyasi',  sub: '5 daqiqalik pitch, taymer bilan' },
+      { key: 'm8-13', n: 13, type: 'Rezerv',  emoji: '📅', title: 'Zaxira dars',               sub: 'yetib olish / sayqallash' },
+      { key: 'm8-14', n: 14, type: 'Rezerv',  emoji: '📅', title: 'Zaxira dars',               sub: 'yetib olish / sayqallash' },
+      { key: 'm8-15', n: 15, type: 'Demo',    emoji: '🎤', title: 'Demo Day 4 — yillik himoya', sub: 'ota-onalar + media + IT-jamiyat' },
     ],
   },
 ]

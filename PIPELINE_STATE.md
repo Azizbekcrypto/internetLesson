@@ -38,7 +38,29 @@
 | 20 | `InternetLesson.jsx` | ✅ v18 (2026-07-10) | To'liq pipeline + GATE 3 foydalanuvchi IMZOLADI · 22 ekran, Bullseye!-oila · jonli-sinov qo'lda · UNCOMMITTED |
 
 > **idea? ustunidagi taklif** — Ijodkor uchun boshlang'ich uchqun (majburiy emas; Ijodkor o'zi yaxshiroq topsa — erkin).
-> **Maxsus (alohida hal qilinadi):** `CssPractice.jsx`, `HtmlPractice.jsx` — jonli infra yo'q.
+
+## M1-Praktika partiyasi (2026-07-18 boshlandi; foydalanuvchi: «1-2-3-4 modul praktikalari, maksimal sifat, 1-dan»)
+> Reja: M1-P (2) → M2-P (Practice1-4) → M3-P (qolgan 3) → M4-P (4). Avtopilot (GATE vakolati foydalanuvchida oldindan), COMMIT YO'Q.
+> Spets: jonli-ball infra noldan (INLINE_KEYS+QUIZ_BANK — SQL kerak emas, avto-kalit) · JONLI PRAKTIKA=VS Code+«Bajardim»+mentor-gate · practice:-1 · audio stub · tizimli 5 bug-sinf oldindan promptlarda.
+
+| # | Dars | Bosqich | Izoh |
+|---|---|---|---|
+| 1 | `HtmlPractice.jsx` (m1-08) | ✅ **Etalon v18 (2026-07-18)** | 9/9 rol · Tekshiruvchi TASDIQLADI (0 tuzilmaviy) · Verifikator IMZOLADI: SSR 24/24, jsdom 0 xato, vite exit 0 (241.65 kB), esbuild toza · v15/v16→v18: jonli-ball noldan, compiler 3-topshiriq, Flashcards 13, RECAPS 18, Badges 4, DragDrop-gate, arena 3/3/3/3 · jonli-sinov qo'lda kutilmoqda · UNCOMMITTED |
+| 2 | `CssPractice.jsx` (m1-10) | ✅ **Etalon v18 (2026-07-18)** | 9/9 rol · Tekshiruvchi TASDIQLADI (0 tuzilmaviy) · Verifikator IMZOLADI: SSR 23/23, jsdom 0, vite exit 0 (242.81 kB), esbuild toza · v15/v16→v18: **Jonli KRITIK submitAnswer-fix**, compiler CSS-rejim 3-topshiriq, Flashcards 8, RECAPS 5×3, Badges 4, aktiv bezash-gate · jonli-sinov qo'lda kutilmoqda · UNCOMMITTED |
+
+> **M1-PRAKTIKA PARTIYASI YOPILDI (2026-07-18):** 2/2 dars Etalon v18. Jonli-sinov (yangi PIN, 2 o'quvchi, MENTOR-2026) va commit — foydalanuvchida.
+
+## M2-P partiyasi (2026-07-18 boshlandi; 4 dars parallel, har zanjir o'z faylida)
+> v16 → v18. Jonli-infra QISMAN bor (JS-6 davri) — delta: Flashcards, RECAPS/RecapOverlay, Badges, praktika-model, 1100px+--lz, fmtCode, mstats-verdict. Praktika-etalon endi = `HtmlPractice.jsx` (v18).
+
+| # | Dars | Bosqich | Izoh |
+|---|---|---|---|
+| 1 | `PracticeLesson1.jsx` (m2-08) | ✅ **Etalon v18 (2026-07-18)** | 9/9 rol + QA 1-aylanish (8.4) + Verifikator 2-urinish (**`C is not defined` render-darvoza ushladi** — alias-fix) · IMZOLANDI: import OK, render 84KB xatosiz, TASK checklar PASS/FAIL jonli sinovli, vite exit 0 (248.5kB) · HtmlCompiler 3 praktika · jonli-sinov qo'lda · UNCOMMITTED |
+| 2 | `PracticeLesson2.jsx` (m2-09) | ✅ **Etalon v18 (2026-07-18)** | 10/10 rol (Ijodkor «USTABOT» bilan) · Verifikator IMZOLADI: SSR 19/19 + 15/15 kalit-marker (literal-hook, draft-rejim, qabul-akti, Antigravity), jsdom 0, vite exit 0 (228kB) · foydalanuvchi talabi bo'yicha agent-davri konsepti qurildi · jonli-sinov qo'lda · UNCOMMITTED |
+
+> **M2-P PARTIYASI YOPILDI (2026-07-18):** 4/4 dars Etalon v18. Umumiy topilmalar: useAudio runtime-bug 4/4 (ReferenceError — tuzatildi), mstats «1 xato» bugi 4/4, arena taqsimot buzuq 4/4 (eng og'iri 11/1/0/0), auto-open PIN 4/4, `C is not defined` P1'da render-darvoza ushladi. Jonli-sinov (yangi PIN, 2 o'quvchi, MENTOR-2026) va commit — foydalanuvchida.
+| 3 | `PracticeLesson3.jsx` (m2-11) | ✅ **Etalon v18 (2026-07-18)** | 9/9 rol + QA 1-aylanish (MentorWorkStats→s15) · Verifikator IMZOLADI: SSR 24/24, jsdom 0, vite exit 0 (217KB chunk) · useAudio runtime-bug tuzatilgan · arena 3/3/3/3 · DragDrop dekompozitsiya-gate · jonli-sinov qo'lda · UNCOMMITTED |
+| 4 | `PracticeLesson4.jsx` (m2-12) | ✅ **Etalon v18 (2026-07-18)** | 9/9 rol + QA 1-aylanish (GLOSSARY+earn-dublikat) · Verifikator IMZOLADI: SSR 28/28, jsdom 0, vite exit 0 (227KB) · useAudio-bug tuzatilgan · arena 11/1/0/0→3/3/3/3 · DragDrop universal-yo'l · jonli-sinov qo'lda · UNCOMMITTED |
 
 ## 3-Modull — React frontend (14 dars, v16 → v18 ko'chirish; reja 2026-07-11)
 > JONLI PRAKTIKA spetsi: mentor shartni ochadi → o'quvchi VS Code'da bajaradi → «✅ Bajardim» → mentor aylanib tekshiradi → mentor o'tsa o'quvchida ham «Davom etish» yonadi. Audio YO'Q (stub). mentorImg importi → URL-const (runtime-xato sinfi).
@@ -59,7 +81,7 @@
 > **3-MODULL TO'LIQ YOPILDI (2026-07-12):** 10/10 dars Etalon v18 + App.jsx'da (m3-01..m3-10: Intro, FirstComponent, StateEffect, PropsReuse, Crud, Router, ApiGet, ApiPost, ProjectDay, BuildSite) + umumiy vite build toza. Jonli-sinov va commit — foydalanuvchida.
 | 11-14 | `PmLesson7-10.jsx` | ➖ | REJADAN CHIQARILDI (2026-07-11, foydalanuvchi qarori — PM darslar qilinmaydi) |
 
-> **Practice1-4 (2-Modull) — TO'XTATILGAN:** foydalanuvchi kompilyator-savolni o'zi o'ylab javob beradi.
+> ~~Practice1-4 (2-Modull) — TO'XTATILGAN~~ → **QAYTA OCHILDI (2026-07-18, foydalanuvchi buyrug'i: «M2-P partiyasini boshla»)** — quyida M2-P partiyasi.
 
 ## 4-Modull — Backend/Fullstack (15 dars, v16 → v18; foydalanuvchi ruxsati 2026-07-12: «3-Modull tugagach avtomatik, 4-5 talik partiyalarda»)
 > 3-Modull P2 to'liq imzolangach M4-P1 avtomatik boshlanadi. Xuddi shu 9-rolli pipeline + 3-Modull spetsifikasi (audio stub, MENTOR_IMG URL, jonli praktika mentor-gate).
