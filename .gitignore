@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 pipeline-live.js
 .claude/supabase/office-cloud.json
+
+# Cypress artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
